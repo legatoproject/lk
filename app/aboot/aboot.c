@@ -1707,7 +1707,7 @@ void cmd_boot(const char *arg, void *data, unsigned sz)
 	uint32_t image_actual;
 	uint32_t dt_actual = 0;
 	uint32_t sig_actual = SIGNATURE_SIZE;
-	struct boot_img_hdr *hdr;
+	struct boot_img_hdr *hdr, header;
 	struct kernel64_hdr *kptr;
 	char *ptr = ((char*) data);
 	int ret = 0;
@@ -1730,6 +1730,10 @@ void cmd_boot(const char *arg, void *data, unsigned sz)
 
 	/* ensure commandline is terminated */
 	hdr->cmdline[BOOT_ARGS_SIZE-1] = 0;
+
+	/* boot image header may be overwritten, move it where it's safe */
+	memcpy(&header, hdr, sizeof(header));
+	hdr = &header;
 
 	if(target_is_emmc_boot() && hdr->page_size) {
 		page_size = hdr->page_size;
@@ -1796,6 +1800,10 @@ void cmd_boot(const char *arg, void *data, unsigned sz)
 		return;
 	}
 
+	/* Load ramdisk & kernel */
+	memmove((void*) hdr->ramdisk_addr, ptr + page_size + kernel_actual, hdr->ramdisk_size);
+	memmove((void*) hdr->kernel_addr, ptr + page_size, hdr->kernel_size);
+
 #if DEVICE_TREE
 	/* find correct dtb and copy it to right location */
 	ret = copy_dtb(data);
@@ -1808,10 +1816,6 @@ void cmd_boot(const char *arg, void *data, unsigned sz)
 		return;
 	}
 #endif
-
-	/* Load ramdisk & kernel */
-	memmove((void*) hdr->ramdisk_addr, ptr + page_size + kernel_actual, hdr->ramdisk_size);
-	memmove((void*) hdr->kernel_addr, ptr + page_size, hdr->kernel_size);
 
 #if DEVICE_TREE
 	/*
