@@ -31,6 +31,22 @@
 #include <platform/iomap.h>
 #include <platform/gpio.h>
 
+typedef struct {
+	uint32_t  gpio;
+	uint8_t   func;
+} uart_gpio_conf_t;
+
+typedef struct {
+	uart_gpio_conf_t tx;
+	uart_gpio_conf_t rx;
+} uart_gpio_pair_t;
+
+static const uart_gpio_pair_t uart_pair[] = {
+	{{20, 3}, {21, 3}}, /* UART1 */
+	{{4, 2}, {5, 2}},   /* UART2 */
+	{{8, 3}, {9, 3}}    /* UART3 */
+};
+
 void gpio_tlmm_config(uint32_t gpio,
 					  uint8_t  func,
 					  uint8_t  dir,
@@ -64,17 +80,22 @@ uint32_t gpio_get_state(uint32_t gpio)
 
 void gpio_config_uart_dm(uint8_t id)
 {
-	if (id == 3)
-	{
-		/* configure rx gpio. */
-		gpio_tlmm_config(9, 3, GPIO_INPUT, GPIO_NO_PULL, GPIO_6MA, GPIO_DISABLE);
+	const uart_gpio_pair_t *p;
 
-		/* configure tx gpio. */
-		gpio_tlmm_config(8, 3, GPIO_OUTPUT, GPIO_NO_PULL, GPIO_6MA, GPIO_DISABLE);
-	}
-	else
-	{
-		dprintf(CRITICAL, "GPIO config for UART id = %d not supported.\n", id);
+	/* check for array out of bound */
+	if (id < 1 || id > ARRAY_SIZE(uart_pair)) {
+		dprintf(CRITICAL, "GPIOs for UART%d not supported.\n", id);
 		ASSERT(0);
+		/* should never be here, but anyway... */
+		return;
 	}
+
+	/* extract GPIO configuration for UART */
+	p = &(uart_pair[id - 1]);
+
+	/* configure rx gpio. */
+	gpio_tlmm_config(p->rx.gpio, p->rx.func, GPIO_INPUT, GPIO_NO_PULL, GPIO_6MA, GPIO_DISABLE);
+	/* configure tx gpio. */
+	gpio_tlmm_config(p->tx.gpio, p->tx.func, GPIO_OUTPUT, GPIO_NO_PULL, GPIO_6MA, GPIO_DISABLE);
+	return;
 }
