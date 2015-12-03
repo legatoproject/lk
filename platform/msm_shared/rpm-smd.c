@@ -149,6 +149,11 @@ uint32_t rpm_recv_data(uint32_t* len)
 	{
 		type = RPM_REQUEST_TYPE;
 	}
+	else
+	{
+		dprintf(CRITICAL, "Unknown header type\n");
+		return 1;
+	}
 
 	if (type == RPM_CMD_TYPE && resp->hdr.len == ACK_MSG_LENGTH)
 	{
