@@ -2,12 +2,12 @@
  *
  * Filename:  sierra_bl.c
  *
- * Purpose:   Sierra Little Kernel changes            
+ * Purpose:   Sierra Little Kernel changes
  *
  * Copyright: (c) 2015 Sierra Wireless, Inc.
  *            All rights reserved
  *
- * Note:       
+ * Note:
  *
  ************/
 
@@ -32,8 +32,8 @@
  *  Local variables
  */
 
-/* 
- * Local functions 
+/*
+ * Local functions
  */
 
 /************
@@ -60,14 +60,14 @@ unsigned char *sierra_smem_base_addr_get(void)
     mmu_inited = true;
 
     /* map SMEM virtual = phy addr. the follow function will map 1MB
-     * assuming SIERRA_SMEM_SIZE is less or equal to 1MB 
+     * assuming SIERRA_SMEM_SIZE is less or equal to 1MB
      */
     arm_mmu_map_section(SIERRA_SMEM_BASE_PHY,
                         SIERRA_SMEM_BASE_PHY,
-                        (MMU_MEMORY_TYPE_DEVICE_SHARED | 
-                         MMU_MEMORY_AP_READ_WRITE | 
+                        (MMU_MEMORY_TYPE_DEVICE_SHARED |
+                         MMU_MEMORY_AP_READ_WRITE |
                          MMU_MEMORY_XN));
-    
+
   }
 
   return (unsigned char *)SIERRA_SMEM_BASE_PHY;
@@ -95,7 +95,7 @@ unsigned int sierra_smem_b2a_flags_get(void)
   int flags = 0;
 
   virtual_addr = sierra_smem_base_addr_get();
-  if (virtual_addr) 
+  if (virtual_addr)
   {
     /*  APPL mailbox */
     virtual_addr += BSMEM_MSG_APPL_MAILBOX_OFFSET;
@@ -178,7 +178,7 @@ int sierra_smem_boothold_mode_set(void)
         a2bflags |= BC_MSG_A2B_BOOT_HOLD;
         a2bmsgp->out.flags = a2bflags;
         a2bmsgp->crc32 = crc32(~0, (void *)a2bmsgp, BC_MSG_CRC_SZ);
-  
+
         return 0;
 }
 
