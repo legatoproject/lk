@@ -21,5 +21,6 @@ endif
 INCLUDES += -I${LINUX_KERNEL_DIR}/arch/arm/mach-msm/include
 
 OBJS += \
+	$(LOCAL_DIR)/sierra_cwe.o \
 	$(LOCAL_DIR)/sierra_bl.o
 # SWISTOP
