@@ -146,7 +146,8 @@ enum cwe_image_type_e
   CWE_IMAGE_TYPE_TZON,                          /* QCT Trust-Zone Image      */
   CWE_IMAGE_TYPE_QSDI,                          /* QCT System Debug Image    */
   CWE_IMAGE_TYPE_ARCH,                          /* Archive                   */
-  CWE_IMAGE_TYPE_MAX  = CWE_IMAGE_TYPE_ARCH,    /* End of list               */
+  CWE_IMAGE_TYPE_UAPP,                          /* USER APP Image               */
+  CWE_IMAGE_TYPE_MAX  = CWE_IMAGE_TYPE_UAPP,    /* End of list               */
   CWE_IMAGE_TYPE_COUNT,                         /* Number of entries in list */
   CWE_IMAGE_TYPE_ANY = 0xFE,                    /* any image type            */
   CWE_IMAGE_TYPE_INVALID = 0xFF,                /* invalid image type        */

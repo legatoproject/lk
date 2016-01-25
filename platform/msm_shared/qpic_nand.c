@@ -2303,13 +2303,12 @@ int flash_write_sierra_file_img(struct ptentry *ptn,
 	uint32_t wsize;
 	uint32_t spare_byte_count = 0;
 	int r;
-	uint32_t i = 0, ttl_page, tmp_block_page;
+	uint32_t i = 0, ttl_page;
 	unsigned int go_len, free_page_count = 0, go_page, pages_to_write;
 
 	dprintf(CRITICAL, "flash_write_sierra_file_img()11, page:%d\n", page);
 
 	ttl_page = lastpage - page;
-	tmp_block_page = page;
 	pages_to_write = ((bytes/flash.page_size) +1);
 	/* find a space first */
 	while (i < ttl_page)
@@ -2322,19 +2321,17 @@ int flash_write_sierra_file_img(struct ptentry *ptn,
 		{
 			/* failed to read this page, so go  */
 			dprintf(CRITICAL, "read failed\n");
-			if (qpic_nand_block_isbad(tmp_block_page))
+			
+			/* go to next block */
+			i++;
+			/* refer to mdm9x15, we store each NVUP file start from a block, it will be more stable */
+			/* go to a new block */
+			if ((i%flash.num_pages_per_blk) != 0)
 			{
-				dprintf(CRITICAL, "Reading in a bad block\n");
-				/* go to next block */
-				tmp_block_page += flash.num_pages_per_blk;
-				i = tmp_block_page - ptn->start * flash.num_pages_per_blk;
-				free_page_count = 0;
-				continue;
+				i = ((i/flash.num_pages_per_blk) + 1) * flash.num_pages_per_blk;
 			}
-			else
-			{
-				go_len = flash.page_size;
-			}
+			free_page_count = 0;
+			continue;
 		} 
 
 		if (go_len == 0)
@@ -2358,11 +2355,11 @@ int flash_write_sierra_file_img(struct ptentry *ptn,
 			}
 			i += go_page;
 			
-			if ((flash.num_pages_per_blk - (i%flash.num_pages_per_blk)) < pages_to_write)
+			/* refer to mdm9x15, we store each NVUP file start from a block, it will be more stable */
+			/* go to a new block */
+			if ((i%flash.num_pages_per_blk) != 0)
 			{
-				/* In this block, we didn't have enouth page to wirte current image, so jump to next block */
-				tmp_block_page += flash.num_pages_per_blk;
-				i = tmp_block_page - ptn->start * flash.num_pages_per_blk;
+				i = ((i/flash.num_pages_per_blk) + 1) * flash.num_pages_per_blk;
 			}
 			free_page_count = 0;
 				

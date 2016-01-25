@@ -41,6 +41,37 @@ _local char *custom_part_name;
 
 _local struct blCtrlBlk blc;
 
+uint8 bl_yaffs2_header[] =
+{
+0x03,0x00,0x00,0x00,0x01,0x00,0x00,0x00,0xFF,0xFF,0x00,0x00,0x00,0x00,0x00,0x00,
+0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,
+0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,
+0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,
+0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,
+0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,
+0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,
+0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,
+0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,
+0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,
+0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,
+0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,
+0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,
+0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,
+0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,
+0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,
+0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0xFF,0xFF,0xFF,0xED,0x41,0x00,0x00
+};
+
+#define BL_YAFFS2_MAGIC      bl_yaffs2_header
+#define BL_YAFFS2_MAGIC_SIZE sizeof(bl_yaffs2_header)
+
+#define BL_UBI_MAGIC      "UBI#"
+#define BL_UBI_MAGIC_SIZE 0x04
+
+#define BL_SQH_MAGIC      "hsqs"
+#define BL_SQH_MAGIC_SIZE 0x04
+
+
 
 /* 
  * Local functions 
@@ -409,7 +440,7 @@ _local enum blresultcode blProgramFileImgToFlash(
   unsigned extra = 0;
 
   dprintf(CRITICAL, "blProgramFileImgToFlash(), type:%d, size:%d\n", image_type, write_size);
-  if(image_type != FLASH_PROG_CUSTOM_IMG_FILE)
+  if(image_type != FLASH_PROG_FILE_IMG)
   {
     return BLRESULT_IMAGE_TYPE_INVALID;
   }
@@ -481,12 +512,14 @@ _local enum blresultcode blProgramFlash(
   
   struct ptentry *ptn;
   struct ptable *ptable;
-  unsigned extra = image_type==FLASH_PROG_CUSTOM_IMG_YAFFS ? 1:0;
+  unsigned extra = 0;
 
   if(image_type == FLASH_PROG_CUSTOM_IMG 
-       || image_type == FLASH_PROG_CUSTOM_IMG_YAFFS
        || image_type == FLASH_PROG_SBL1_IMG
-       || image_type == FLASH_PROG_DSP2_IMG)
+       || image_type == FLASH_PROG_DSP2_IMG
+       || image_type == FLASH_PROG_USDATA_IMG
+       || image_type == FLASH_PROG_USAPP_IMG
+       || image_type == FLASH_PROG_ROFS1_IMG)
   {
     hdr_datap = (uint8 *)blgetcustompartition();
   }
@@ -522,25 +555,71 @@ _local enum blresultcode blProgramFlash(
   {
     dprintf(CRITICAL, "writing size:%d\n", write_size);
     /* only write to flash if requested */
-    if (image_type != FLASH_PROG_DSP2_IMG)
+    if (image_type == FLASH_PROG_DSP2_IMG
+       || image_type == FLASH_PROG_USDATA_IMG
+       || image_type == FLASH_PROG_USAPP_IMG
+       || image_type == FLASH_PROG_ROFS1_IMG)
     {
-      if (flash_write_sierra(ptn, extra, (const void *)bufp, (unsigned)write_size)) {
+      /* dectet image format dynamiclly */
+      if (!memcmp((void *)(bufp), BL_UBI_MAGIC, BL_UBI_MAGIC_SIZE))
+      {
+        /* UBI image */
+        if (flash_ubi_img(ptn, (void *)bufp, (unsigned)write_size)) 
+        {
+          dprintf(CRITICAL, "flash_ubi_img failed!\n");
+          return BLRESULT_FLASH_WRITE_ERROR;
+        }
+        else
+        {
+          dprintf(INFO, "flash_ubi_img OK!\n");
+        }
+      }
+      else if (!memcmp((void *)(bufp), BL_YAFFS2_MAGIC, BL_YAFFS2_MAGIC_SIZE))
+      {
+        /* YAFFS image */
+        extra = 1;
+        if (flash_write_sierra(ptn, extra, (const void *)bufp, (unsigned)write_size)) 
+        {
+          dprintf(CRITICAL, "flash write failure\n");
+          return BLRESULT_FLASH_WRITE_ERROR;
+        }
+        else
+        {
+          dprintf(INFO, "flash_write_sierra YAFFS OK\n");
+        }
+      }
+      else if (!memcmp((void *)(bufp), BL_SQH_MAGIC, BL_SQH_MAGIC_SIZE))
+      {
+        /* squashfs image */
+        if (flash_write_sierra(ptn, extra, (const void *)bufp, (unsigned)write_size)) 
+        {
+          dprintf(CRITICAL, "flash write failure\n");
+          return BLRESULT_FLASH_WRITE_ERROR;
+        }
+        else
+        {
+          dprintf(INFO, "flash_write_sierra SQH OK!\n");
+        }
+      }
+      else
+      {
+        /* bad image */
+        dprintf(CRITICAL, "Image(DSP2, USER, UAPP, SYST) should be in format (yaffs2, UBI, squashfs)\n");
+        return BLRESULT_IMAGE_TYPE_INVALID;
+      }
+      
+    }
+    else
+    {
+      /* raw image */
+      if (flash_write_sierra(ptn, extra, (const void *)bufp, (unsigned)write_size)) 
+      {
         dprintf(CRITICAL, "flash write failure\n");
         return BLRESULT_FLASH_WRITE_ERROR;
       }
       else
       {
-        dprintf(CRITICAL, "blProgramFlash OK!\n");
-      }
-    }
-    else
-    {
-      if (flash_ubi_img(ptn, (void *)bufp, (unsigned)write_size)) {
-        dprintf(CRITICAL, "flash_ubi_img failed!\n");
-      }
-      else
-      {
-        dprintf(CRITICAL, "flash_ubi_img OK!\n");
+        dprintf(INFO, "flash_write_sierra raw OK!\n");
       }
     }
   }
@@ -609,7 +688,7 @@ _local enum blresultcode blProgramImage(
     dprintf(CRITICAL, "BLRESULT_DECOMPRESSION_ERROR\n");
     result = BLRESULT_DECOMPRESSION_ERROR;
   } /* end if compressed image */
-  else if (image_type != FLASH_PROG_CUSTOM_IMG_FILE)
+  else if (image_type != FLASH_PROG_FILE_IMG)
   {
     result = blProgramFlash(bufp, image_type, 
                             image_size + CWE_HEADER_SZ, 0); 
@@ -666,8 +745,7 @@ enum blresultcode blProgramModemImage(struct cwe_header_s *hdr, uint8 *startbufp
    * swipart_partition_erase is not used since it will cause memory leak
    */
 
-
-  /* program DSP2 (modem YAFFS) at last since it carries the modem tag */
+  /* Program DSP2 image, (maybe in format .yaffs2, UBI, squashfs) */
   bufp = blSearchCWEImage(CWE_IMAGE_TYPE_DSP2, startbufp, hdr->image_sz);
   if (bufp != NULL)
   {
@@ -721,15 +799,23 @@ enum blresultcode blProgramApplImage(struct cwe_header_s *hdr, uint8 *startbufp)
    *                    -------------------
    *                    | APPS image      |  (Linux kernel)
    *                    -------------------
+   *                    | USDATA CWE hdr    |
+   *                    -------------------
+   *                    | USDATA image      |  (userdata)
+   *                    -------------------
+   *                    | UAPP CWE hdr    |
+   *                    -------------------
+   *                    | UAPP image      |  (userapp)   
+   *                    -------------------
    *  (all the images can be optional)
    */
      
-  /* Program Linux SYSTEM image */
+  /* Program Linux SYSTEM image, (maybe in format .yaffs2, UBI, squashfs) */
   bufp = blSearchCWEImage(CWE_IMAGE_TYPE_SYST, startbufp, hdr->image_sz);
   if (bufp != NULL)
   {
     blsetcustompartition(BL_LINUX_SYSTEM_PARTI_NAME);
-    result = blProgramImage(bufp, FLASH_PROG_CUSTOM_IMG_YAFFS, temphdr.image_sz);
+    result = blProgramImage(bufp, FLASH_PROG_ROFS1_IMG, temphdr.image_sz);
     if (result != BLRESULT_OK)
     {
       dprintf(CRITICAL, "blProgramApplImage CWE_IMAGE_TYPE_SYST failed, ret:%d\n", result);
@@ -737,15 +823,28 @@ enum blresultcode blProgramApplImage(struct cwe_header_s *hdr, uint8 *startbufp)
     }
   }
 
-  /* Program Linux USERDATA image */
+  /* Program Linux USERDATA image, (maybe in format .yaffs2, UBI, squashfs) */
   bufp = blSearchCWEImage(CWE_IMAGE_TYPE_USER, startbufp, hdr->image_sz);
   if (bufp != NULL)
   {
     blsetcustompartition(BL_LINUX_UDATA_PARTI_NAME);
-    result = blProgramImage(bufp, FLASH_PROG_CUSTOM_IMG, temphdr.image_sz);
+    result = blProgramImage(bufp, FLASH_PROG_USDATA_IMG, temphdr.image_sz);
     if (result != BLRESULT_OK)
     {
       dprintf(CRITICAL, "blProgramApplImage CWE_IMAGE_TYPE_USER failed, ret:%d\n", result);
+      return result;
+    }
+  }
+
+  /* Program Linux USERAPP image, (maybe in format .yaffs2, UBI, squashfs) */
+  bufp = blSearchCWEImage(CWE_IMAGE_TYPE_UAPP, startbufp, hdr->image_sz);
+  if (bufp != NULL)
+  {
+    blsetcustompartition(BL_LINUX_UAPP_PARTI_NAME);
+    result = blProgramImage(bufp, FLASH_PROG_USAPP_IMG, temphdr.image_sz);
+    if (result != BLRESULT_OK)
+    {
+      dprintf(CRITICAL, "blProgramApplImage CWE_IMAGE_TYPE_UAPP failed, ret:%d\n", result);
       return result;
     }
   }
@@ -907,7 +1006,7 @@ _local enum blresultcode blProgramImageFile(
 
   blsetcustompartition(BL_BACKUP_PARTI_NAME);
 
-  result = blProgramImage(bufp, FLASH_PROG_CUSTOM_IMG_FILE, buf_size);
+  result = blProgramImage(bufp, FLASH_PROG_FILE_IMG, buf_size);
   if (result != BLRESULT_OK)
   {
     dprintf(CRITICAL, "blProgramImageFile CWE_IMAGE_TYPE_FILE failed, ret:%d\n", result);
@@ -939,12 +1038,13 @@ _global enum blresultcode blProgramCWEImage(
   uint32 dloadsize,
   uint32 bytesleft)
 {
-  uint8         *bufp, *startbufp;
+  uint8         *bufp, *startbufp, *startbuf_search_2nd_appl;
   enum cwe_image_type_e imagetype, flog_imgtype = CWE_IMAGE_TYPE_INVALID;
   enum blresultcode result = BLRESULT_FLASH_WRITE_ERROR;
   char flog_typestr[CWE_IMAGE_TYP_SZ+1];
   const char *imagep;
   struct cwe_header_s spkg_sub_img_header;
+  uint32 buflen_search_2nd_appl;
   
   /* validate the image type from the CWE sub-header */
   if (cwe_image_type_validate(hdr->image_type, &imagetype) == FALSE)
@@ -998,6 +1098,28 @@ _global enum blresultcode blProgramCWEImage(
          break;
       }
     } /* CWE_IMAGE_TYPE_FILE */
+    /* Program Linux USERDATA image, (maybe in format .yaffs2, UBI, squashfs) */
+    else if (imagetype == CWE_IMAGE_TYPE_USER)
+    {
+      bufp = dloadbufp;
+      blsetcustompartition(BL_LINUX_UDATA_PARTI_NAME);
+      if (blProgramImage(bufp, FLASH_PROG_USDATA_IMG, hdr->image_sz) != BLRESULT_OK)
+      {
+        dprintf(CRITICAL, "blProgramApplImage CWE_IMAGE_TYPE_USER failed, ret:%d\n", result);
+        break;
+      }
+    }
+    /* Program Linux USERAPP image, (maybe in format .yaffs2, UBI, squashfs) */
+    else if (imagetype == CWE_IMAGE_TYPE_UAPP)
+    {
+      bufp = dloadbufp;
+      blsetcustompartition(BL_LINUX_UAPP_PARTI_NAME);
+      if (blProgramImage(bufp, FLASH_PROG_USAPP_IMG, hdr->image_sz) != BLRESULT_OK)
+      {
+        dprintf(CRITICAL, "blProgramApplImage CWE_IMAGE_TYPE_UAPP failed, ret:%d\n", result);
+        break;
+      }
+    }
     /* Sierra package processing */
     else if (imagetype == CWE_IMAGE_TYPE_SPKG)
     {
@@ -1024,10 +1146,27 @@ _global enum blresultcode blProgramCWEImage(
       bufp = blSearchCWEImage(CWE_IMAGE_TYPE_APPL, startbufp, hdr->image_sz);
       if (bufp != NULL)
       {
+        /* Got first APPL image here, Program it. */
         memcpy((void *)&spkg_sub_img_header, (void *)&temphdr, sizeof(temphdr));
         if (blProgramApplImage(&spkg_sub_img_header, bufp + sizeof(struct cwe_header_s)) != BLRESULT_OK)
         {
           break;
+        }
+        else
+        {
+          /* There may be 2nd APPL image in one SPKG file */
+          startbuf_search_2nd_appl = bufp + sizeof(struct cwe_header_s) + spkg_sub_img_header.image_sz;
+          buflen_search_2nd_appl = hdr->image_sz - (startbuf_search_2nd_appl - startbufp);
+
+          bufp = blSearchCWEImage(CWE_IMAGE_TYPE_APPL, startbuf_search_2nd_appl, buflen_search_2nd_appl);
+          if (bufp != NULL)
+          {
+            memcpy((void *)&spkg_sub_img_header, (void *)&temphdr, sizeof(temphdr));
+            if (blProgramApplImage(&spkg_sub_img_header, bufp + sizeof(struct cwe_header_s)) != BLRESULT_OK)
+            {
+              break;
+            }
+          }
         }
       }
 
