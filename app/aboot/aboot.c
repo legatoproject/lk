@@ -2371,6 +2371,7 @@ void cmd_flash_nand(const char *arg, void *data, unsigned sz)
 	if (!strcmp(arg, "sierra"))
 	{
 		ret = blProcessFastbootImage((unsigned char *)data, sz);
+
 		switch (ret)
 		{
 			case  BLRESULT_OK:
@@ -2399,6 +2400,15 @@ void cmd_flash_nand(const char *arg, void *data, unsigned sz)
 			default:
 			fastboot_fail("SIERRA IMG FLASH WRITE ERROR. exit");
 			return;
+		}
+
+		if(mibib_update_done)
+		{
+			mibib_update_done = FALSE;
+			dprintf(INFO, "Rebooting the device to finish MIBIB update in SBL.\n");
+			fastboot_info("System reboot to finish MIBIB update.");
+			fastboot_okay("");
+			reboot_device(FASTBOOT_MODE);
 		}
 	}
 	else

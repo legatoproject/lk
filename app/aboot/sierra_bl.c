@@ -41,6 +41,8 @@ _local char *custom_part_name;
 
 _local struct blCtrlBlk blc;
 
+bool mibib_update_done = FALSE; /* Indicates modem reset after write MIBIB image to SMEM. */
+
 uint8 bl_yaffs2_header[] =
 {
 0x03,0x00,0x00,0x00,0x01,0x00,0x00,0x00,0xFF,0xFF,0x00,0x00,0x00,0x00,0x00,0x00,
@@ -243,6 +245,65 @@ bool sierra_is_fastboot_disabled(
   void)
 {
   return (sierra_smem_b2a_flags_get() & BC_MSG_B2A_ADB_EN) ? false : true;
+}
+
+/************
+ *
+ * Name:     sierra_smem_mibib_write
+ *
+ * Purpose:  Write MIBIB image to SMEM
+ *
+ * Parms:    datap - mibib image data buffer pointer
+ *               image_size - valid mibib image length
+ *
+ * Return:   TRUE if success
+ *               FALSE otherwise
+ *
+ * Abort:    none
+ *
+ * Notes:    none
+ *
+ ************/
+bool sierra_smem_mibib_write(const void *datap, uint32 image_size)
+{
+  struct mibib_smem_s *mibibp = NULL;
+  unsigned char *virtual_addr = NULL;
+
+  if(image_size > MIBIB_MAX_SIZE)
+  {
+    dprintf(CRITICAL, "MIBIB image size(%d) over MIBIB_MAX_SIZE(%d)", image_size, MIBIB_MAX_SIZE);
+    return FALSE;
+  }
+
+  virtual_addr = sierra_smem_base_addr_get();
+  if (NULL != virtual_addr)
+  {
+    /* MIBIB region address */
+    mibibp = (struct mibib_smem_s *)(virtual_addr + BSMEM_MIBIB_OFFSET);
+
+    /* Clear total mibib region before writting */
+    memset((void *)mibibp, 0, sizeof(struct mibib_smem_s));
+
+    /* Fill out data */
+    mibibp->magic_beg = MIBIB_SMEM_MAGIC_BEG;
+    mibibp->magic_end = MIBIB_SMEM_MAGIC_END;
+    mibibp->mibib_length = image_size;
+    memcpy((void *)mibibp->data, datap, image_size);
+    mibibp->update_flag = MIBIB_UPDATE_FLAG;
+    /* Count CRC including valid mibib data and mibib region header(magic_beg + mibib_length + update_flag) 
+         * That means CRC calcluation does not include magic_end and crc32 items.	
+         */
+    mibibp->crc32 = crc32(~0, (void *)mibibp, mibibp->mibib_length+12);
+
+    dprintf(CRITICAL, "Save MIBIB to SIERRA SMEM successfully\n");
+
+    return TRUE;
+  }
+  else
+  {
+    dprintf(CRITICAL, "Can't get SIERRA SMEM base address\n");
+    return FALSE;
+  }
 }
 
 /************
@@ -912,6 +973,26 @@ enum blresultcode blProgramBootImage(struct cwe_header_s *hdr, uint8 *startbufp)
    *                    -------------------
    *  (All the images are optional)
    */
+
+  bufp = blSearchCWEImage(CWE_IMAGE_TYPE_QPAR, startbufp, hdr->image_sz);
+  if (bufp != NULL)
+  {
+    /* MIBIB image(partition image) found. LK can't write MIBIB image. */
+    /* Save it in SIERRA SMEM and write it in SBL after modem reset */
+    if(!sierra_smem_mibib_write((void *)bufp, temphdr.image_sz))
+    {
+      result = BLRESULT_MEMORY_MAP_ERROR;
+      dprintf(CRITICAL, "write MIBIB to SMEM failed, ret:%d\n", result);
+      return result;
+    }
+    else
+    {
+      /* set the global varible to true for modem reset */
+      mibib_update_done = TRUE;
+      result = BLRESULT_OK;
+    }
+  }
+
   bufp = blSearchCWEImage(CWE_IMAGE_TYPE_SBL1, startbufp, hdr->image_sz);
   if (bufp != NULL)
   {
@@ -1187,6 +1268,7 @@ _global enum blresultcode blProgramCWEImage(
     }
 
     blsetcustompartition(NULL);
+
     return BLRESULT_OK;
 
   } while (0);

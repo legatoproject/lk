@@ -164,6 +164,8 @@ struct blCtrlBlk
   uint8 dload_reason;              /* reason for going to bootloader */
 };
 
+extern bool mibib_update_done;
+
 extern int sierra_smem_boothold_mode_set();
 extern bool sierra_is_fastboot_disabled(void);
 
