@@ -56,6 +56,8 @@ ifeq ($(EMMC_BOOT),1)
   CFLAGS += -D_EMMC_BOOT=1
 endif
 
+CFLAGS += -DSIERRA
+
 ifeq ($(SIGNED_KERNEL),1)
   CFLAGS += -D_SIGNED_KERNEL=1
 endif

@@ -88,6 +88,12 @@ struct __attribute__ ((packed)) ubifs_sb_node {
 #define UBI_CRC32_INIT 0xFFFFFFFFU
 #define UBIFS_CRC32_INIT 0xFFFFFFFFU
 
+/* SWISTART */
+#ifdef SIERRA
+#define UBIFS_MAGIC 0x31181006
+#endif /* SIERRA */
+/* SWISTOP */  
+
 /* Erase counter header fields */
 struct __attribute__ ((packed)) ubi_ec_hdr {
 	uint32_t  magic;
@@ -153,6 +159,58 @@ struct ubi_scan_info {
 	unsigned data_offs;
 	uint32_t  image_seq;
 };
+
+/**
+ * struct ubi_vtbl_record - a record in the volume table.
+ * @reserved_pebs: how many physical eraseblocks are reserved for this volume
+ * @alignment: volume alignment
+ * @data_pad: how many bytes are unused at the end of the each physical
+ * eraseblock to satisfy the requested alignment
+ * @vol_type: volume type (%UBI_DYNAMIC_VOLUME or %UBI_STATIC_VOLUME)
+ * @upd_marker: if volume update was started but not finished
+ * @name_len: volume name length
+ * @name: the volume name
+ * @flags: volume flags (%UBI_VTBL_AUTORESIZE_FLG)
+ * @padding: reserved, zeroes
+ * @crc: a CRC32 checksum of the record
+ *
+ * The volume table records are stored in the volume table, which is stored in
+ * the layout volume. The layout volume consists of 2 logical eraseblock, each
+ * of which contains a copy of the volume table (i.e., the volume table is
+ * duplicated). The volume table is an array of &struct ubi_vtbl_record
+ * objects indexed by the volume ID.
+ *
+ * If the size of the logical eraseblock is large enough to fit
+ * %UBI_MAX_VOLUMES records, the volume table contains %UBI_MAX_VOLUMES
+ * records. Otherwise, it contains as many records as it can fit (i.e., size of
+ * logical eraseblock divided by sizeof(struct ubi_vtbl_record)).
+ *
+ * The @upd_marker flag is used to implement volume update. It is set to %1
+ * before update and set to %0 after the update. So if the update operation was
+ * interrupted, UBI knows that the volume is corrupted.
+ *
+ * The @alignment field is specified when the volume is created and cannot be
+ * later changed. It may be useful, for example, when a block-oriented file
+ * system works on top of UBI. The @data_pad field is calculated using the
+ * logical eraseblock size and @alignment. The alignment must be multiple to the
+ * minimal flash I/O unit. If @alignment is 1, all the available space of
+ * the physical eraseblocks is used.
+ *
+ * Empty records contain all zeroes and the CRC checksum of those zeroes.
+ */
+struct __attribute__ ((packed)) ubi_vtbl_record {
+	uint32_t  reserved_pebs;
+	uint32_t  alignment;
+	uint32_t  data_pad;
+	uint8_t    vol_type;
+	uint8_t    upd_marker;
+	uint16_t  name_len;
+	uint8_t    name[UBI_MAX_VOLUMES];
+	uint8_t    flags;
+	uint8_t    padding[23];
+	uint32_t  crc;
+};
+#define UBI_VTBL_RECORD_HDR_SIZE  sizeof(struct ubi_vtbl_record)
 
 int flash_ubi_img(struct ptentry *ptn, void *data, unsigned size);
 #endif
