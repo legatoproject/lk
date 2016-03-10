@@ -170,5 +170,6 @@ extern int sierra_smem_boothold_mode_set();
 extern bool sierra_is_fastboot_disabled(void);
 
 enum blresultcode  blProcessFastbootImage(unsigned char *bufp, unsigned int image_size);
+void sierra_check_mibib_state_clear(void);
 
 #endif /* bludefs_h */

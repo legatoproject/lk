@@ -189,6 +189,7 @@ struct  cwe_header_s
 
 
 #define CRSTART_CRC32     ((uint32) 0xFFFFFFFFU)
+uint32 crcrc32(uint8 *address, uint32 size, uint32 crc);
 
 const char *cwe_image_string_get(enum cwe_image_type_e imagetype);
 boolean cwe_image_type_validate(uint32 imagetype, enum cwe_image_type_e * enumvalue);
