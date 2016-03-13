@@ -272,10 +272,7 @@ void sierra_check_mibib_state_clear(void)
   {
     /* MIBIB region address */
     mibibp = (struct mibib_smem_s *)(virtual_addr + BSMEM_MIBIB_OFFSET);
-    mibibp->magic_beg = MIBIB_SMEM_MAGIC_BEG;
-    mibibp->magic_end = MIBIB_SMEM_MAGIC_END;
-    mibibp->update_flag = MIBIB_UPDATE_CLEAR;
-    mibibp->crc32 = crcrc32((uint8 *)mibibp, (uint32)(mibibp->mibib_length+12), (uint32)CRSTART_CRC32);
+    memset(mibibp, 0, sizeof(struct mibib_smem_s));
   }
   
   return;
@@ -310,6 +307,7 @@ bool sierra_check_mibib_smart_update_allow(void)
 
     if ((mibibp->magic_beg == MIBIB_SMEM_MAGIC_BEG) &&
         (mibibp->magic_end == MIBIB_SMEM_MAGIC_END) &&
+        (mibibp->mibib_length <= MIBIB_MAX_SIZE) &&
         ((mibibp->update_flag == MIBIB_TO_UPDATE_IN_SBL) || (mibibp->update_flag == MIBIB_UPDATED_IN_SBL)))
     {
       crc32 = crcrc32((uint8 *)mibibp, (uint32)(mibibp->mibib_length+12), (uint32)CRSTART_CRC32);
