@@ -68,6 +68,10 @@ ifeq ($(APPEND_CMDLINE),1)
   CFLAGS += -D_APPEND_CMDLINE=1
 endif
 
+# SWISTART
+CFLAGS += -DSIERRA
+# SWISTOP
+
 # setup toolchain prefix
 TOOLCHAIN_PREFIX ?= arm-eabi-
 CFLAGS += -fstack-protector-all
