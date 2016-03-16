@@ -67,6 +67,8 @@ uint32_t gpio_status(uint32_t gpio)
 /* Configure gpio for blsp uart 2 */
 void gpio_config_uart_dm(uint8_t id)
 {
+/* SWISTART */
+#ifndef SIERRA
 	/* configure rx gpio */
 	gpio_tlmm_config(9, 2, GPIO_INPUT, GPIO_NO_PULL,
 				GPIO_8MA, GPIO_DISABLE);
@@ -74,4 +76,14 @@ void gpio_config_uart_dm(uint8_t id)
 	/* configure tx gpio */
 	gpio_tlmm_config(8, 2, GPIO_OUTPUT, GPIO_NO_PULL,
 				GPIO_8MA, GPIO_DISABLE);
+#else /* SIERRA */
+	/* configure rx gpio */
+	gpio_tlmm_config(13, 2, GPIO_INPUT, GPIO_NO_PULL,
+				GPIO_8MA, GPIO_DISABLE);
+
+	/* configure tx gpio */
+	gpio_tlmm_config(12, 2, GPIO_OUTPUT, GPIO_NO_PULL,
+				GPIO_8MA, GPIO_DISABLE);
+#endif /* SIERRA */
+/* SWISTOP */
 }

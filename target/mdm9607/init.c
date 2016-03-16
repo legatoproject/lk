@@ -133,8 +133,16 @@ static void target_keystatus()
 void target_early_init(void)
 {
 #if WITH_DEBUG_UART
+
+/* SWISTART */
+#ifndef SIERRA
 	/*BLSP1 and UART5*/
 	uart_dm_init(5, 0, BLSP1_UART5_BASE);
+#else /* SIERRA */
+	uart_dm_init(1, 0, BLSP1_UART0_BASE);
+#endif /* SIERRA */
+/* SWISTOP */
+
 #endif
 }
 
