@@ -73,6 +73,7 @@
 #include "board.h"
 #include "scm.h"
 /* SWISTART */
+#include "mach/sierra_smem.h"
 #include "sierra_bludefs.h"
 /* SWISTOP */
 
@@ -1932,6 +1933,13 @@ void cmd_erase_mmc(const char *arg, void *data, unsigned sz)
 
 void cmd_erase(const char *arg, void *data, unsigned sz)
 {
+/* SWISTART */
+	/* clear error reset count */
+	sierra_smem_err_count_set(0);
+	/* set reset type to BS_BCMSG_RTYPE_SW_UPDATE_IN_LK */
+	sierra_smem_reset_type_set(BS_BCMSG_RTYPE_SW_UPDATE_IN_LK);
+/* SWISTOP */
+
 	if(target_is_emmc_boot())
 		cmd_erase_mmc(arg, data, sz);
 	else
@@ -2474,6 +2482,13 @@ void cmd_flash_nand(const char *arg, void *data, unsigned sz)
 
 void cmd_flash(const char *arg, void *data, unsigned sz)
 {
+/* SWISTART */
+	/* clear error reset count */
+	sierra_smem_err_count_set(0);
+	/* set reset type to BS_BCMSG_RTYPE_SW_UPDATE_IN_LK */
+	sierra_smem_reset_type_set(BS_BCMSG_RTYPE_SW_UPDATE_IN_LK);
+/* SWISTOP */
+
 	if(target_is_emmc_boot())
 		cmd_flash_mmc(arg, data, sz);
 	else
@@ -2936,6 +2951,13 @@ void aboot_init(const struct app_descriptor *app)
 	} else if(reboot_mode == ALARM_BOOT) {
 		boot_reason_alarm = true;
 	}
+
+/* SWISTART */
+	if (sierra_if_enter_fastboot())
+	{
+		boot_into_fastboot = true;
+	}
+/* SWISTOP */
 
 normal_boot:
 	if (!boot_into_fastboot)
