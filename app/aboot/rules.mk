@@ -23,3 +23,18 @@ OBJS += \
 	$(LOCAL_DIR)/mdtp_fuse.o \
 	$(LOCAL_DIR)/mdtp_defs.o
 endif
+
+# SWISTART 
+ifndef LINUX_KERNEL_DIR
+  ifdef WORKSPACE
+    LINUX_KERNEL_DIR="$(WORKSPACE)/../../kernel"
+  else
+    $(error "LINUX_KERNEL_DIR needs to point to kernel sources")
+  endif
+endif
+
+INCLUDES += -I${LINUX_KERNEL_DIR}/arch/arm/mach-msm/include
+
+OBJS += \
+	$(LOCAL_DIR)/sierra_bl.o
+# SWISTOP
