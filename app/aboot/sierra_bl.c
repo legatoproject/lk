@@ -41,7 +41,7 @@ _local char *custom_part_name;
 
 _local struct blCtrlBlk blc;
 
-bool mibib_update_done = FALSE; /* Indicates modem reset after write MIBIB image to SMEM. */
+bool to_update_mibib = FALSE; /* Indicates modem should warm reset to SBL, to update MIBIB. */
 
 /* Smart Error Recovery Thresholds: */
 #define BLERRTHRESHOLD_FASTBOOT  6  /* enter into fastboot mode */
@@ -444,10 +444,11 @@ bool sierra_check_mibib_smart_update_allow(void)
 
     if ((mibibp->magic_beg == MIBIB_SMEM_MAGIC_BEG) &&
         (mibibp->magic_end == MIBIB_SMEM_MAGIC_END) &&
-        (mibibp->mibib_length <= MIBIB_MAX_SIZE) &&
-        ((mibibp->update_flag == MIBIB_TO_UPDATE_IN_SBL) || (mibibp->update_flag == MIBIB_UPDATED_IN_SBL)))
+        ((mibibp->update_flag == MIBIB_TO_UPDATE_IN_SBL) ||
+         (mibibp->update_flag == MIBIB_UPDATED_IN_SBL) ||
+         (mibibp->update_flag == MIBIB_TO_UPDATE_IN_SBL_PHASE1)))
     {
-      crc32 = crcrc32((uint8 *)mibibp, (uint32)(mibibp->mibib_length+12), (uint32)CRSTART_CRC32);
+      crc32 = crcrc32((uint8 *)mibibp, (sizeof(struct mibib_smem_s) - sizeof(uint32_t)), (uint32)CRSTART_CRC32);
       if (mibibp->crc32 == crc32)
       {
         dprintf(CRITICAL, "not allow MIBIB smart update\n");
@@ -474,12 +475,11 @@ bool sierra_check_mibib_smart_update_allow(void)
 
 /************
  *
- * Name:     sierra_smem_mibib_write
+ * Name:     sierra_smem_mibib_set_flag
  *
- * Purpose:  Write MIBIB image to SMEM
+ * Purpose:  Set MIBIB update flag to SM
  *
- * Parms:    datap - mibib image data buffer pointer
- *               image_size - valid mibib image length
+ * Parms:    update_flag
  *
  * Return:   TRUE if success
  *               FALSE otherwise
@@ -489,20 +489,10 @@ bool sierra_check_mibib_smart_update_allow(void)
  * Notes:    none
  *
  ************/
-bool sierra_smem_mibib_write(const void *datap, uint32 image_size)
+bool sierra_smem_mibib_set_flag(uint32 update_flag)
 {
   struct mibib_smem_s *mibibp = NULL;
   unsigned char *virtual_addr = NULL;
-  uint32 mibib_with_cwe_size = 0;
-
-/* We should keep cwe header */
-  mibib_with_cwe_size = image_size + sizeof(struct cwe_header_s);
-  
-  if(mibib_with_cwe_size > MIBIB_MAX_SIZE)
-  {
-    dprintf(CRITICAL, "MIBIB image size(%d) over MIBIB_MAX_SIZE(%d)", mibib_with_cwe_size, MIBIB_MAX_SIZE);
-    return FALSE;
-  }
 
   virtual_addr = sierra_smem_base_addr_get();
   if (NULL != virtual_addr)
@@ -513,16 +503,10 @@ bool sierra_smem_mibib_write(const void *datap, uint32 image_size)
     /* Clear total mibib region before writting */
     memset((void *)mibibp, 0, sizeof(struct mibib_smem_s));
 
-    /* Fill out data */
     mibibp->magic_beg = MIBIB_SMEM_MAGIC_BEG;
     mibibp->magic_end = MIBIB_SMEM_MAGIC_END;
-    mibibp->mibib_length = mibib_with_cwe_size;
-    memcpy((void *)mibibp->data, datap, mibib_with_cwe_size);
-    mibibp->update_flag = MIBIB_TO_UPDATE_IN_SBL;
-    /* Count CRC including valid mibib data and mibib region header(magic_beg + mibib_length + update_flag) 
-         * That means CRC calcluation does not include magic_end and crc32 items.	
-         */
-    mibibp->crc32 = crcrc32((uint8 *)mibibp, (uint32)(mibibp->mibib_length+12), (uint32)CRSTART_CRC32);
+    mibibp->update_flag = update_flag;
+    mibibp->crc32 = crcrc32((uint8 *)mibibp, (sizeof(struct mibib_smem_s) - sizeof(uint32_t)), (uint32)CRSTART_CRC32);
 
     dprintf(CRITICAL, "Save MIBIB to SIERRA SMEM successfully\n");
 
@@ -1209,8 +1193,7 @@ enum blresultcode blProgramBootImage(struct cwe_header_s *hdr, uint8 *startbufp)
     if (sierra_check_mibib_smart_update_allow())
     {
       /* MIBIB image(partition image) found. LK can't write MIBIB image. */
-      /* Save it in SIERRA SMEM and write it in SBL after modem reset */
-      if(!sierra_smem_mibib_write((void *)bufp, temphdr.image_sz))
+      if(!sierra_smem_mibib_set_flag(MIBIB_TO_UPDATE_IN_SBL))
       {
         result = BLRESULT_MEMORY_MAP_ERROR;
         dprintf(CRITICAL, "write MIBIB to SMEM failed, ret:%d\n", result);
@@ -1219,7 +1202,7 @@ enum blresultcode blProgramBootImage(struct cwe_header_s *hdr, uint8 *startbufp)
       else
       {
         /* set the global varible to true for modem reset */
-        mibib_update_done = TRUE;
+        to_update_mibib = TRUE;
         return BLRESULT_OK;
       }
     }
@@ -1393,10 +1376,13 @@ _global enum blresultcode blProgramCWEImage(
       {
         break;
       }
-      
-      if (mibib_update_done == TRUE)
+
+      /* 1, If found QPAR image, */
+      if (to_update_mibib == TRUE)
       {
-        /* MIBIB smart update, should go to sbl now */
+        /* 1.1 then copy whole BOOT image to  SCRATCH_REGION2:0x88000000 */
+        /* In this case FULL BOOT image has already been stored in SCRATCH_REGION2:0x88000000 */
+        /* 1.2 MIBIB smart update, should go to sbl now */
         return BLRESULT_OK;
       }
     } /* CWE_IMAGE_TYPE_BOOT */
@@ -1451,9 +1437,13 @@ _global enum blresultcode blProgramCWEImage(
           break;
         }
 
-        if (mibib_update_done == TRUE)
+        /* 1, If found QPAR image, */
+        if (to_update_mibib == TRUE)
         {
-        /* MIBIB smart update, should go to sbl now */
+          /* 1.1 then copy whole BOOT image to  SCRATCH_REGION2:0x88000000 */
+          memmove((void *)BL_BOOT_IMG_STORED_BY_LK, (void *)bufp, sizeof(struct cwe_header_s) + spkg_sub_img_header.image_sz);
+          
+          /* 1.2 MIBIB smart update, should go to sbl now */
           return BLRESULT_OK;
         }
       }

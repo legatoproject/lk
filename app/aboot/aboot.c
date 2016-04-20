@@ -2418,9 +2418,9 @@ void cmd_flash_nand(const char *arg, void *data, unsigned sz)
 			return;
 		}
 
-		if(mibib_update_done)
+		if(to_update_mibib)
 		{
-			mibib_update_done = FALSE;
+			to_update_mibib = FALSE;
 			dprintf(INFO, "Rebooting the device to finish MIBIB update in SBL.\n");
 			fastboot_info("System reboot to finish MIBIB update.");
 			fastboot_okay("");
