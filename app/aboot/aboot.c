@@ -89,6 +89,9 @@
 #include "scm.h"
 #include "mdtp.h"
 #include "fastboot_test.h"
+/* SWISTART */
+#include "sierra_bludefs.h"
+/* SWISTOP */
 
 extern  bool target_use_signed_kernel(void);
 extern void platform_uninit(void);
@@ -2737,7 +2740,45 @@ void cmd_flash_nand(const char *arg, void *data, unsigned sz)
 	struct ptentry *ptn;
 	struct ptable *ptable;
 	unsigned extra = 0;
+/* SWISTART */
+	enum blresultcode ret = BLRESULT_OK;
 
+	if (!strcmp(arg, "sierra"))
+	{
+		ret = blProcessFastbootImage((unsigned char *)data, sz);
+		switch (ret)
+		{
+			case  BLRESULT_OK:
+			break;
+			case BLRESULT_AUTHENTICATION_ERROR:
+			fastboot_fail("SIERRA AUTHENTICATION_ERROR. exit");
+			return;
+			case BLRESULT_FLASH_WRITE_ERROR:
+			fastboot_fail("SIERRA FLASH_WRITE_ERROR. exit");
+			return;
+			case BLRESULT_PRODUCT_TYPE_INVALID:
+			fastboot_fail("SIERRA PRODUCT_TYPE_INVALID. exit");
+			return;
+			case BLRESULT_DECOMPRESSION_ERROR:
+			fastboot_fail("SIERRA DECOMPRESSION_ERROR. exit");
+			return;
+			case BLRESULT_FLASH_READ_ERROR:
+			fastboot_fail("SIERRA FLASH_READ_ERROR. exit");
+			return;
+			case BLRESULT_CRC32_CHECK_ERROR:
+			fastboot_fail("SIERRA CRC32_CHECK_ERROR. exit");
+			return;
+			case BLRESULT_CWE_HEADER_ERROR:
+			fastboot_fail("SIERRA CWE_HEADER_ERROR. exit");
+			return;
+			default:
+			fastboot_fail("SIERRA IMG FLASH WRITE ERROR. exit");
+			return;
+		}
+	}
+	else
+	{
+/* SWISTOP */
 	ptable = flash_get_ptable();
 	if (ptable == NULL) {
 		fastboot_fail("partition table doesn't exist");
@@ -2781,6 +2822,9 @@ void cmd_flash_nand(const char *arg, void *data, unsigned sz)
 		}
 	}
 	dprintf(INFO, "partition '%s' updated\n", ptn->name);
+/* SWISTART */
+	}
+/* SWISTOP */
 	fastboot_okay("");
 }
 
