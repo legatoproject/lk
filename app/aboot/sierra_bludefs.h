@@ -173,6 +173,7 @@ struct blCtrlBlk
 
 extern bool to_update_mibib;
 
+extern unsigned char *sierra_smem_base_addr_get(void);
 extern int sierra_smem_boothold_mode_set();
 extern bool sierra_is_fastboot_disabled(void);
 extern bool sierra_if_enter_fastboot(void);

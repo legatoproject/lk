@@ -1383,6 +1383,33 @@ flash_spare_size(void)
     return flash.spare_size;
 }
 
+/* SWISTART */
+#ifdef SIERRA
+unsigned
+flash_page_size_sierra(void)
+{
+	return flash.page_size;
+}
+
+unsigned
+flash_num_pages_per_block_sierra(void)
+{
+	return flash.num_pages_per_blk;
+}
+
+nand_result_t qpic_nand_write_page_sierra(uint32_t page, unsigned char* buffer)
+{
+   uint32_t *spare = (unsigned *)flash_spare_bytes;
+   uint32_t spare_byte_count = 0;
+
+   spare_byte_count = ((flash.cw_size * flash.cws_per_page)- flash.page_size);
+   memset(spare, 0xff, (spare_byte_count / flash.cws_per_page));
+
+   return qpic_nand_write_page(page, NAND_CFG, buffer, spare);
+}
+#endif
+/* SWISTOP */
+
 struct ptable *
 flash_get_ptable(void)
 {
@@ -2052,6 +2079,12 @@ flash_ecc_bch_enabled()
 
 /* SWISTART */
 #ifdef SIERRA
+int qpic_nand_read_page_sierra(uint32_t page, unsigned char* buffer)
+{
+   unsigned char *spare = flash_spare_bytes;
+   return qpic_nand_read_page(page, buffer, spare);
+}
+
 int convert_bootimg_4K_2K(const char *ori_buf, int old_size, char* new_buf)
 {
     uint32 ori_kernel_offset, ori_ramdisk_offset, ori_second_offset, ori_dtb_offset;
