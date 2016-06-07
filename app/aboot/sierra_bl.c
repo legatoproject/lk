@@ -41,9 +41,11 @@ _local char *custom_part_name;
 
 _local struct blCtrlBlk blc;
 
+
 bool to_update_mibib = FALSE; /* Indicates modem should warm reset to SBL, to update MIBIB. */
 
-
+/* Smart Error Recovery Thresholds: */
+#define BLERRTHRESHOLD_FASTBOOT  6  /* enter into fastboot mode */
 
 uint8 bl_yaffs2_header[] =
 {
@@ -158,6 +160,117 @@ unsigned int sierra_smem_b2a_flags_get(void)
 
   return flags;
 }
+
+/************
+ *
+ * Name:     sierra_smem_err_count_get
+ *
+ * Purpose:  get error count from SMEM
+ *
+ * Parms:    none
+ *
+ * Return:   error count
+ *
+ * Abort:    none
+ *
+ * Notes:    none
+ *
+ ************/
+unsigned int sierra_smem_err_count_get(void)
+{
+  struct bc_smem_message_s *b2amsgp;
+  unsigned char *virtual_addr;
+  unsigned int err_count = 0;
+
+  virtual_addr = sierra_smem_base_addr_get();
+  if (virtual_addr)
+  {
+    /*  APPL mailbox */
+    virtual_addr += BSMEM_MSG_APPL_MAILBOX_OFFSET;
+
+    b2amsgp = (struct bc_smem_message_s *)virtual_addr;
+
+    if (b2amsgp->magic_beg == BC_SMEM_MSG_MAGIC_BEG &&
+        b2amsgp->magic_end == BC_SMEM_MSG_MAGIC_END &&
+        (b2amsgp->version < BC_SMEM_MSG_CRC32_VERSION_MIN ||
+         b2amsgp->crc32 == crc32(~0, (void *)b2amsgp, BC_MSG_CRC_SZ)))
+    {
+      err_count = b2amsgp->in.recover_cnt;
+    }
+  }
+
+  return err_count;
+}
+
+/************
+ *
+ * Name:     sierra_smem_err_count_set
+ *
+ * Purpose:  set error count to SMEM
+ *
+ * Parms:    none
+ *
+ * Return:   error count
+ *
+ * Abort:    none
+ *
+ * Notes:    none
+ *
+ ************/
+void sierra_smem_err_count_set(unsigned int err_cnt)
+{
+  struct bc_smem_message_s *b2amsgp;
+  unsigned char *virtual_addr;
+
+  virtual_addr = sierra_smem_base_addr_get();
+  if (virtual_addr)
+  {
+    /*  APPL mailbox */
+    virtual_addr += BSMEM_MSG_APPL_MAILBOX_OFFSET;
+    b2amsgp = (struct bc_smem_message_s *)virtual_addr;
+
+    b2amsgp->out.recover_cnt = err_cnt;
+    b2amsgp->crc32 = crc32(~0, (void *)b2amsgp, BC_MSG_CRC_SZ);
+  }
+
+  return;
+}
+
+/************
+ *
+ * Name:     sierra_smem_reset_type_set
+ *
+ * Purpose:  set reset type to SMEM
+ *
+ * Parms:    none
+ *
+ * Return:   error count
+ *
+ * Abort:    none
+ *
+ * Notes:    none
+ *
+ ************/
+void sierra_smem_reset_type_set(unsigned int reset_type)
+{
+  struct bc_smem_message_s *b2amsgp;
+  unsigned char *virtual_addr;
+
+  virtual_addr = sierra_smem_base_addr_get();
+  if (virtual_addr)
+  {
+    /*  APPL mailbox */
+    virtual_addr += BSMEM_MSG_APPL_MAILBOX_OFFSET;
+    b2amsgp = (struct bc_smem_message_s *)virtual_addr;
+
+    b2amsgp->out.reset_type = reset_type;
+    b2amsgp->out.brstsetflg = BS_BCMSG_RTYPE_IS_SET;
+    b2amsgp->crc32 = crc32(~0, (void *)b2amsgp, BC_MSG_CRC_SZ);
+  }
+
+  return;
+}
+
 
 /************
  *
@@ -382,6 +495,27 @@ bool sierra_smem_mibib_set_flag(uint32 update_flag)
     dprintf(CRITICAL, "Can't get SIERRA SMEM base address\n");
     return FALSE;
   }
+}
+
+/************
+ *
+ * Name:     sierra_if_enter_fastboot
+ *
+ * Purpose:  check if enter into fastboot mode
+ *
+ * Parms:    none
+ *
+ * Return:   TRUE - enter fastboot mode
+ *           FALSE - otherwise
+ *
+ * Abort:    none
+ *
+ * Notes:    none
+ *
+ ************/
+bool sierra_if_enter_fastboot(void)
+{
+  return (sierra_smem_err_count_get() >= BLERRTHRESHOLD_FASTBOOT) ? true : false;
 }
 
 /************

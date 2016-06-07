@@ -94,7 +94,10 @@
 #include <display_menu.h>
 #include "fastboot_test.h"
 /* SWISTART */
+#ifdef SIERRA
+#include "mach/sierra_smem.h"
 #include "sierra_bludefs.h"
+#endif
 /* SWISTOP */
 
 extern  bool target_use_signed_kernel(void);
@@ -2716,6 +2719,15 @@ void cmd_erase_mmc(const char *arg, void *data, unsigned sz)
 
 void cmd_erase(const char *arg, void *data, unsigned sz)
 {
+/* SWISTART */
+#ifdef SIERRA
+	/* clear error reset count */
+	sierra_smem_err_count_set(0);
+	/* set reset type to BS_BCMSG_RTYPE_SW_UPDATE_IN_LK */
+	sierra_smem_reset_type_set(BS_BCMSG_RTYPE_SW_UPDATE_IN_LK);
+#endif
+/* SWISTOP */
+
 #if VERIFIED_BOOT
 	if (target_build_variant_user())
 	{
@@ -3343,6 +3355,7 @@ void cmd_flash_nand(const char *arg, void *data, unsigned sz)
                 return;
         }
 /* SWISTART */
+#ifdef SIERRA
 	enum blresultcode ret = BLRESULT_OK;
 
 	if (!strcmp(arg, "sierra"))
@@ -3399,6 +3412,7 @@ void cmd_flash_nand(const char *arg, void *data, unsigned sz)
 	}
 	else
 	{
+#endif
 /* SWISTOP */
 	ptable = flash_get_ptable();
 	if (ptable == NULL) {
@@ -3472,7 +3486,9 @@ void cmd_flash_nand(const char *arg, void *data, unsigned sz)
 	}
 	dprintf(INFO, "partition '%s' updated\n", ptn->name);
 /* SWISTART */
+#ifdef SIERRA
 	}
+#endif
 /* SWISTOP */
 	fastboot_okay("");
 }
@@ -3491,6 +3507,15 @@ static inline uint64_t validate_partition_size(struct ptentry *ptn)
 
 void cmd_flash(const char *arg, void *data, unsigned sz)
 {
+/* SWISTART */
+#ifdef SIERRA
+	/* clear error reset count */
+	sierra_smem_err_count_set(0);
+	/* set reset type to BS_BCMSG_RTYPE_SW_UPDATE_IN_LK */
+	sierra_smem_reset_type_set(BS_BCMSG_RTYPE_SW_UPDATE_IN_LK);
+#endif
+/* SWISTOP */
+
 	if(target_is_emmc_boot())
 		cmd_flash_mmc(arg, data, sz);
 	else
@@ -4180,6 +4205,15 @@ void aboot_init(const struct app_descriptor *app)
 	}
 #endif
 #endif
+
+/* SWISTART */
+#ifdef SIERRA
+	if (sierra_if_enter_fastboot())
+	{
+		boot_into_fastboot = true;
+	}
+#endif
+/* SWISTOP */
 
 normal_boot:
 	if (!boot_into_fastboot)

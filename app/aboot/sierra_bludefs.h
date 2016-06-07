@@ -176,6 +176,10 @@ extern bool to_update_mibib;
 
 extern int sierra_smem_boothold_mode_set();
 extern bool sierra_is_fastboot_disabled(void);
+extern bool sierra_if_enter_fastboot(void);
+extern unsigned int sierra_smem_err_count_get(void);
+extern void sierra_smem_err_count_set(unsigned int err_cnt);
+extern void sierra_smem_reset_type_set(unsigned int reset_type);
 
 enum blresultcode  blProcessFastbootImage(unsigned char *bufp, unsigned int image_size);
 void sierra_check_mibib_state_clear(void);

@@ -2278,6 +2278,7 @@ flash_write(struct ptentry *ptn,
 }
 
 /* SWISTART */
+#ifdef SIERRA
 int
 flash_write_sierra(struct ptentry *ptn,
 			unsigned write_extra_bytes,
@@ -2589,6 +2590,7 @@ int flash_write_sierra_file_img(struct ptentry *ptn,
 	dprintf(INFO, "flash_write_image: success\n");
 	return 0;
 }
+#endif
 
 /* SWISTOP */
 
