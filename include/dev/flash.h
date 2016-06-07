@@ -91,6 +91,7 @@ int flash_read_ext(struct ptentry *ptn, unsigned extra_per_page,
 int flash_write(struct ptentry *ptn, unsigned write_extra_bytes, const void *data,
 		unsigned bytes);
 /* SWISTART */
+#ifdef SIERRA
 typedef unsigned int (*go_cwe_file_func_type)(unsigned char *buf, unsigned int len);
 
 int flash_write_sierra(struct ptentry *ptn, unsigned write_extra_bytes, const void *data,
@@ -100,6 +101,7 @@ int flash_write_sierra_file_img(struct ptentry *ptn,
 			const void *data,
 			unsigned bytes,
 			go_cwe_file_func_type gocwe);
+#endif
 /* SWISTOP */
 
 static inline int flash_read(struct ptentry *ptn, unsigned offset, void *data,
