@@ -514,24 +514,101 @@ static void remove_F_flag(const void *leb_data)
 
 /* SWISTART */
 #ifdef SIERRA
+/*
+* get the volume numbers of UBI in this image
+*/
+int get_ubi_vol_num(void *buf, unsigned block_size, unsigned data_offs)
+{
+	int i = 0,volume_num = 0;
+	struct ubi_vtbl_record *curr_vol;
+
+	volume_num = (block_size - data_offs) / UBI_VTBL_RECORD_HDR_SIZE;
+	if (volume_num > UBI_MAX_VOLUMES)
+		volume_num = UBI_MAX_VOLUMES;
+
+	/* Now search for total volume numbers */
+	for (i = 0; i < volume_num; i++) {
+		curr_vol = (struct ubi_vtbl_record *)
+				(buf + UBI_VTBL_RECORD_HDR_SIZE*i);
+		if (!curr_vol->vol_type)
+			break;
+	}
+	volume_num = i;
+	return volume_num;
+}
+
+/*
+* Function scan_input_image will take the input "data" as an input image try to
+* collect some info: vol_id commpat, last_leb_data_size and max_leb_block.
+* all the result will store in struct input_image_info.
+*/
+int scan_input_image(void *data, struct ubi_image_scan_info *input_image_info, unsigned size,
+							unsigned block_size, unsigned vid_hdr_offset,
+							unsigned page_size, unsigned leb_size )
+{
+	unsigned pre_lnum =0, data_size =0;
+	int blocks = 0, volume = 0;
+	char * image_data = data;
+	struct ubi_vid_hdr *my_vid_hdr=NULL;
+
+	my_vid_hdr = malloc(UBI_VID_HDR_SIZE);
+	if (!my_vid_hdr){
+		dprintf(CRITICAL, "cannot allocate memory for my_vid_hdr!\n");
+		return -1;
+	}
+	do{
+		memset(my_vid_hdr, 0, UBI_VID_HDR_SIZE);
+		memcpy(my_vid_hdr,data + ( blocks*block_size + vid_hdr_offset ),UBI_VID_HDR_SIZE);
+
+		if(my_vid_hdr->lnum == 0)
+		{
+			if( blocks == 0 ){
+				input_image_info[volume].compat_vid= my_vid_hdr->compat;
+				input_image_info[volume].vol_id_vid= my_vid_hdr->vol_id;
+			}else if( blocks == 2 ){
+				input_image_info[volume].compat_leb= my_vid_hdr->compat;
+				input_image_info[volume].vol_id_leb= my_vid_hdr->vol_id;
+			}else if(blocks > 2){
+				data_size= (calc_data_len(page_size, image_data + (blocks-1)*block_size + 2*page_size, leb_size))*page_size;
+				input_image_info[volume].last_leb_data_size= data_size;
+				input_image_info[volume].max_leb_block= pre_lnum;
+
+				volume++;
+				input_image_info[volume].compat_leb= my_vid_hdr->compat;
+				input_image_info[volume].vol_id_leb= my_vid_hdr->vol_id;
+			}
+		}
+		blocks++;
+		pre_lnum = BE32(my_vid_hdr->lnum);
+	}while(size > block_size*blocks);
+	data_size= (calc_data_len(page_size, image_data + (blocks-1)*block_size + 2*page_size, leb_size))*page_size;
+	input_image_info[volume].last_leb_data_size= data_size;
+	input_image_info[volume].max_leb_block= pre_lnum;
+
+	free(my_vid_hdr);
+	return 0;
+}
+
 int switch_4k_to_2k_ubi_img(void *data, unsigned * size)
 {
 	struct ubi_ec_hdr *ec_hdr = (struct ubi_ec_hdr *)data;
 	struct ubi_vid_hdr *vid_hdr;
-	struct ubi_vtbl_record *vtbl_recode;
 
 	struct ubi_ec_hdr *my_ec_hdr=NULL;
 	struct ubi_vid_hdr *my_vid_hdr=NULL;
 	struct ubi_vtbl_record *my_vtbl_recode=NULL;
+	struct ubi_image_scan_info *input_image_info=NULL;
 	char * final_image_data;
 
 	uint32_t crc;
-	unsigned int blocks_2k=0, blocks_4k=0;
-	//4k pages flash blocks numbers
-	int blocks_num,tmp;
+	unsigned data_size = LEB_SIZE_2K;
+	unsigned  blocks_4k=0, tmp_lnum =0;
+	int blocks_2k=0,blocks_num = 0,tmp =0, tmp2 =0;
+	int tmp_volume =0,volume_numbers = 0;
+	int i;
 
 //Check UBI hdr
-	dprintf(CRITICAL, "ec_hdr->magic=%x,Original data size=0x%x\n",BE32(ec_hdr->magic),*size);
+	dprintf(CRITICAL, "\nec_hdr->magic=%x,Original data size=0x%x\n",BE32(ec_hdr->magic),*size);
 
 	if( BE32(ec_hdr->magic) != UBI_EC_HDR_MAGIC )
 	{
@@ -556,119 +633,175 @@ int switch_4k_to_2k_ubi_img(void *data, unsigned * size)
 		dprintf(CRITICAL, "cannot allocate memory for my_vid_hdr!\n");
 		goto my_ec_out;
 	}
-	my_vtbl_recode = malloc(UBI_VTBL_RECORD_HDR_SIZE);
-	if (!my_vtbl_recode){
-		dprintf(CRITICAL, "cannot allocate memory for my_vtbl_recode!\n");
-		goto my_vid_out;
-	}
 
-//get orignal ec hdr data
-	memset(my_ec_hdr, 0xFF, UBI_EC_HDR_SIZE);
+//get orignal ec hdr data then we can get some info from it
+	memset(my_ec_hdr, 0, UBI_EC_HDR_SIZE);
 	memcpy(my_ec_hdr,ec_hdr,UBI_EC_HDR_SIZE);
-
-#if 0
-	UBI_DB("my_ec_hdr->magic=0x%x\n",BE32(my_ec_hdr->magic));
-	UBI_DB("my_ec_hdr->version=0x%x\n",my_ec_hdr->version);
-	UBI_DB("my_ec_hdr->vid_hdr_offset=0x%x\n",BE32(my_ec_hdr->vid_hdr_offset));
-	UBI_DB("my_ec_hdr->data_offset=0x%x\n",BE32(my_ec_hdr->data_offset));
-	UBI_DB("my_ec_hdr->image_seq=0x%x\n",BE32(my_ec_hdr->image_seq));
-#endif
 
 //get orignal VID data
 	vid_hdr = (struct ubi_vid_hdr *)(data + BE32(my_ec_hdr->vid_hdr_offset));
-	memset(my_vid_hdr, 0xFF, UBI_VID_HDR_SIZE);
+	memset(my_vid_hdr, 0, UBI_VID_HDR_SIZE);
 	memcpy(my_vid_hdr,vid_hdr,UBI_VID_HDR_SIZE);
 
 //get orignal vtbl data
-	vtbl_recode = (struct ubi_vtbl_record *)(data + BE32(my_ec_hdr->vid_hdr_offset)*2);
-	//backup first orignal vtbl data
-	memset(my_vtbl_recode, 0xFF, UBI_VTBL_RECORD_HDR_SIZE);
-	memcpy(my_vtbl_recode,vtbl_recode,UBI_VTBL_RECORD_HDR_SIZE);
-	// 4k page blocks_num = data pages + hdr pages
-	blocks_num = BE32(my_vtbl_recode->reserved_pebs) + 2;
+	volume_numbers = get_ubi_vol_num(data + BE32(my_ec_hdr->vid_hdr_offset)*2,BLOCK_SIZE_4K,BE32(ec_hdr->data_offset));
+	dprintf(CRITICAL, "volume_numbers=%d\n",volume_numbers);
 
-	dprintf(CRITICAL, "Vol name: %s\n",my_vtbl_recode->name);
-	//set 2k page reserved_pebs
-	my_vtbl_recode->reserved_pebs = SWAP_32( (blocks_num -2)*2 );
-	crc = mtd_crc32(UBI_CRC32_INIT, my_vtbl_recode, UBI_VTBL_RECORD_HDR_SIZE - sizeof(uint32_t));
-	my_vtbl_recode->crc = SWAP_32(crc);
+	my_vtbl_recode = calloc(UBI_VTBL_RECORD_HDR_SIZE, volume_numbers);
+	if (!my_vtbl_recode){
+		dprintf(CRITICAL, "cannot calloc memory for my_vtbl_recode!\n");
+		goto my_vid_out;
+	}
+
+//backup all orignal vtbl data
+	memset(my_vtbl_recode, 0, UBI_VTBL_RECORD_HDR_SIZE*volume_numbers);
+	memcpy(my_vtbl_recode,data + BE32(ec_hdr->data_offset),UBI_VTBL_RECORD_HDR_SIZE*volume_numbers);
+
+	input_image_info= calloc(sizeof(struct ubi_image_scan_info), volume_numbers);
+	if (!input_image_info){
+		dprintf(CRITICAL, "cannot calloc memory for input_image_info!\n");
+		goto my_vtbl_recode;
+	}
+
+//Scan the input image to get the special info and store in "input_image_info"
+	memset(input_image_info, 0, (sizeof(struct ubi_image_scan_info))*volume_numbers);
+	scan_input_image(data,input_image_info,*size,
+					BLOCK_SIZE_4K, BE32(ec_hdr->vid_hdr_offset),
+					FLASH_PAGE_SIZE_4K, LEB_SIZE_4K);
+
+// update the vtabl that change from 4k to 2k.
+	for(i=0;i< volume_numbers;i++){
+		// reserved_pebs is two times of 4K when it is dynamic volume type and will reduce one for static type.
+		// max_leb_block just is the volume of lnum in the last block, so total number should add header.
+
+		if(BE32(my_vtbl_recode[i].reserved_pebs) == input_image_info[i].max_leb_block + 1){
+			my_vtbl_recode[i].reserved_pebs = SWAP_32( (input_image_info[i].max_leb_block)*2 + (input_image_info[i].last_leb_data_size/LEB_SIZE_2K +1) );
+		}
+		else
+		{
+			if(i == 0)
+				my_vtbl_recode[i].reserved_pebs = BE32(SWAP_32(my_vtbl_recode[i].reserved_pebs) * 2 );
+			else
+				my_vtbl_recode[i].reserved_pebs = BE32(SWAP_32(my_vtbl_recode[i].reserved_pebs) * 2 - 1 );
+
+		}
+
+		if( SWAP_32(my_vtbl_recode[i].reserved_pebs) !=0 )
+			input_image_info[i].max_leb_block= (input_image_info[i].max_leb_block)*2 + (input_image_info[i].last_leb_data_size/LEB_SIZE_2K);
+
+		crc = mtd_crc32(UBI_CRC32_INIT, my_vtbl_recode + i, UBI_VTBL_RECORD_SIZE_CRC);
+		my_vtbl_recode[i].crc= SWAP_32(crc);
+
+		if( input_image_info[i].last_leb_data_size !=0 )
+			blocks_num += input_image_info[i].max_leb_block +1;
+	}
+	blocks_num = blocks_num + 2;
 
 //change 4k page info data to 2k info for 2k page flash
 	my_ec_hdr->vid_hdr_offset=SWAP_32(FLASH_PAGE_SIZE_2K);
 	my_ec_hdr->data_offset=SWAP_32(FLASH_PAGE_SIZE_2K*2);
 	crc = mtd_crc32(UBI_CRC32_INIT, my_ec_hdr, UBI_EC_HDR_SIZE_CRC);
 	my_ec_hdr->hdr_crc = SWAP_32(crc);
-	//dprintf(CRITICAL, "SWAP_32(crc) =0x%x, crc=0x%x\n",SWAP_32(crc),crc);
 
 //use this address for final image data (80M affer the orignal data) .
 	final_image_data = (char *)target_get_scratch_address() + CONVERTED_IMG_MEM_OFFSET;
+	memset(final_image_data, 0xFF, *size);
+	dprintf(CRITICAL,"Need blocks_num=%u\n",blocks_num);
 
-	dprintf(CRITICAL, "blocks_num=%d\n",blocks_num);
-
-//Set data for 2k page flash and write it to the buffer that will be use to burn to 2k page flash
+//Set data for 2k page flash and write it to the buffer, use "tmp" as the counter of the loop
 	tmp = blocks_num;
+
+//Get the total block numbers that used of the first UBI volume in the image, the second UBI volume may start from this position.
+	tmp2 = input_image_info[0].max_leb_block + 2 /* UBI header */ + 1 /* start from 0 */;
+
 	do {
 		if(blocks_2k < 2){
 
 			my_vid_hdr->lnum = SWAP_32(blocks_2k);
-			if(blocks_2k > 1){
-				my_vid_hdr->vol_id = 0x0;
-				my_vid_hdr->compat = 0x0;
-			}
 			crc = mtd_crc32(UBI_CRC32_INIT, my_vid_hdr, UBI_VID_HDR_SIZE_CRC);
 			my_vid_hdr->hdr_crc = SWAP_32(crc);
 
-			//dprintf(CRITICAL, "1blocks_2k=%d\n",blocks_2k);
-			memcpy(final_image_data + 0*FLASH_PAGE_SIZE_2K + blocks_2k*BLOCK_SIZE_2K, my_ec_hdr, 64);
-			memcpy(final_image_data + 1*FLASH_PAGE_SIZE_2K + blocks_2k*BLOCK_SIZE_2K, my_vid_hdr, 64);
+			memcpy(final_image_data + 0*FLASH_PAGE_SIZE_2K + blocks_2k*BLOCK_SIZE_2K, my_ec_hdr, UBI_EC_HDR_SIZE);
+			memcpy(final_image_data + 1*FLASH_PAGE_SIZE_2K + blocks_2k*BLOCK_SIZE_2K, my_vid_hdr, UBI_VID_HDR_SIZE);
 			memcpy(final_image_data + 2*FLASH_PAGE_SIZE_2K + blocks_2k*BLOCK_SIZE_2K, data + 2*FLASH_PAGE_SIZE_4K , LEB_SIZE_2K);
-			memcpy(final_image_data + 2*FLASH_PAGE_SIZE_2K + blocks_2k*BLOCK_SIZE_2K, my_vtbl_recode , UBI_VTBL_RECORD_HDR_SIZE);
-
+			//update all the vtable volumes.
+			memcpy(final_image_data + 2*FLASH_PAGE_SIZE_2K + blocks_2k*BLOCK_SIZE_2K, my_vtbl_recode , UBI_VTBL_RECORD_HDR_SIZE*volume_numbers);
 			blocks_2k++;
 		}
 		else
 		{
-			my_vid_hdr->vol_id = 0x0;
-			my_vid_hdr->compat = 0x0;
+			// Data in one 4K page need two 2k page to store
+			for(i=0;i<2 && blocks_2k < blocks_num ;i++){
 
-			my_vid_hdr->lnum = SWAP_32(blocks_2k - 2);
-			crc = mtd_crc32(UBI_CRC32_INIT, my_vid_hdr, UBI_VID_HDR_SIZE_CRC);
-			my_vid_hdr->hdr_crc = SWAP_32(crc);
-			//dprintf(CRITICAL, "2blocks_2k=%d\n",blocks_2k);
+				//When blocks_2k reach to tmp2 mean that the different volume block position is comming
+				if( blocks_2k == tmp2 && tmp_volume < volume_numbers-1 ){
+					tmp_volume++;
+					//get the current block position is in which volume of UBI in the input image.
+					tmp2 += input_image_info[tmp_volume].max_leb_block + 1;
+					tmp_lnum = 0;
+				}
+				//update the special data info
+				my_vid_hdr->vol_type= my_vtbl_recode[tmp_volume].vol_type;
+				my_vid_hdr->vol_id = input_image_info[tmp_volume].vol_id_leb;
+				my_vid_hdr->compat = input_image_info[tmp_volume].compat_leb;
+				my_vid_hdr->lnum = SWAP_32(tmp_lnum);
 
-			memcpy(final_image_data + 0*FLASH_PAGE_SIZE_2K + blocks_2k*BLOCK_SIZE_2K, my_ec_hdr, 64);
-			memcpy(final_image_data + 1*FLASH_PAGE_SIZE_2K + blocks_2k*BLOCK_SIZE_2K, my_vid_hdr, 64);
-			memcpy(final_image_data + 2*FLASH_PAGE_SIZE_2K + blocks_2k*BLOCK_SIZE_2K, data + blocks_4k*BLOCK_SIZE_4K + 2*FLASH_PAGE_SIZE_4K, LEB_SIZE_2K);
-			blocks_2k++;
+				//check the data not "FF" and return the real data size
+				data_size= (calc_data_len(FLASH_PAGE_SIZE_2K, data + blocks_4k*BLOCK_SIZE_4K + 2*FLASH_PAGE_SIZE_4K + LEB_SIZE_2K*i, LEB_SIZE_2K))*FLASH_PAGE_SIZE_2K;
+				if( data_size > LEB_SIZE_2K)
+					data_size = LEB_SIZE_2K;
 
-			//dprintf(CRITICAL, "3blocks_2k=%d\n",blocks_2k);
-			my_vid_hdr->lnum = SWAP_32(blocks_2k - 2);
-			crc = mtd_crc32(UBI_CRC32_INIT, my_vid_hdr, UBI_VID_HDR_SIZE_CRC);
-			my_vid_hdr->hdr_crc = SWAP_32(crc);
-			//UBI_DB("2 blocks_2k=%d,blocks_4k=%d\n",blocks_2k,blocks_4k);
-			memcpy(final_image_data + 0*FLASH_PAGE_SIZE_2K + blocks_2k*BLOCK_SIZE_2K, my_ec_hdr, 64);
-			memcpy(final_image_data + 1*FLASH_PAGE_SIZE_2K + blocks_2k*BLOCK_SIZE_2K, my_vid_hdr, 64);
-			memcpy(final_image_data + 2*FLASH_PAGE_SIZE_2K + blocks_2k*BLOCK_SIZE_2K, data + blocks_4k*BLOCK_SIZE_4K + 2*FLASH_PAGE_SIZE_4K + LEB_SIZE_2K, LEB_SIZE_2K);
-			blocks_2k++;
+				if( data_size <= 0 || SWAP_32(my_vtbl_recode[tmp_volume].reserved_pebs) <= 0 ){
+					continue;
+				}
 
+				//static type of UBI volume need to store data size and crc in header.
+				if(my_vtbl_recode[tmp_volume].vol_type == 0x2){
+
+					// used_ebs is always equal "lnum + 1"
+					if(tmp_lnum >= input_image_info[tmp_volume].max_leb_block + 1)
+						break;
+
+					my_vid_hdr->used_ebs= SWAP_32(input_image_info[tmp_volume].max_leb_block + 1);
+					my_vid_hdr->data_size= SWAP_32(data_size);
+					crc = mtd_crc32(UBI_CRC32_INIT, data + blocks_4k*BLOCK_SIZE_4K + 2*FLASH_PAGE_SIZE_4K + LEB_SIZE_2K*i, data_size);
+					my_vid_hdr->data_crc= SWAP_32(crc);
+				}
+				else{
+					//my_vtbl_recode[tmp_volume].vol_type = 0x1;
+					my_vid_hdr->used_ebs= 0;
+					my_vid_hdr->data_size= 0;
+					my_vid_hdr->data_crc= 0;
+				}
+
+				crc = mtd_crc32(UBI_CRC32_INIT, my_vid_hdr, UBI_VID_HDR_SIZE_CRC);
+				my_vid_hdr->hdr_crc = SWAP_32(crc);
+
+				memcpy(final_image_data + 0*FLASH_PAGE_SIZE_2K + blocks_2k*BLOCK_SIZE_2K, my_ec_hdr, UBI_EC_HDR_SIZE);
+				memcpy(final_image_data + 1*FLASH_PAGE_SIZE_2K + blocks_2k*BLOCK_SIZE_2K, my_vid_hdr, UBI_VID_HDR_SIZE);
+				memcpy(final_image_data + 2*FLASH_PAGE_SIZE_2K + blocks_2k*BLOCK_SIZE_2K, data + blocks_4k*BLOCK_SIZE_4K + 2*FLASH_PAGE_SIZE_4K + LEB_SIZE_2K*i, LEB_SIZE_2K);
+				blocks_2k++;
+				tmp_lnum++;
+
+			}
 		}
 		blocks_4k++;
-	}while(--tmp);
+	}while( (--tmp) && (*size > blocks_4k*BLOCK_SIZE_4K - 1) );
 
-	if(*size > blocks_2k*BLOCK_SIZE_2K)
-		memset(data, 0xFF, *size);
-	else
-		memset(data, 0xFF, blocks_2k*BLOCK_SIZE_2K);
-
+// Blocks align
 	*size = blocks_2k*BLOCK_SIZE_2K;
+	memset(data, 0xFF, *size);
 	memcpy(data,final_image_data,*size);
-	dprintf(CRITICAL, "Converted data size=0x%x\n",*size);
+	dprintf(CRITICAL, "Converted data size=0x%x,end data_size=0x%x,blocks numbers: %d\n",*size,data_size,blocks_2k);
 
 	free(my_ec_hdr);
 	free(my_vid_hdr);
 	free(my_vtbl_recode);
+	free(input_image_info);
 	return 0;
 
+my_vtbl_recode:
+	free(my_vtbl_recode);
 my_vid_out:
 	free(my_vid_hdr);
 my_ec_out:

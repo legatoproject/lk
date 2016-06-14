@@ -212,5 +212,32 @@ struct __attribute__ ((packed)) ubi_vtbl_record {
 };
 #define UBI_VTBL_RECORD_HDR_SIZE  sizeof(struct ubi_vtbl_record)
 
+/* Size of the volume table record without the ending CRC */
+#define UBI_VTBL_RECORD_SIZE_CRC (UBI_VTBL_RECORD_HDR_SIZE - sizeof(uint32_t))
+
+/**
+ * struct ubi_image_scan_info - record some of the info of all ubi volume that are
+ # not same to all other blocks.
+ * @compat_vid: compatibility of this volume (%0, %UBI_COMPAT_DELETE,
+ *          %UBI_COMPAT_IGNORE, %UBI_COMPAT_PRESERVE, or %UBI_COMPAT_REJECT)
+ *          recroded in vid header
+ * @compat_peb: compatibility of this volume (%0, %UBI_COMPAT_DELETE,
+ *          %UBI_COMPAT_IGNORE, %UBI_COMPAT_PRESERVE, or %UBI_COMPAT_REJECT)
+ *          recroded in physical erase blocks
+ * @vol_id_vid: ID of this volume recroded in vid header
+ * @vol_id_peb: ID of this volume recroded in physical erase blocks
+ * @last_leb_data_size: data size at the last block in this UBI volume.
+ * @max_leb_block: the biggest lnum volume in this UBI volume
+ *
+ */
+struct __attribute__ ((packed)) ubi_image_scan_info {
+	uint8_t		compat_vid;
+	uint8_t		compat_leb;
+	uint32_t	vol_id_vid;
+	uint32_t	vol_id_leb;
+	uint32_t	last_leb_data_size;
+	uint32_t	max_leb_block;
+};
+
 int flash_ubi_img(struct ptentry *ptn, void *data, unsigned size);
 #endif
