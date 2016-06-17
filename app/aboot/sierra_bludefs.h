@@ -74,6 +74,13 @@ typedef enum {
 
 #define BL_PRODUCT_ID                  0x39583238       /* "9X28" */
 
+/* SWI LK will store Boot.cwe in 0x88000000 */
+/* fastboot of LK will use "SCRATCH_REGION2:0x88000000" as download region, 
+  for feature to update boot_parti_update.cwe in SBL, we use this address to store image,
+  then SBL will update module with update boot_parti_update.cwe */
+#define BL_BOOT_IMG_STORED_BY_LK         0x88000000
+
+
 /************
  *
  * Name:     blresultcode - list of BL error/result codes
@@ -165,9 +172,12 @@ struct blCtrlBlk
   uint8 dload_reason;              /* reason for going to bootloader */
 };
 
+extern bool to_update_mibib;
+
 extern int sierra_smem_boothold_mode_set();
 extern bool sierra_is_fastboot_disabled(void);
 
 enum blresultcode  blProcessFastbootImage(unsigned char *bufp, unsigned int image_size);
+void sierra_check_mibib_state_clear(void);
 
 #endif /* bludefs_h */

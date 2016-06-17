@@ -41,6 +41,10 @@ _local char *custom_part_name;
 
 _local struct blCtrlBlk blc;
 
+bool to_update_mibib = FALSE; /* Indicates modem should warm reset to SBL, to update MIBIB. */
+
+
+
 uint8 bl_yaffs2_header[] =
 {
 0x03,0x00,0x00,0x00,0x01,0x00,0x00,0x00,0xFF,0xFF,0x00,0x00,0x00,0x00,0x00,0x00,
@@ -243,6 +247,141 @@ bool sierra_is_fastboot_disabled(
   void)
 {
   return (sierra_smem_b2a_flags_get() & BC_MSG_B2A_ADB_EN) ? false : true;
+}
+
+/************
+ *
+ * Name:     sierra_check_mibib_state_clear
+ *
+ * Purpose:  Clear mibib state
+ *
+ * Parms:    none
+ *
+ * Return:   void
+ *
+ * Abort:    none
+ *
+ * Notes:    none
+ *
+ ************/
+void sierra_check_mibib_state_clear(void)
+{
+  struct mibib_smem_s *mibibp = NULL;
+  unsigned char *virtual_addr = NULL;
+
+  virtual_addr = sierra_smem_base_addr_get();
+  if (NULL != virtual_addr)
+  {
+    /* MIBIB region address */
+    mibibp = (struct mibib_smem_s *)(virtual_addr + BSMEM_MIBIB_OFFSET);
+    memset(mibibp, 0, sizeof(struct mibib_smem_s));
+  }
+  
+  return;
+}
+
+/************
+ *
+ * Name:     sierra_check_mibib_smart_update_allow
+ *
+ * Purpose:  Check mibib state, to decide if we should process MIBIB image of current package
+ *
+ * Parms:    none
+ *
+ * Return:   void
+ *
+ * Abort:    none
+ *
+ * Notes:    none
+ *
+ ************/
+bool sierra_check_mibib_smart_update_allow(void)
+{
+  struct mibib_smem_s *mibibp = NULL;
+  unsigned char *virtual_addr = NULL;
+  uint32 crc32 = 0;
+
+  virtual_addr = sierra_smem_base_addr_get();
+  if (NULL != virtual_addr)
+  {
+    /* MIBIB region address */
+    mibibp = (struct mibib_smem_s *)(virtual_addr + BSMEM_MIBIB_OFFSET);
+
+    if ((mibibp->magic_beg == MIBIB_SMEM_MAGIC_BEG) &&
+        (mibibp->magic_end == MIBIB_SMEM_MAGIC_END) &&
+        ((mibibp->update_flag == MIBIB_TO_UPDATE_IN_SBL) ||
+         (mibibp->update_flag == MIBIB_UPDATED_IN_SBL) ||
+         (mibibp->update_flag == MIBIB_TO_UPDATE_IN_SBL_PHASE1)))
+    {
+      crc32 = crcrc32((uint8 *)mibibp, (sizeof(struct mibib_smem_s) - sizeof(uint32_t)), (uint32)CRSTART_CRC32);
+      if (mibibp->crc32 == crc32)
+      {
+        dprintf(CRITICAL, "not allow MIBIB smart update\n");
+        return false;
+      }
+      else
+      {
+        dprintf(CRITICAL, "allow MIBIB smart update\n");
+        return true;
+      }
+    }
+    else
+    {
+      dprintf(CRITICAL, "allow MIBIB smart update\n");
+      return true;
+    }
+  }
+  else
+  {
+    dprintf(CRITICAL, "allow MIBIB smart update\n");
+    return true;
+  }
+}
+
+/************
+ *
+ * Name:     sierra_smem_mibib_set_flag
+ *
+ * Purpose:  Set MIBIB update flag to SM
+ *
+ * Parms:    update_flag
+ *
+ * Return:   TRUE if success
+ *               FALSE otherwise
+ *
+ * Abort:    none
+ *
+ * Notes:    none
+ *
+ ************/
+bool sierra_smem_mibib_set_flag(uint32 update_flag)
+{
+  struct mibib_smem_s *mibibp = NULL;
+  unsigned char *virtual_addr = NULL;
+
+  virtual_addr = sierra_smem_base_addr_get();
+  if (NULL != virtual_addr)
+  {
+    /* MIBIB region address */
+    mibibp = (struct mibib_smem_s *)(virtual_addr + BSMEM_MIBIB_OFFSET);
+
+    /* Clear total mibib region before writting */
+    memset((void *)mibibp, 0, sizeof(struct mibib_smem_s));
+
+    mibibp->magic_beg = MIBIB_SMEM_MAGIC_BEG;
+    mibibp->magic_end = MIBIB_SMEM_MAGIC_END;
+    mibibp->update_flag = update_flag;
+    mibibp->crc32 = crcrc32((uint8 *)mibibp, (sizeof(struct mibib_smem_s) - sizeof(uint32_t)), (uint32)CRSTART_CRC32);
+
+    dprintf(CRITICAL, "Save MIBIB to SIERRA SMEM successfully\n");
+
+    return TRUE;
+  }
+  else
+  {
+    dprintf(CRITICAL, "Can't get SIERRA SMEM base address\n");
+    return FALSE;
+  }
 }
 
 /************
@@ -708,7 +847,7 @@ _local enum blresultcode blProgramImage(
 
 /************
  *
- * Name:     blProgramBootImage
+ * Name:     blProgramModemImage
  *
  * Purpose:  This function will program the MODEM image into flash.
  *
@@ -764,7 +903,7 @@ enum blresultcode blProgramModemImage(struct cwe_header_s *hdr, uint8 *startbufp
 
 /************
  *
- * Name:     blProgramBootImage
+ * Name:     blProgramApplImage
  *
  * Purpose:  This function will program the APPL image into flash.
  *
@@ -912,6 +1051,28 @@ enum blresultcode blProgramBootImage(struct cwe_header_s *hdr, uint8 *startbufp)
    *                    -------------------
    *  (All the images are optional)
    */
+
+  bufp = blSearchCWEImage(CWE_IMAGE_TYPE_QPAR, startbufp, hdr->image_sz);
+  if (bufp != NULL)
+  { 
+    if (sierra_check_mibib_smart_update_allow())
+    {
+      /* MIBIB image(partition image) found. LK can't write MIBIB image. */
+      if(!sierra_smem_mibib_set_flag(MIBIB_TO_UPDATE_IN_SBL))
+      {
+        result = BLRESULT_MEMORY_MAP_ERROR;
+        dprintf(CRITICAL, "write MIBIB to SMEM failed, ret:%d\n", result);
+        return result;
+      }
+      else
+      {
+        /* set the global varible to true for modem reset */
+        to_update_mibib = TRUE;
+        return BLRESULT_OK;
+      }
+    }
+  }
+
   bufp = blSearchCWEImage(CWE_IMAGE_TYPE_SBL1, startbufp, hdr->image_sz);
   if (bufp != NULL)
   {
@@ -1080,6 +1241,15 @@ _global enum blresultcode blProgramCWEImage(
       {
         break;
       }
+
+      /* 1, If found QPAR image, */
+      if (to_update_mibib == TRUE)
+      {
+        /* 1.1 then copy whole BOOT image to  SCRATCH_REGION2:0x88000000 */
+        /* In this case FULL BOOT image has already been stored in SCRATCH_REGION2:0x88000000 */
+        /* 1.2 MIBIB smart update, should go to sbl now */
+        return BLRESULT_OK;
+      }
     } /* CWE_IMAGE_TYPE_BOOT */
 
     /*                    -------------------
@@ -1130,6 +1300,16 @@ _global enum blresultcode blProgramCWEImage(
         if (blProgramBootImage(&spkg_sub_img_header, bufp + sizeof(struct cwe_header_s)) != BLRESULT_OK)
         {
           break;
+        }
+
+        /* 1, If found QPAR image, */
+        if (to_update_mibib == TRUE)
+        {
+          /* 1.1 then copy whole BOOT image to  SCRATCH_REGION2:0x88000000 */
+          memmove((void *)BL_BOOT_IMG_STORED_BY_LK, (void *)bufp, sizeof(struct cwe_header_s) + spkg_sub_img_header.image_sz);
+          
+          /* 1.2 MIBIB smart update, should go to sbl now */
+          return BLRESULT_OK;
         }
       }
 
