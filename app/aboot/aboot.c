@@ -3310,29 +3310,48 @@ void cmd_flash_nand(const char *arg, void *data, unsigned sz)
 			break;
 			case BLRESULT_AUTHENTICATION_ERROR:
 			fastboot_fail("SIERRA AUTHENTICATION_ERROR. exit");
+			sierra_check_mibib_state_clear();
 			return;
 			case BLRESULT_FLASH_WRITE_ERROR:
 			fastboot_fail("SIERRA FLASH_WRITE_ERROR. exit");
+			sierra_check_mibib_state_clear();
 			return;
 			case BLRESULT_PRODUCT_TYPE_INVALID:
 			fastboot_fail("SIERRA PRODUCT_TYPE_INVALID. exit");
+			sierra_check_mibib_state_clear();
 			return;
 			case BLRESULT_DECOMPRESSION_ERROR:
 			fastboot_fail("SIERRA DECOMPRESSION_ERROR. exit");
+			sierra_check_mibib_state_clear();
 			return;
 			case BLRESULT_FLASH_READ_ERROR:
 			fastboot_fail("SIERRA FLASH_READ_ERROR. exit");
+			sierra_check_mibib_state_clear();
 			return;
 			case BLRESULT_CRC32_CHECK_ERROR:
 			fastboot_fail("SIERRA CRC32_CHECK_ERROR. exit");
+			sierra_check_mibib_state_clear();
 			return;
 			case BLRESULT_CWE_HEADER_ERROR:
 			fastboot_fail("SIERRA CWE_HEADER_ERROR. exit");
+			sierra_check_mibib_state_clear();
 			return;
 			default:
 			fastboot_fail("SIERRA IMG FLASH WRITE ERROR. exit");
+			sierra_check_mibib_state_clear();
 			return;
 		}
+
+		if(to_update_mibib)
+		{
+			to_update_mibib = FALSE;
+			dprintf(INFO, "Rebooting the device to finish MIBIB update in SBL.\n");
+			fastboot_info("System reboot to finish MIBIB update.");
+			fastboot_okay("");
+			reboot_device(FASTBOOT_MODE);
+		}
+
+		sierra_check_mibib_state_clear();
 	}
 	else
 	{
