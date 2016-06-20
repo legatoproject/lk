@@ -69,6 +69,26 @@ enum
 
 typedef unsigned int uint32;
 
+/* SWISTART */
+#ifdef SIERRA
+typedef unsigned char uint8_t;
+
+typedef enum 
+{
+	RAW = 0, /**< Raw address space. */
+	CORR, /**< Corrected address space. */
+	MAX = 0x7FFFFFFF 
+}addr_type;
+
+typedef struct{
+	uint32 row_address;
+	uint32 addr_type;
+	uint32 *row_data;
+	uint32 *qfprom_api_status;
+} qfprom_read_row_req;
+#endif
+/* SWISTOP */
+
 typedef struct {
 	uint32 len;
 	uint32 buf_offset;
@@ -212,12 +232,20 @@ typedef struct
 } scmcall_ret;
 
 /* Service IDs */
+
 #define SCM_SVC_BOOT                0x01
 #define TZBSP_SVC_INFO              0x06
 #define SCM_SVC_SSD                 0x07
 #define SVC_MEMORY_PROTECTION       0x0C
 #define TZ_SVC_CRYPTO               0x0A
 #define SCM_SVC_INFO                0x06
+/* SWISTART */
+#ifdef SIERRA
+#define SCM_QFPROM_READ_ROW_ID      0x05
+#define SCM_SVC_FUSE                0x08
+#define SCM_SVC_PIL                 0x01
+#endif
+/* SWISTOP */
 
 /*Service specific command IDs */
 #define ERR_FATAL_ENABLE            0x0
@@ -238,6 +266,12 @@ typedef struct
 
 #define PRNG_CMD_ID                 0x01
 #define IS_CALL_AVAIL_CMD           0x01
+
+/* SWISTART */
+#ifdef SIERRA
+#define PIL_INIT_ID                 0x01
+#endif
+/* SWISTOP */
 
 /* Download Mode specific arguments to be passed to TZ */
 #define SCM_EDLOAD_MODE 0x02
@@ -332,6 +366,12 @@ int mdtp_cipher_dip_cmd(uint8_t *in_buf, uint32_t in_buf_size, uint8_t *out_buf,
 
 void set_tamper_fuse_cmd();
 
+/* SWISTART */
+#ifdef SIERRA
+int qfprom_read_row_cmd(uint32_t row_address, uint32_t addr_type, uint32_t *row_data, uint32_t *qfprom_api_status);
+int scm_auth_image_cmd(uint32_t *image_info_data, uint32_t buff_size);
+#endif
+/* SWISTOP */
 int scm_halt_pmic_arbiter();
 int scm_call_atomic2(uint32_t svc, uint32_t cmd, uint32_t arg1, uint32_t arg2);
 int restore_secure_cfg(uint32_t id);

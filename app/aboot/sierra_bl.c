@@ -24,6 +24,7 @@
 
 #include "mach/sierra_smem.h"
 #include "sierra_bludefs.h"
+#include "scm.h"
 
 /*
  *  externs
@@ -518,6 +519,91 @@ bool sierra_smem_mibib_set_flag(uint32 update_flag)
     return FALSE;
   }
 }
+
+/************
+ *
+ * Name:     sierra_smem_get_auth_en
+ *
+ * Purpose:  get AUTH_EN flag from share memory
+ *
+ * Parms:    NONE
+ *
+ * Return:   TRUE if secure boot enable
+ *           FALSE if secure boot not enalbe.
+ *
+ * Abort:    GEt smem address failed
+ *
+ * Notes:    none
+ *
+ ************/
+boolean sierra_smem_get_auth_en(void)
+{
+  struct bs_smem_secboot_info *secbinfop = NULL;
+  unsigned char *virtual_addr = NULL;
+  int auth_en = 0;
+  uint32_t calc_crc= 0;
+
+  virtual_addr = sierra_smem_base_addr_get();
+  if (virtual_addr)
+  {
+    virtual_addr += BSMEM_SECB_OFFSET;
+
+    secbinfop = (struct bs_smem_secboot_info *)virtual_addr;
+    if (secbinfop == NULL) {
+      dprintf(CRITICAL, "ERROR: can't get secboot smem data\n");
+      ASSERT(0);
+    }
+    calc_crc = crcrc32((uint8 *)secbinfop, (sizeof(struct bs_smem_secboot_info) - sizeof(uint32_t)), (uint32)CRSTART_CRC32);
+    if (secbinfop->magic_beg == BS_SMEM_SECBOOT_MAGIC_BEG &&
+      secbinfop->magic_end == BS_SMEM_SECBOOT_MAGIC_BEG &&
+      secbinfop->crc32 == calc_crc)
+    {
+      auth_en = secbinfop->auth_enable;
+    }
+
+    dprintf(INFO, "[lk_debug]magic_beg=0x%x,magic_end=0x%x,auth_en=%d,crc32=0x%x,calc_crc=0x%x\n",
+    secbinfop->magic_beg, secbinfop->magic_end, auth_en, secbinfop->crc32, calc_crc);
+  }
+
+  return auth_en;
+}
+
+/************
+ *
+ * Name:     sierra_smem_get_auth_en
+ *
+ * Purpose:  get AUTH_EN flag from share memory
+ *
+ * Parms:    secboot_info_ptr
+ *
+ * Return:   TRUE if auth 
+ *           FALSE if secure boot not enalbe.
+ *
+ * Abort:    GEt smem address failed
+ *
+ * Notes:    none
+ *
+ ************/
+boolean image_authenticate(secboot_image_info_type* secboot_info_ptr)
+{
+  boolean ret = FALSE;
+
+  ASSERT(NULL != secboot_info_ptr );
+
+  dprintf(CRITICAL,"[lk_debug]image_authenticate enter.\n");
+  if(!scm_auth_image_cmd((uint32_t *)secboot_info_ptr, sizeof(secboot_image_info_type)))
+  {
+    dprintf(CRITICAL,"[lk_debug]authenticate image succeed.\n");
+    ret = TRUE;
+  }
+  else
+  {
+    dprintf(CRITICAL,"[lk_debug]authenticate image failed!.\n");
+    ret = FALSE;
+  }
+  return ret;
+}
+
 
 /************
  *

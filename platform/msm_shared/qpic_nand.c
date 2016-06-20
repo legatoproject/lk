@@ -41,6 +41,12 @@
 #include <target.h>
 #include "bootimg.h"
 
+/* SWISTART */
+#ifdef SIERRA
+#include "sierra_bludefs.h"
+#endif
+/* SWISTOP */
+
 static uint32_t nand_base;
 static struct ptable *flash_ptable;
 static struct flash_info flash;
@@ -2088,6 +2094,8 @@ int qpic_nand_read_page_sierra(uint32_t page, unsigned char* buffer)
 int convert_bootimg_4K_2K(const char *ori_buf, int old_size, char* new_buf)
 {
     uint32 ori_kernel_offset, ori_ramdisk_offset, ori_second_offset, ori_dtb_offset;
+    uint32 ori_mbn_header_offset, secboot_data_size = 0;
+    mi_boot_image_header_type *mbn_header_ptr;
     boot_img_hdr *hdr, *new_hdr;
     uint32 new_buf_pos = 0;
 
@@ -2108,9 +2116,9 @@ int convert_bootimg_4K_2K(const char *ori_buf, int old_size, char* new_buf)
         ori_dtb_offset = ori_second_offset;
 
 
-    printf("hdr->kernel_size: %d, ori_kernel_offset: %d, ori_ramdisk_offset: %d, ori_second_offset: %d\n",
+    printf("hdr->kernel_size:0x%x, ori_kernel_offset:0x%x, ori_ramdisk_offset:0x%x, ori_second_offset:0x%x\n",
         hdr->kernel_size, ori_kernel_offset, ori_ramdisk_offset, ori_second_offset);
-    
+
     //hdr->page_size = 2048;
     memcpy(new_buf, hdr, sizeof(boot_img_hdr));
     new_hdr->page_size = 2048;
@@ -2145,9 +2153,22 @@ int convert_bootimg_4K_2K(const char *ori_buf, int old_size, char* new_buf)
         new_buf_pos += hdr->dt_size;
         new_buf_pos += ADD_PADDING_2048(hdr->dt_size);
     }
-
+    printf("new_buf_pos=0x%x,ori_dtb_offset:0x%x,dt_size=0x%x\n",new_buf_pos,ori_dtb_offset,hdr->dt_size);
+    ori_mbn_header_offset = ori_dtb_offset + hdr->dt_size +ADD_PADDING_4096(hdr->dt_size);
+    /*Check whether image have been signed*/
+    mbn_header_ptr = (mi_boot_image_header_type* )(ori_buf + ori_mbn_header_offset);
+    /*Check whether have MBN header*/
+    if((uint32)mbn_header_ptr->image_id == APPS_IMG)
+    {
+      secboot_data_size = sizeof(mi_boot_image_header_type)+ mbn_header_ptr->signature_size + mbn_header_ptr->cert_chain_size;
+      memcpy(new_buf+new_buf_pos, ori_buf+ ori_mbn_header_offset, secboot_data_size);
+      new_buf_pos += secboot_data_size;
+      new_buf_pos += ADD_PADDING_2048(secboot_data_size);
+      printf("image signed, code_szie:0x%x, sig_size:0x%x, certs_size:0x%x, new_buf_pos:0x%x\n",
+        mbn_header_ptr->code_size, mbn_header_ptr->signature_size, mbn_header_ptr->cert_chain_size, new_buf_pos);
+    }
     return new_buf_pos;
-    
+
 }
 #endif
 /* SWISTOP */

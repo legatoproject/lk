@@ -77,6 +77,7 @@
 #include "mach/sierra_smem.h"
 #include "sierra_bludefs.h"
 #include "sierra_dsudefs.h"
+#include "sierra_cweudefs.h"
 #endif
 /* SWISTOP */
 
@@ -1182,6 +1183,112 @@ unified_boot:
 	return 0;
 }
 
+/* SWISTART */
+#ifdef SIERRA
+boolean boot_swi_lk_auth_kernel(struct ptentry *ptn,boot_img_hdr *hdr)
+{
+	unsigned kernel_actual;
+	unsigned ramdisk_actual;
+	unsigned second_actual;
+	unsigned dt_actual;
+	unsigned offset = 0;
+	unsigned read_size = 0;
+	mi_boot_image_header_type *mbn_header_ptr = 0;
+	unsigned char *image_addr = NULL;
+	secboot_image_info_type secboot_image_info;
+
+	memset((void*)&secboot_image_info, 0, sizeof(secboot_image_info));
+	secboot_image_info.sw_type = SECBOOT_SWI_APPS_SW_TYPE;
+
+	/*Get some temp buff for auth. use buffer from half of SCRATCH_REGION2 */
+	image_addr = (unsigned char *)target_get_scratch_address();
+	mbn_header_ptr = (mi_boot_image_header_type *)(image_addr + SCRATCH_REGION2_SIZE/2);
+
+	/*Get acutal size of each segments */
+	kernel_actual = ROUND_TO_PAGE(hdr->kernel_size, page_mask);
+	ramdisk_actual = ROUND_TO_PAGE(hdr->ramdisk_size, page_mask);
+	second_actual = ROUND_TO_PAGE(hdr->second_size, page_mask);
+	dt_actual = ROUND_TO_PAGE(hdr->dt_size, page_mask);
+
+	/* Get MBN header offset, kernel image have aligned to page size */
+	offset = page_size + kernel_actual + ramdisk_actual + second_actual + dt_actual;
+
+	/* Read MBN head page to check whether have mbn header, it will also read out siganture and part of cert chain */
+	if(flash_read(ptn, offset,(void *)mbn_header_ptr, page_size)) {
+		dprintf(CRITICAL, "ERROR: Cannot read mbn header, mbn_hdrp = 0x%x\n",(unsigned int)mbn_header_ptr);
+		return FALSE;
+	}
+
+	/* Check whether have MBN header; only signed image have MBN header + signature + certification chain */
+	if((mbn_header_ptr->image_id == APPS_IMG)&&(mbn_header_ptr->image_size != 0)&&(mbn_header_ptr->image_size = 
+		mbn_header_ptr->code_size+ mbn_header_ptr->signature_size + mbn_header_ptr->cert_chain_size) )
+	{ /* have MBN header*/
+		secboot_image_info.header_ptr_1 = (const uint8*)mbn_header_ptr;
+		secboot_image_info.header_len_1 = sizeof(mi_boot_image_header_type);
+		secboot_image_info.signature_len = mbn_header_ptr->signature_size;
+		secboot_image_info.x509_chain_len = mbn_header_ptr->cert_chain_size;
+		secboot_image_info.code_len_1 = mbn_header_ptr->code_size;
+	}
+	else /*have not MBN header, mean image not signed*/
+	{
+		dprintf(CRITICAL, "[lk_debug]MBN header is NULL\n");
+		return FALSE;
+	}
+	dprintf(INFO, "[lk_debug]mbn header offset:0x%x, code_szie:0x%x, sig_size:0x%x, certs_size:0x%x\n",
+			offset, mbn_header_ptr->code_size, secboot_image_info.signature_len, secboot_image_info.x509_chain_len);
+
+	/*Continue to read rest part of cert chain.*/
+	image_addr= (unsigned char *)mbn_header_ptr;
+	read_size = secboot_image_info.header_len_1 + secboot_image_info.signature_len
+			+ secboot_image_info.x509_chain_len - page_size;
+	read_size = ROUND_TO_PAGE(read_size, page_mask);
+	offset += page_size;
+	if(flash_read(ptn, offset,(void *)(image_addr + page_size), read_size)) {
+		dprintf(CRITICAL, "ERROR: Cannot read rest of sign + cert chain.\n");
+		return FALSE;
+	}
+	secboot_image_info.signature_ptr = secboot_image_info.header_ptr_1 + secboot_image_info.header_len_1;
+	secboot_image_info.x509_chain_ptr = secboot_image_info.signature_ptr + secboot_image_info.signature_len;
+
+	/*Start to read out image data. move or read all kernel image data together to RAM */
+	image_addr = (unsigned char *)mbn_header_ptr + page_size +read_size; /*offset one page size from start address */
+	secboot_image_info.code_ptr_1 = (const uint8 *)image_addr;
+
+	/*First read boot_img_hdr page*/
+	offset = 0;
+	if(flash_read(ptn, offset, (void *)image_addr, read_size)) {
+		dprintf(CRITICAL, "ERROR: Cannot read kernel image header\n");
+		return FALSE;
+	}
+
+	/* kernel and ramdisk have been read out to correct address, now collect them together to buff */
+	offset +=  page_size;
+	memmove((void*) (image_addr + page_size), (char *)hdr->kernel_addr, kernel_actual);
+	offset += kernel_actual;
+	memmove((void*) (image_addr + page_size + kernel_actual), (char *)hdr->ramdisk_addr, ramdisk_actual);
+	offset += ramdisk_actual;
+
+	/*for other image(e.g. device tree), just read from FLASH*/
+	if(offset < secboot_image_info.code_len_1)
+	{
+		read_size= ROUND_TO_PAGE(secboot_image_info.code_len_1 - offset, page_mask);
+		if(flash_read(ptn, offset,(void *)(image_addr + offset), read_size)) {
+		dprintf(CRITICAL, "ERROR: Cannot read device tree, offset=0x%x, read_size=0x%x\n",offset,read_size);
+		return FALSE;
+		}
+	}
+
+	/*Call TZ SCM_CALL to auth kernel image*/
+	if(!image_authenticate(&secboot_image_info))
+	{
+		dprintf(CRITICAL, "ERROR: authenticate image failed\n");
+		return FALSE;
+	}
+	return TRUE;
+}
+#endif
+/* SWISTOP */
+
 int boot_linux_from_flash(void)
 {
 	struct boot_img_hdr *hdr = (void*) buf;
@@ -1466,22 +1573,33 @@ int boot_linux_from_flash(void)
 				return -1;
 			}
 
-/* SWISTART */
-#ifdef SIERRA
-				/* Get the result that program reliability authenticate kernel when secure boot disabled */
-				/* TBD until program reliability part finished */
-				if(kernel_is_bad)
-				{
-					sierra_ds_smem_write_bad_image_and_swap(bad_image_mask);
 
-					/* Swap system after bad kernel detected */
-					dprintf(INFO, "rebooting the device\n");
-					reboot_device(0);
-				}
-#endif
-/* SWISTOP */
 		}
 #endif
+
+/* SWISTART */
+#ifdef SIERRA
+		/*If secure boot enabled, auth kernel image.*/
+		if(sierra_smem_get_auth_en())
+		{
+			if(!boot_swi_lk_auth_kernel(ptn,hdr))
+			{
+				dprintf(CRITICAL, "[lk_debug]ERROR: LK auth kernel failed\n");
+				kernel_is_bad = TRUE;
+			}
+		}
+		/* Get the result that program reliability authenticate kernel when secure boot disabled */
+		/* TBD until program reliability part finished */
+		if(kernel_is_bad)
+		{
+			sierra_ds_smem_write_bad_image_and_swap(bad_image_mask);
+
+			/* Swap system after bad kernel detected */
+			dprintf(INFO, "rebooting the device\n");
+			reboot_device(0);
+		}
+#endif
+/* SWISTOP */
 
 	}
 continue_boot:
