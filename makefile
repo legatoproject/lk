@@ -81,7 +81,7 @@ CPPFLAGS := -fno-exceptions -fno-rtti -fno-threadsafe-statics
 ASMFLAGS := -DASSEMBLY
 LDFLAGS := 
 
-CFLAGS += -ffunction-sections -fdata-sections
+CFLAGS += -ffunction-sections -fdata-sections -I app/aboot
 LDFLAGS += -gc-sections
 
 # top level rule
