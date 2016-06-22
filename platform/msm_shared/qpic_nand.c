@@ -38,6 +38,8 @@
 #include <platform.h>
 #include <platform/clock.h>
 #include <platform/iomap.h>
+#include <target.h>
+#include "bootimg.h"
 
 static uint32_t nand_base;
 static struct ptable *flash_ptable;
@@ -2050,6 +2052,74 @@ flash_ecc_bch_enabled()
 	return (flash.ecc_width == NAND_WITH_4_BIT_ECC)? 0 : 1;
 }
 
+/* SWISTART */
+#ifdef SIERRA
+int convert_bootimg_4K_2K(const char *ori_buf, int old_size, char* new_buf)
+{
+    uint32 ori_kernel_offset, ori_ramdisk_offset, ori_second_offset, ori_dtb_offset;
+    boot_img_hdr *hdr, *new_hdr;
+    uint32 new_buf_pos = 0;
+
+    hdr = (boot_img_hdr *)ori_buf;
+    new_hdr = (boot_img_hdr *)new_buf;
+
+    ori_kernel_offset = sizeof(boot_img_hdr) + ADD_PADDING_4096(sizeof(boot_img_hdr));
+    ori_ramdisk_offset = ori_kernel_offset + hdr->kernel_size + ADD_PADDING_4096(hdr->kernel_size);
+
+    if (hdr->ramdisk_size != 0)
+        ori_second_offset = ori_ramdisk_offset + hdr->ramdisk_size + ADD_PADDING_4096(hdr->ramdisk_size);
+    else
+        ori_second_offset = ori_ramdisk_offset;
+
+    if (hdr->second_size != 0)
+        ori_dtb_offset = ori_second_offset + hdr->second_size + ADD_PADDING_4096(hdr->second_size);
+    else
+        ori_dtb_offset = ori_second_offset;
+
+
+    printf("hdr->kernel_size: %d, ori_kernel_offset: %d, ori_ramdisk_offset: %d, ori_second_offset: %d\n",
+        hdr->kernel_size, ori_kernel_offset, ori_ramdisk_offset, ori_second_offset);
+
+    //hdr->page_size = 2048;
+    memcpy(new_buf, hdr, sizeof(boot_img_hdr));
+    new_hdr->page_size = 2048;
+    new_buf_pos += sizeof(boot_img_hdr);
+    new_buf_pos += ADD_PADDING_2048(new_buf_pos);
+    printf("sizeof(hdr): %d, new_buf_pos11 %d\n", (int)sizeof(boot_img_hdr), new_buf_pos);
+
+    memcpy(new_buf+new_buf_pos, ori_buf+ori_kernel_offset, hdr->kernel_size);
+    new_buf_pos += hdr->kernel_size;
+    new_buf_pos += ADD_PADDING_2048(hdr->kernel_size);
+    printf("kernel size: %d, new_buf_pos22 %d\n", hdr->kernel_size, new_buf_pos);
+
+    if (hdr->ramdisk_size != 0)
+    {
+        memcpy(new_buf+new_buf_pos, ori_buf+ori_ramdisk_offset, hdr->ramdisk_size);
+        new_buf_pos += hdr->ramdisk_size;
+        new_buf_pos += ADD_PADDING_2048(hdr->ramdisk_size);
+    }
+
+    printf("hdr->ramdisk_size: %d, new_buf_pos33: %d\n", hdr->ramdisk_size, new_buf_pos);
+
+    if (hdr->second_size != 0)
+    {
+        memcpy(new_buf+new_buf_pos, ori_buf+ori_second_offset, hdr->second_size);
+        new_buf_pos += hdr->second_size;
+        new_buf_pos += ADD_PADDING_2048(hdr->second_size);
+    }
+
+    if (hdr->dt_size != 0)
+    {
+        memcpy(new_buf+new_buf_pos, ori_buf+ori_dtb_offset, hdr->dt_size);
+        new_buf_pos += hdr->dt_size;
+        new_buf_pos += ADD_PADDING_2048(hdr->dt_size);
+    }
+
+    return new_buf_pos;
+}
+#endif
+/* SWISTOP */
+
 int
 flash_write(struct ptentry *ptn,
 			unsigned write_extra_bytes,
@@ -2063,6 +2133,40 @@ flash_write(struct ptentry *ptn,
 	uint32_t wsize;
 	uint32_t spare_byte_count = 0;
 	int r;
+/* SWISTART */
+#ifdef SIERRA
+	boot_img_hdr *hdr;
+	char *convert_data = NULL;
+	uint32 convert_data_len = 0;
+
+	/* check if need to convert boot.img from 4k to 2k  */
+	if (!strcmp(ptn->name, "boot"))
+	{
+		hdr = (boot_img_hdr *)data;
+		if ((flash.page_size == 2048) && (hdr->page_size == 4096))
+		{
+			dprintf(CRITICAL, "\nNeed to convert bootimg, malloc: %d\n", bytes);
+			convert_data = (char *)target_get_scratch_address();
+			dprintf(CRITICAL, "convert_data: 0x%x\n", (int)convert_data);
+			convert_data += CONVERTED_IMG_MEM_OFFSET;
+			dprintf(CRITICAL, "Add 0x4000000, convert_data: 0x%x\n", (int)convert_data);
+			if (convert_data == NULL)
+			{
+				dprintf(CRITICAL, "fail to use malloc\n");
+				return -1;
+			}
+			convert_data_len = convert_bootimg_4K_2K(data, bytes, convert_data);
+			dprintf(CRITICAL, "convert_data_len: %d\n", convert_data_len);
+		}
+	}
+
+	if (convert_data_len != 0) {
+		image = (unsigned char *)convert_data;
+		data = convert_data;
+		bytes = convert_data_len;
+	}
+#endif
+/* SWISTOP */
 
 	spare_byte_count = ((flash.cw_size * flash.cws_per_page)- flash.page_size);
 

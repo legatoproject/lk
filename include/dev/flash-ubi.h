@@ -90,6 +90,12 @@ struct __attribute__ ((packed)) ubifs_sb_node {
 #define UBI_CRC32_INIT 0xFFFFFFFFU
 #define UBIFS_CRC32_INIT 0xFFFFFFFFU
 
+/* SWISTART */
+#ifdef SIERRA
+#define UBIFS_MAGIC 0x31181006
+#endif /* SIERRA */
+/* SWISTOP */
+
 /* Erase counter header fields */
 struct __attribute__ ((packed)) ubi_ec_hdr {
 	uint32_t  magic;
@@ -207,6 +213,30 @@ struct ubi_scan_info {
 	unsigned data_offs;
 	uint32_t  image_seq;
 	uint32_t  read_image_seq;
+};
+
+/**
+ * struct ubi_image_scan_info - record some of the info of all ubi volume that are
+ # not same to all other blocks.
+ * @compat_vid: compatibility of this volume (%0, %UBI_COMPAT_DELETE,
+ *          %UBI_COMPAT_IGNORE, %UBI_COMPAT_PRESERVE, or %UBI_COMPAT_REJECT)
+ *          recroded in vid header
+ * @compat_peb: compatibility of this volume (%0, %UBI_COMPAT_DELETE,
+ *          %UBI_COMPAT_IGNORE, %UBI_COMPAT_PRESERVE, or %UBI_COMPAT_REJECT)
+ *          recroded in physical erase blocks
+ * @vol_id_vid: ID of this volume recroded in vid header
+ * @vol_id_peb: ID of this volume recroded in physical erase blocks
+ * @last_leb_data_size: data size at the last block in this UBI volume.
+ * @max_leb_block: the biggest lnum volume in this UBI volume
+ *
+ */
+struct __attribute__ ((packed)) ubi_image_scan_info {
+	uint8_t		compat_vid;
+	uint8_t		compat_leb;
+	uint32_t	vol_id_vid;
+	uint32_t	vol_id_leb;
+	uint32_t	last_leb_data_size;
+	uint32_t	max_leb_block;
 };
 
 int flash_ubi_img(struct ptentry *ptn, void *data, unsigned size);
