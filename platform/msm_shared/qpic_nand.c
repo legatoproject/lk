@@ -2286,6 +2286,37 @@ flash_write_sierra(struct ptentry *ptn,
 	uint32_t spare_byte_count = 0;
 	int r;
 
+	boot_img_hdr *hdr;
+	char *convert_data = NULL;
+	uint32 convert_data_len = 0;
+
+	/* check if need to convert boot.img from 4k to 2k  */
+	if (!strcmp(ptn->name, "boot"))
+	{
+		hdr = (boot_img_hdr *)data;
+		if ((flash.page_size == 2048) && (hdr->page_size == 4096))
+		{
+			dprintf(CRITICAL, "\nNeed to convert bootimg, malloc: %d\n", bytes);
+			convert_data = (char *)target_get_scratch_address();
+			dprintf(CRITICAL, "convert_data: 0x%x\n", (int)convert_data);
+			convert_data += CONVERTED_IMG_MEM_OFFSET;
+			dprintf(CRITICAL, "Add 0x4000000, convert_data: 0x%x\n", (int)convert_data);
+			if (convert_data == NULL)
+			{
+				dprintf(CRITICAL, "fail to use malloc\n");
+				return -1;
+			}
+			convert_data_len = convert_bootimg_4K_2K(data, bytes, convert_data);
+			dprintf(CRITICAL, "convert_data_len: %d\n", convert_data_len);
+		}
+	}
+
+	if (convert_data_len != 0) {
+		image = (unsigned char *)convert_data;
+		data = convert_data;
+		bytes = convert_data_len;
+	}
+
 	spare_byte_count = ((flash.cw_size * flash.cws_per_page)- flash.page_size);
 	if(write_extra_bytes)
 		wsize = flash.page_size + spare_byte_count;
