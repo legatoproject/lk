@@ -427,6 +427,81 @@ static struct reset_clk gcc_usb2a_phy_sleep_clk = {
 	},
 };
 
+/* SWISTART */
+#ifdef SIERRA
+/* SPI Clocks */
+/* Reference: F(f, s, div, m, n) 
+  * f = (s*m) / (div*n) */
+
+static struct clk_freq_tbl ftbl_gcc_blsp_spi_apps_clk[] =
+{
+	F(960000,      cxo,    10,  1,      2),
+	F(4800000,     cxo,    4,   0,      0),
+	F(9600000,     cxo,    2,   0,      0),
+	F(19200000,    cxo,    1,   0,      0),
+	F_END
+};
+
+static struct rcg_clk blsp1_spi1_apps_clk_src =
+{
+	.cmd_reg      = (uint32_t *) BLSP1_QUP3_SPI_APPS_CMD_RCGR,
+	.cfg_reg      = (uint32_t *) BLSP1_QUP3_SPI_APPS_CFG_RCGR,
+	.m_reg        = (uint32_t *) BLSP1_QUP3_SPI_APPS_M,
+	.n_reg        = (uint32_t *) BLSP1_QUP3_SPI_APPS_N,
+	.d_reg        = (uint32_t *) BLSP1_QUP3_SPI_APPS_D,
+
+	.set_rate     = clock_lib2_rcg_set_rate_mnd,
+	.freq_tbl     = ftbl_gcc_blsp_spi_apps_clk,
+	.current_freq = &rcg_dummy_freq,
+
+	.c = {
+		.dbg_name = "blsp1_spi1_apps_clk",
+		.ops      = &clk_ops_rcg_mnd,
+	},
+};
+
+static struct branch_clk gcc_blsp1_spi1_apps_clk =
+{
+	.cbcr_reg     = (uint32_t *) BLSP1_QUP3_SPI_APPS_CBCR,
+	.parent       = &blsp1_spi1_apps_clk_src.c,
+
+	.c = {
+		.dbg_name = "gcc_blsp1_spi1_apps_clk",
+		.ops      = &clk_ops_branch,
+	},
+};
+
+static struct rcg_clk blsp1_spi2_apps_clk_src =
+{
+	.cmd_reg      = (uint32_t *) BLSP1_QUP4_SPI_APPS_CMD_RCGR,
+	.cfg_reg      = (uint32_t *) BLSP1_QUP4_SPI_APPS_CFG_RCGR,
+	.m_reg        = (uint32_t *) BLSP1_QUP4_SPI_APPS_M,
+	.n_reg        = (uint32_t *) BLSP1_QUP4_SPI_APPS_N,
+	.d_reg        = (uint32_t *) BLSP1_QUP4_SPI_APPS_D,
+
+	.set_rate     = clock_lib2_rcg_set_rate_mnd,
+	.freq_tbl     = ftbl_gcc_blsp_spi_apps_clk,
+	.current_freq = &rcg_dummy_freq,
+
+	.c = {
+		.dbg_name = "blsp1_spi2_apps_clk",
+		.ops      = &clk_ops_rcg_mnd,
+	},
+};
+
+static struct branch_clk gcc_blsp1_spi2_apps_clk =
+{
+	.cbcr_reg     = (uint32_t *) BLSP1_QUP4_SPI_APPS_CBCR,
+	.parent       = &blsp1_spi2_apps_clk_src.c,
+
+	.c = {
+		.dbg_name = "gcc_blsp1_spi2_apps_clk",
+		.ops      = &clk_ops_branch,
+	},
+};
+#endif
+/* SWISTOP */
+
 static struct clk_lookup msm_clocks_9640[] =
 {
 	CLK_LOOKUP("sdc1_iface_clk", gcc_sdcc1_ahb_clk.c),
@@ -448,6 +523,15 @@ static struct clk_lookup msm_clocks_9640[] =
 	CLK_LOOKUP("usb30_phy_reset",     gcc_usb30_phy_reset.c),
 
 	CLK_LOOKUP("usb_phy_cfg_ahb_clk", gcc_usb_phy_cfg_ahb_clk.c),
+
+/* SWISTART */
+#ifdef SIERRA
+	CLK_LOOKUP("spi1_iface_clk", gcc_blsp1_ahb_clk.c),
+	CLK_LOOKUP("spi1_core_clk",  gcc_blsp1_spi1_apps_clk.c),
+	CLK_LOOKUP("spi2_iface_clk", gcc_blsp1_ahb_clk.c),
+	CLK_LOOKUP("spi2_core_clk",  gcc_blsp1_spi2_apps_clk.c),
+#endif
+/* SWISTOP */
 };
 
 void platform_clock_init(void)

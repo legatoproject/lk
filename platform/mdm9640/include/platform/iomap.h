@@ -202,4 +202,24 @@ uint32_t platform_boot_config();
 /* eMMC Display */
 #define TLMM_EBI2_EMMC_GPIO_CFG     0x01111000
 #define EBI2_BOOT_SELECT            0x2
+
+/* SWISTART */
+#ifdef SIERRA
+#define BLSP1_QUP3_SPI_APPS_CBCR                  (CLK_CTL_BASE + 0x401C)
+#define BLSP1_QUP3_SPI_APPS_CMD_RCGR              (CLK_CTL_BASE + 0x4024)
+#define BLSP1_QUP3_SPI_APPS_CFG_RCGR              (CLK_CTL_BASE + 0x4028)
+#define BLSP1_QUP3_SPI_APPS_M                     (CLK_CTL_BASE + 0x402C)
+#define BLSP1_QUP3_SPI_APPS_N                     (CLK_CTL_BASE + 0x4030)
+#define BLSP1_QUP3_SPI_APPS_D                     (CLK_CTL_BASE + 0x4034)
+
+#define BLSP1_QUP4_SPI_APPS_CBCR                  (CLK_CTL_BASE + 0x501C)
+#define BLSP1_QUP4_SPI_APPS_CMD_RCGR              (CLK_CTL_BASE + 0x5024)
+#define BLSP1_QUP4_SPI_APPS_CFG_RCGR              (CLK_CTL_BASE + 0x5028)
+#define BLSP1_QUP4_SPI_APPS_M                     (CLK_CTL_BASE + 0x502C)
+#define BLSP1_QUP4_SPI_APPS_N                     (CLK_CTL_BASE + 0x5030)
+#define BLSP1_QUP4_SPI_APPS_D                     (CLK_CTL_BASE + 0x5034)
+#endif
+/* SWISTOP */
+
+
 #endif
