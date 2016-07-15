@@ -25,6 +25,7 @@
 #include "mach/sierra_smem.h"
 #include "sierra_bludefs.h"
 #include "scm.h"
+#include <target.h>
 
 /*
  *  externs
@@ -46,6 +47,9 @@ bool to_update_mibib = FALSE; /* Indicates modem should warm reset to SBL, to up
 
 /* Smart Error Recovery Thresholds: */
 #define BLERRTHRESHOLD_FASTBOOT  6  /* enter into fastboot mode */
+
+#define CRCCHUNKSIZE        500 /* Chunk size for successive calls to CRC
+                                 * computation */
 
 
 uint8 bl_yaffs2_header[] =
@@ -700,6 +704,699 @@ _package struct blCtrlBlk *blGetcbp(
 {
   return &blc;
 }
+
+/************
+ *
+ * Name:     blgetrxbuf
+ *
+ * Purpose:  Get a pointer to rxbuf in BL control block
+ *
+ * Params:   None
+ *
+ * Return:   Pointer to the static Rx buffer
+ *
+ * Notes:
+ *
+ * Abort:
+ *
+ ************/
+_global uint8 *blgetrxbuf(
+  void)
+{
+  return blc.blcrxbuf;
+}
+
+/************
+ *
+ * Name:     bluisetstate
+ *
+ * Purpose:  Set the UI state
+ *
+ * Params:   state - UI state
+ *
+ * Return:   None
+ *
+ * Notes:    None
+ *
+ * Abort:    None
+ *
+ ************/
+_global void bluisetstate(
+  enum bluistateE state)
+{
+/* Just a stub function for porting source code */
+}
+
+
+/************
+ *
+ * Name:     blReset
+ *
+ * Purpose:  Internal BL function for Resetting
+ *
+ * Params:   None
+ *
+ * Return:   None
+ *
+ * Notes:    None
+ *
+ * Abort:
+ *
+ ************/
+_global void blReset(
+  void)
+{
+  reboot_device(0);
+}
+
+
+/************
+ *
+ * Name:     blCrcCheck
+ *
+ * Purpose:  Internal BL function for checking the CRC of a region of memory.
+ *           This function is needed to wrap the CR package's CRC computing
+ *           routine. It breaks what might be a long-duration call into several
+ *           shorter-duration calls so the Watchdog can be kicked in between. The
+ *           existing CR package routines do not know about the Watchdog.
+ *
+ * Params:   startaddp - Pointer to the address in memory to start computing the CRC from
+ *           Length    - Number bytes to read in computing the CRC
+ *           seed      - starting CRC seed
+ *
+ * Return:   crc32 - The 32-bit CRC corresponding to the region of memory specified in the
+ *                   calling arguments
+ *
+ * Notes:    None
+ *
+ * Abort:
+ *
+ ************/
+_local uint32 blCrcCheck(
+  uint8 * address,
+  uint32 length,
+  uint32 seed)
+{
+  uint32 numbytes;              /* Number of bytes to call CRC routine with */
+
+  if (address == NULL)
+  {
+    return seed;
+  }
+
+  /* Every CRCCHUNKSIZE bytes worth, kick the dog */
+  while (length)
+  {
+
+    if (length != 0)
+    {
+      if (length > CRCCHUNKSIZE)
+      {
+        numbytes = CRCCHUNKSIZE;
+        length -= CRCCHUNKSIZE;
+      }
+      else
+      {
+        numbytes = length;
+        length = 0;
+      }
+
+      /* Set up to call CRC computation with next chunk */
+      seed = crcrc32(address, numbytes, seed);
+
+      /* Advance address pointer to next chunk */
+      address += numbytes;
+    }
+  }
+  return seed;
+}
+
+
+/************
+ *
+ * Name:     blsave2dloadram
+ *
+ * Purpose:  Copy buffer to RAM, update crc and download variables
+ *
+ * Params:   startflag - if this payload is CWE header
+ *                       (CWE header should be skipped for CRC32 calculation)
+ *           payloadp  - image payload
+ *           tlen      - payload length 
+ *
+ * Return:   result code (as defined in 'enum blresultcode')
+ *
+ * Notes:    This function will be use by both Sirra boot downloader and QCT
+ *           boot downloader
+ *
+ * Abort:
+ *
+ ************/
+_local enum blresultcode blsave2dloadram(
+  boolean startflag,
+  uint8 *payloadp,
+  uint32 tlen)
+{
+  /* ptr to control block structure */
+  struct blCtrlBlk *cbp = blGetcbp(); 
+
+  if ((payloadp == NULL) || (cbp == NULL))
+  {
+    return BLRESULT_UNSPECIFIED;
+  }
+
+  memmove(cbp->blcbufp, payloadp, tlen);
+
+  /* In order to support partial flash writes during the download, start
+   * calculating the crc as soon as any part of the image has arrived */
+  if (startflag && tlen > sizeof(struct cwe_header_s))
+  {
+    cbp->blcrc32 = blCrcCheck(cbp->blcbufp + sizeof(struct cwe_header_s), tlen - sizeof(struct cwe_header_s), cbp->blcrc32);
+  }
+  else if (!startflag)
+  {
+    cbp->blcrc32 = blCrcCheck(cbp->blcbufp, tlen, cbp->blcrc32);
+  }
+
+  cbp->blcbufp += tlen;
+  if (cbp->blbytesleft >= tlen)
+  {
+    cbp->blbytesleft -= tlen;
+  }
+  else
+  {
+    return BLRESULT_IMGSIZE_MISMATCH_ERROR;
+  }
+
+  return BLRESULT_OK;
+}
+
+/************
+ *
+ * Name:     blcallerror
+ *
+ * Purpose:  Process error condition
+ *
+ * Params:   error - error code
+ *
+ * Return:   error code
+ *
+ * Notes:
+ *
+ * Abort:
+ *
+ ************/
+_package enum blresultcode blcallerror(
+  enum blresultcode error,
+  enum bl_dld_seq_e seq)
+{
+  return error;
+}
+
+
+/************
+ *
+ * Name:     blprocessdldcontinue - process Download Continue payload
+ *
+ * Purpose:  save payload to RAM, write to flash if necessary
+ *
+ * Params:   payloadp   - image payload
+ *           tlen       - payload length 
+ *           bytesleftp - output buffer to return number of bytes left for image
+ *
+ * Return:   process result code, see 'enum blresultcode'
+ *
+ * Notes:
+ *
+ * Abort:
+ *
+ ************/
+_global enum blresultcode blprocessdldcontinue(
+  uint8 *payloadp,
+  uint32 tlen,
+  uint32 *bytesleftp)
+{
+  /* ptr to control block structure */
+  struct blCtrlBlk *cbp = blGetcbp(); 
+  enum blresultcode result;
+
+  if ((payloadp == NULL) || (cbp == NULL))
+  {
+    return BLRESULT_UNSPECIFIED;
+  }
+
+  /* make sure there is data to program */
+  if (tlen)
+  {
+#if defined(SSDP_OVER_SPI)
+    /* SPI special process here, because SPI won't get exact data len:  */
+    tlen = tlen > cbp->blbytesleft ? cbp->blbytesleft:tlen;
+#endif
+    if (tlen > cbp->blbytesleft)
+    {
+      return blcallerror(BLRESULT_IMGSIZE_MISMATCH_ERROR, BL_DLD);
+    }
+
+    /* Copy buffer to RAM, update crc and download variables */
+    result = blsave2dloadram(FALSE, payloadp, tlen);
+    if (result != BLRESULT_OK)
+    {
+      return blcallerror(result, BL_DLD);
+    }
+  }
+
+  if (bytesleftp)
+  {
+    *bytesleftp = cbp->blbytesleft;
+  }
+  return BLRESULT_OK;
+}
+
+/************
+ *
+ * Name:     blprocessdldend - process Download done
+ *
+ * Purpose:  Process the host's Download done image and write image to flash
+ *
+ * Params:   none
+ *
+ * Return:   result code (as defined in 'enum blresultcode')
+ *
+ * Notes:
+ *
+ * Abort:
+ *
+ ************/
+_global enum blresultcode blprocessdldend(
+  void)
+{
+  enum blresultcode result = BLRESULT_OK;
+  /* ptr to control block structure */
+  struct blCtrlBlk *cbp = blGetcbp(); 
+
+  /* ensure file size is ok */
+  if (cbp->blbytesleft != 0)
+  {
+    return blcallerror(BLRESULT_IMGSIZE_MISMATCH_ERROR, BL_DLD_VERIFY);
+  }
+
+  if ((cbp->blhd.misc_opts & CWE_MISC_OPTS_COMPRESS) == 0 &&
+      cbp->blhd.image_crc != cbp->blcrc32)
+  {
+    /* only check CRC for uncompressed image. Will check CRC after decompression */ 
+    return blcallerror(BLRESULT_CRC32_CHECK_ERROR, BL_DLD_VERIFY);
+  }
+#if 0
+  /* Not ready yet, to be implemented when recovery procedure */ 
+  result = blProgramCWEImage(&cbp->blhd,
+                             bl_dload_area_start_get(cbp),
+                             bl_dload_area_used_size_get(cbp),
+                             cbp->blbytesleft);
+
+  if (result != BLRESULT_OK)
+  {
+    blcallerror(result, BL_DLD_FLASH);
+  }
+  else
+  {
+  
+    bl_flog_print(FLOG_CLASS_LONG, TRUE,
+                  "%s", FLOG_STATUS_OK);
+    bl_update_status_set(BC_UPDATE_STATUS_OK);
+  }
+#endif
+  return (result);
+}
+
+
+/************
+ *
+ * Name:     blpkgchkver
+ *
+ * Purpose:  Check if package downloaded compatible with target
+ *
+ * Parms:    pkgverp - package version string from package CWE header
+ *
+ * Return:   TRUE if package version check passed, FALSE otherwise
+ *
+ * Abort:    none
+ *
+ * Notes:    SKU from package version string will be checked against 
+ *           SKU set in the device, SKU is a UINT32 number:
+ *           - if match, check pass;
+ *           - if device SKU not set, check pass
+ *           - if package version string is "INTERNAL_...", check pass
+ *           otherwise check failed
+ *
+ ************/
+_package boolean blpkgchkver(
+  char *pkgverp)
+{
+/* SWI_TBD imorrison 14:08:26 - bcnvreadfromuserbackram not yet ported */
+#if 1
+  return TRUE;
+#else
+  static const char str_INTERNAL[] = "INTERNAL";
+  uint32 pkgsku, devicesku, nvitemlen;
+  uint8 *nvitemp;
+
+  if(!pkgverp)
+  {
+    return FALSE;
+  }
+
+  /* Referring to "INTERNAL" directly seems causing problems and SPKG download speed becomes slow
+   * and fail in the middle:
+   * strncmp(pkgverp, "INTERNAL"...)
+   */
+  if(strncmp(pkgverp, str_INTERNAL, strlen(str_INTERNAL)) == 0)
+  {
+    /* generic package with only firmware, can work with any SKU */
+    return TRUE;
+  }
+
+  /* if image switching is enabled, don't check SKU ID */
+  bcnvreadfromuserbackram(NVMMT_TYPE_SWINV, 0, 0, FALSE, "CUST_GOBIIMEN", &nvitemp, &nvitemlen);
+  if(nvitemp && nvitemlen == sizeof(uint8))
+  {
+    if(*nvitemp == NVCSTGOBIIM_ENABLE)
+    {
+      return TRUE;
+    }
+  }
+
+  /* get package SKU, slatol will read the number until a non-digit char */
+  pkgsku = slatol(pkgverp);  
+  /* invalid SKU in package version, fail the check */
+  if(!pkgsku)
+  {
+    return FALSE;
+  }      
+
+  if(pkgsku == BL_SPKG_TEST_SKU_NUM)
+  {
+    /* test SKU, accept anyway */  
+    return TRUE;
+  }
+
+  /* read device SKU from NVBU area 
+   * specify NV name diretctly since we don't want to link NV package into boot 
+   */
+  bcnvreadfromuserbackram(NVMMT_TYPE_SWINV, 0, 0, FALSE, "PRODUCT_SKU", &nvitemp, &nvitemlen);
+
+  if(nvitemp && nvitemlen == sizeof(uint32))
+  {
+    /* note that nvitemp since it is might be 4 byte aligned */  
+    memmove((void *)&devicesku, nvitemp, sizeof(uint32));
+    if(devicesku == pkgsku)
+    {
+      return TRUE;
+    }
+  }
+  else
+  {
+    /* no SKU set in device, pass the check */
+    return TRUE;
+  }
+
+  return FALSE;
+#endif
+}
+
+/*************
+ *
+ * Name:     bl_compatibility_test
+ *
+ * Purpose:  Tests whether the given compatibility value 
+ *           matches the expected compatibility value for the 
+ *           given image type
+ *
+ * Parms:    value - compatibility value to be compared with expected
+ *           imagetype - image type for compatibility test
+ *
+ * Return:   TRUE - given compatibility value matches expected value
+ *           FALSE - invalid image type or mismatched compatibility values
+ *
+ * Abort:    None
+ *
+ * Notes:    None
+ *
+ **************/
+_package boolean bl_compatibility_test(uint32 value, enum cwe_image_type_e imagetype)
+{
+  boolean retVal = FALSE;
+
+  switch (imagetype)
+  {
+    case CWE_IMAGE_TYPE_EXEC:    /* hardware compatibility only */
+      if ((value & BL_HW_COMPAT_MASK) == BL_HW_COMPAT_BYTE)
+      {
+        retVal = TRUE;
+      }
+      break;
+
+    case CWE_IMAGE_TYPE_BOOT:
+    case CWE_IMAGE_TYPE_OSBL:
+      if ((value & BL_BOOT_COMPAT_MASK) == BL_BOOT_COMPAT_WORD)
+      {
+        retVal = TRUE;
+      }
+      break;
+
+    case CWE_IMAGE_TYPE_APPL:    /* Firmware (boot-app) compatibility */
+    case CWE_IMAGE_TYPE_AMSS:
+    case CWE_IMAGE_TYPE_APPS:
+    case CWE_IMAGE_TYPE_APBL:
+    case CWE_IMAGE_TYPE_DSP2:
+    case CWE_IMAGE_TYPE_MODM:
+      if ((value & BL_APP_COMPAT_MASK) == BL_APP_COMPAT_WORD)
+      {
+        retVal = TRUE;
+      }
+      break;
+
+    case CWE_IMAGE_TYPE_SWOC:    /* no compatibility requirement */
+    case CWE_IMAGE_TYPE_FOTO:
+    case CWE_IMAGE_TYPE_HDAT:
+      retVal = TRUE;
+      break;
+
+    default:                    /* all other image types just return FALSE */
+      retVal = FALSE;
+      break;
+
+  }
+
+  if (imagetype == CWE_IMAGE_TYPE_FILE)
+  {
+    /* no compatibility requirement for file types */
+    retVal = TRUE;
+  }
+
+  return retVal;
+}
+
+/************
+ *
+ * Name:     bl_dload_area_start_get
+ *
+ * Purpose:  Returns the start of the download RAM area
+ *
+ * Params:   cbp - pointer to the download handler control block
+ *
+ * Return:   Start of download RAM area
+ *
+ * Notes:    None
+ *
+ * Abort:
+ *
+ ************/
+_package uint8 *bl_dload_area_start_get(
+  struct blCtrlBlk *cbp)
+{
+  return ((uint8 *)target_get_scratch_address());
+}
+
+
+/************
+ *
+ * Name:     bl_dload_area_size_get
+ *
+ * Purpose:  Returns the size of the download RAM area
+ *
+ * Params:   cbp - pointer to the download handler control block
+ *
+ * Return:   Size of download RAM area
+ *
+ * Notes:    None 
+ *
+ * Abort:
+ *
+ ************/
+_package uint32 bl_dload_area_size_get(
+  struct blCtrlBlk * cbp)
+{
+
+  return ((uint32)target_get_max_flash_size());
+}
+
+/************
+ *
+ * Name:     blprocessdldstart
+ *
+ * Purpose:  Verify CWE header from Download Start Request message.
+ *           Extract the header info, validate it and save the related info
+ *           to control block.
+ *
+ * Params:   cwehdrp  - CWE header pointer from Download Start Request message
+ *           tlen     - cwehdrp buffer length (payload len of Download Start Request) 
+ *           errmsgpp - error message to be returned if validate failed
+ *
+ * Return:   process result code, see 'enum blresultcode'
+ *
+ * Notes:    This function will be use by both Sirra boot downloader and QCT
+ *           boot downloader
+ *
+ * Abort:
+ *
+ ************/
+_global enum blresultcode blprocessdldstart(
+  uint8 *cwehdrp,
+  uint32 tlen)
+{
+  enum blresultcode result;
+  /* ptr to control block structure */
+  struct blCtrlBlk *cbp = blGetcbp(); 
+
+  if ((cwehdrp == NULL) || (cbp == NULL))
+  {
+    return BLRESULT_UNSPECIFIED;
+  }
+
+  /* Firmware Device Update Logging Feature */
+  char typeStr[CWE_IMAGE_TYP_SZ + 1];
+  char bcVerStr[CWE_VER_STR_SZ + 1];
+  const char *imagep;
+
+  if (tlen < sizeof(struct cwe_header_s))
+  {
+    /* wrong header length */
+    return blcallerror(BLRESULT_CWE_HEADER_ERROR, BL_DLD_PREDLD_VERIFY);
+  }
+
+  /* Firmware Device Update Logging Feature */
+  memset(typeStr, 0, CWE_IMAGE_TYP_SZ + 1);
+  memset(bcVerStr, 0, CWE_VER_STR_SZ + 1);
+  (void)strncpy(bcVerStr, (char *)cwehdrp + CWE_OFFSET_VERSION, CWE_VER_STR_SZ);
+
+
+  /* clear checksum counter and reset CRC seed */
+  cbp->blchcksum = 0;
+  cbp->blcrc32 = CRSTART_CRC32;
+
+  (void)cwe_header_load(cwehdrp, &cbp->blhd); /* extract the header */
+
+  /* validate the image type from the CWE header */
+  if (cwe_image_type_validate(cbp->blhd.image_type, &cbp->imagetype) == FALSE)
+  {
+     return blcallerror(BLRESULT_IMAGE_TYPE_INVALID, BL_DLD_PREDLD_VERIFY);
+  }
+
+  imagep = cwe_image_string_get(cbp->imagetype);
+  if (imagep)
+  {
+    (void)strncpy(typeStr, imagep, CWE_IMAGE_TYP_SZ);
+  }
+  else
+  {
+  }
+
+  /* For most images, validate the product type from the CWE header. Some,
+   * such as SWoC can be universal */
+  switch (cbp->imagetype)
+  {
+    case CWE_IMAGE_TYPE_SWOC:
+    case CWE_IMAGE_TYPE_HDAT:
+      break;
+
+    default:
+      if (cbp->blhd.prod_type != BL_PRODUCT_ID)
+      {
+        /* wrong file for this product */
+        return blcallerror(BLRESULT_PRODUCT_TYPE_INVALID, BL_DLD_PREDLD_VERIFY);
+      }
+      break;
+  }
+
+  /* With NAND flash, we prefer to download as much of the image as possible
+   * to SDRAM before programming flash.  We now ignore the store address in
+   * the CWE header (mainly an artifact of NOR flash support) and use a
+   * hardcoded value. */
+  cbp->blcbufp = bl_dload_area_start_get(cbp);
+
+  /* Determine the total number of bytes remaining in the download and check
+   * we haven't already received too many */
+  cbp->blbytesleft = cbp->blhd.image_sz + sizeof(struct cwe_header_s);
+  if (tlen > cbp->blbytesleft)
+  {
+    return blcallerror(BLRESULT_IMGSIZE_MISMATCH_ERROR, BL_DLD_PREDLD_VERIFY);
+  }
+
+  /* Image must fit into the RAM download area */
+  if (cbp->blbytesleft > bl_dload_area_size_get(cbp))
+  {
+    return blcallerror(BLRESULT_IMGSIZE_OUT_OF_RANGE, BL_DLD_PREDLD_VERIFY);
+  }
+
+  /* Test compatibility bytes according to image type */
+  if (bl_compatibility_test(cbp->blhd.compat, cbp->imagetype) == FALSE)
+  {
+    switch (cbp->imagetype)
+    {
+      case CWE_IMAGE_TYPE_APPL:
+        return blcallerror(BLRESULT_APPL_NOT_COMPATIBLE, BL_DLD_PREDLD_VERIFY);
+
+      case CWE_IMAGE_TYPE_EXEC:
+        return blcallerror(BLRESULT_BOOT_NOT_COMPATIBLE, BL_DLD_PREDLD_VERIFY);
+
+      default:
+        break;
+    }
+  }
+
+  /* Check signature if imagetype is an application */
+  if (cbp->imagetype == CWE_IMAGE_TYPE_APPL)
+  {
+    if (cbp->blhd.signature != CWE_SIGNATURE_APP)
+    {
+      return blcallerror(BLRESULT_SIGNATURE_INVALID, BL_DLD_PREDLD_VERIFY);
+    }
+  }
+  else if (cbp->imagetype == CWE_IMAGE_TYPE_SPKG)
+  {
+    /* check SPKG compatibility */
+    if (!blpkgchkver((char *)cbp->blhd.version))
+    {
+      return blcallerror(BLRESULT_PKG_NOT_COMPATIBLE, BL_DLD_PREDLD_VERIFY);
+    }  
+  }
+
+  /* Initialize blflash */
+
+  /* would not allow smart recovery in the middle of firmware upgrade */
+
+  /* Set UI state to DOWNLOADING */
+  bluisetstate(BLUISTATE_DOWNLOADING);
+
+  /* save payload to DLOAD RAM area */
+  result = blsave2dloadram(TRUE, cwehdrp, tlen);
+
+  if (result != BLRESULT_OK)
+  {
+    blcallerror(result, BL_DLD);
+  }
+  return result;
+}
+
 
 /************
  *

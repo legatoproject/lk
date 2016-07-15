@@ -11,9 +11,14 @@ $(OUTELF): $(ALLOBJS) $(LINKER_SCRIPT) $(OUTPUT_TZ_BIN)
 	@echo linking $@
 	$(NOECHO)$(LD) $(LDFLAGS) -T $(LINKER_SCRIPT) $(OUTPUT_TZ_BIN) $(ALLOBJS) $(LIBGCC) -o $@
 else
+# SWISTART
+#$(OUTELF): $(ALLOBJS) $(LINKER_SCRIPT)
+#	@echo linking $@
+#	$(NOECHO)$(LD) $(LDFLAGS) -T $(LINKER_SCRIPT) $(ALLOBJS) $(LIBGCC) -o $@
 $(OUTELF): $(ALLOBJS) $(LINKER_SCRIPT)
 	@echo linking $@
-	$(NOECHO)$(LD) $(LDFLAGS) -T $(LINKER_SCRIPT) $(ALLOBJS) $(LIBGCC) -o $@
+	$(NOECHO)$(LD) $(ALLOBJS) $(LDFLAGS) -T $(LINKER_SCRIPT) $(LIBGCC) -o $@
+# SWISTOP
 endif
 
 

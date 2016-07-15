@@ -41,6 +41,11 @@ OUTELF_STRIP := $(BUILDDIR)/lk_s.elf
 
 CONFIGHEADER := $(BUILDDIR)/config.h
 
+# SWISTART
+SWISSDPLIB := lib/libswi/libswissdp.a
+LIBS := $(SWISSDPLIB)
+# SWISTOP
+
 #Initialize the command-line flag ENABLE_TRUSTZONE. Value for flag passed in at command-line will take precedence
 ENABLE_TRUSTZONE := 0
 
@@ -56,7 +61,10 @@ ifeq ($(EMMC_BOOT),1)
   CFLAGS += -D_EMMC_BOOT=1
 endif
 
+# SWISTART
 CFLAGS += -DSIERRA
+CFLAGS += -DSSDP_OVER_SPI
+# SWISTOP
 
 ifeq ($(SIGNED_KERNEL),1)
   CFLAGS += -D_SIGNED_KERNEL=1
@@ -84,6 +92,10 @@ ifneq ($(PKG_CONFIG_SYSROOT_DIR),)
   CPPFLAGS += --sysroot=$(PKG_CONFIG_SYSROOT_DIR)
   LDFLAGS += --sysroot=$(PKG_CONFIG_SYSROOT_DIR)
 endif
+
+# SWISTART
+LDFLAGS += $(LIBS)
+# SWISTOP
 
 # top level rule
 all:: $(OUTBIN) $(OUTELF).lst $(OUTELF).debug.lst $(OUTELF).sym $(OUTELF).size $(OUTELF_STRIP) APPSBOOTHEADER

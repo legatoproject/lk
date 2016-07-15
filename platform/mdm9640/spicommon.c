@@ -18,6 +18,7 @@
 #include "qtimer.h"
 #include "gpio.h"
 #include <platform/clock.h>
+#include <string.h>
 
 /* Local constants and enumerated types */
 /* QUP - SPI register offset */
@@ -137,10 +138,14 @@ enum msm_spi_state {
   SPI_OP_STATE_PAUSE = 0x00000003,
 };
 
+#define SPI_NO_CHAR (-1)
+
 /* SPI driver globe configuration begin:
   * Developer should modify these item to adapt SPI register and clock of MDM9x40 */
 
-/* #define SPI_USE_BLSP_QUP2 */
+#if 0
+#define SPI_USE_BLSP_QUP2
+#endif
 
 #ifdef SPI_USE_BLSP_QUP2
 /* We use QUP2 config, real index is 3 in QC's HW document*/
@@ -187,12 +192,34 @@ unsigned int qup_register = 0x78B8000;  /* Now we use BLSP_QUP3_QUP_CONFIG: 0x78
 /* SPI_BYTES_PER_WORD should be 1 ~ 4 */
 #define SPI_BYTES_PER_WORD          4
 
+/* SPI FIFO length by word */
+#define SPI_FIFO_LEN_BY_WORD        16
+
+/* SPI FIFO length by bytes */
+#define SPI_FIFO_LEN_BY_BYTE        (SPI_FIFO_LEN_BY_WORD * SPI_BYTES_PER_WORD)
+
 /* Refer to Kernel, set SPI_DEASSERT_WAIT to 42 ticks */
 #define SPI_DEASSERT_WAIT_TICKS     0x14
 
 #define SPI_MX_CHECK_VALID_COUNT    100
 
 #define SPI_COMMON_TIME_INTERVAL    1   /*ns*/
+
+#define SPI_DUMMY_BYTES_FOR_READING 0xFF
+
+#define SPI_READ_WRITE_BUF_MAX_LEN  SPI_FIFO_LEN_BY_BYTE
+
+unsigned char spi_dummy_buf[SPI_READ_WRITE_BUF_MAX_LEN] = {0}; /* Dummy buf for reading and writing */
+
+unsigned char spi_read_buf[SPI_READ_WRITE_BUF_MAX_LEN] = {0};  /* To receive read data */
+int spi_read_buf_len = 0;                                      /* Vaild length of read_buf */
+int spi_read_index = 0;                                        /* Index to be read of read_buf */
+
+
+unsigned char spi_write_buf[SPI_READ_WRITE_BUF_MAX_LEN] = {0}; /* To receive write data */
+int spi_write_buf_len = 0;                                     /* Vaild length of write_buf */
+int spi_write_index = 0;                                       /* Index to be written of write_buf */
+
 
 /* SPI driver globe configuration end */
 
@@ -393,6 +420,57 @@ boolean spi_init(void)
 
 /************
  *
+ * Name:     spi_init_ex
+ *
+ * Purpose:  SPI init
+ *
+ * Parms:    use_pid - not used
+ *
+ * Return:   none
+ *
+ * Abort:    none
+ *
+ * Notes:    none
+ *
+ ************/
+void spi_init_ex(boolean use_pid)
+{
+  memset(spi_read_buf, 0, SPI_READ_WRITE_BUF_MAX_LEN);
+  spi_read_buf_len = 0;
+  spi_read_index = 0;
+
+  memset(spi_write_buf, 0, SPI_READ_WRITE_BUF_MAX_LEN);
+  spi_write_index = 0;
+  
+  spi_init();
+  return;
+}
+
+
+/************
+ *
+ * Name:      spi_shutdown
+ *
+ * Purpose:   This function close SPI
+ *
+ * Params:    None
+ *
+ * Return:    TRUE when success, FALSE when fail
+ *
+ * Note:      None
+ *
+ * Abort:     None
+ *
+ ************/
+void spi_shutdown(void)
+{
+  /* In LK, we won't have a special API to close clock for special device
+   * So leave it stub here. */
+  return;
+}
+
+/************
+ *
  * Name:      spi_write
  *
  * Purpose:   This function write data to SPI FIFO
@@ -528,6 +606,291 @@ int spi_read(unsigned char *rbuf, int rbuf_len)
   }
 
   return i;
+}
+
+/************
+ *
+ * Name:      spi_drain
+ *
+ * Purpose:  This function waits for the last character in the SPI's transmit
+ *                FIFO to be transmitted.  This allows the caller to be sure that all
+ *                characters are transmitted.
+ *
+ * Params:    
+ *
+ * Return:    Read data length or -1 when failed.
+ *
+ * Note:      None
+ *
+ * Abort:     None
+ *
+ ************/
+void spi_drain(void)
+{
+  while ((inpdw(QUP_REGISTER_BASE + QUP_OPERATIONAL) & SPI_OP_OP_FIFO_NOT_EMPTY))
+  {
+    spiWaitTicks();
+  }
+  
+  /* When OP FIFO empty, it will return */
+  return;
+}
+
+/************
+ *
+ * Name:      spi_drain_timeout
+ *
+ * Purpose:  This function waits for the last character in the SPI's transmit
+ *                FIFO to be transmitted.  This allows the caller to be sure that all
+ *                characters are transmitted.
+ *
+ * Params:    timeout - not used.
+ *
+ * Return:    Read data length or -1 when failed.
+ *
+ * Note:      None
+ *
+ * Abort:     None
+ *
+ ************/
+void spi_drain_timeout(uint32 timeout)
+{
+  spi_drain();
+  return;
+}
+
+/************
+ *
+ * Name:      spi_receive_byte
+ *
+ * Purpose:  This function receives an incoming data from the respective USB out fifos and
+ *                returns one character at a time to the calling function. Though it receives
+ *                a bigger packet at once, it always retuns one character to the calling function.
+ *                This approach is choosen to have a consitancy between the UART and USB modules.
+ *
+ * Params:    
+ *
+ * Return:  character from the receive buffer.
+ *              If there is nothing in the receive buffer then it return SPI_NO_CHAR (-1).
+ *
+ * Note:      None
+ *
+ * Abort:     None
+ *
+ ************/
+int spi_receive_byte(void)
+{
+  int ret = -1;
+  int write_ret = 0, read_ret = 0, checkcount= 0;
+  
+  if (spi_read_buf_len <= spi_read_index)
+  {
+    /* Clear read buf */
+    memset(spi_read_buf, 0, SPI_READ_WRITE_BUF_MAX_LEN);
+    spi_read_buf_len = 0;
+    spi_read_index = 0;
+    
+    /* 1, we send out any data in write_buf, and align it with dummy bytes */
+    memset(spi_dummy_buf, SPI_DUMMY_BYTES_FOR_READING, SPI_READ_WRITE_BUF_MAX_LEN);
+    write_ret = spi_write(spi_dummy_buf, SPI_BYTES_PER_WORD);
+    if (write_ret <= 0)
+    {
+      return SPI_NO_CHAR;
+    }
+    else
+    {
+      /* 2, we will get back length of data as the lengh we already send out  */
+      read_ret = 0;
+      checkcount = 0;
+
+      do
+      {
+        read_ret = spi_read(&spi_read_buf[spi_read_buf_len], SPI_READ_WRITE_BUF_MAX_LEN - spi_read_buf_len);
+        if ((read_ret < 0) || (checkcount++ >= SPI_MX_CHECK_VALID_COUNT))
+        {
+          return SPI_NO_CHAR;
+        }
+        else
+        {
+          spi_read_buf_len += read_ret;
+        }
+      } while(spi_read_buf_len < write_ret);
+      
+    }
+  }
+
+  ret = (int)spi_read_buf[spi_read_index++];
+  
+  return ret;
+}
+
+/************
+ *
+ * Name:      spi_transmit_byte
+ *
+ * Purpose:  Transmit a byte to the host.
+ *
+ * Params:    data - byte to transmit
+ *
+ * Return:    None
+ *
+ * Note:      None
+ *
+ * Abort:     None
+ *
+ ************/
+void spi_transmit_byte(unsigned char data)
+{
+  /* It will be very complex to impletement send data byte by byte on SPI, 
+     * because we have to deal with case 1,2,3,4 bytes per word when do this. 
+     * For case 2,3,4 bytes per word, we have to deal it with  Length  threshold and time threshold  
+     * For a FW of simple task, it is hard to implement time threshold  */
+     
+  /* However it is good luck that SSDP doens't request to send data byte by byte,
+     * So we just keep it as stub function now. 
+     * When it is necessarry in future, we will implement it with APP's logic */
+  return;
+}
+
+/************
+ *
+ * Name:      spi_receive_pkt
+ *
+ * Purpose:  This function receive a buffer from host.
+ *
+ * Params:    buf - point to final receive buffer 
+ *
+ * Return:    Length data received from host 
+ *
+ * Note:      None
+ *
+ * Abort:     None
+ *
+ ************/
+uint32 spi_receive_pkt(unsigned char **buf)
+{
+  uint32  ulLen = 0;
+  int write_ret = 0, read_ret = 0, checkcount= 0;
+
+  if (buf == NULL)
+  {
+    return 0;
+  }
+
+  if (spi_read_buf_len <= spi_read_index)
+  {
+    /* Clear read buf */
+    memset(spi_read_buf, 0, SPI_READ_WRITE_BUF_MAX_LEN);
+    spi_read_buf_len = 0;
+    spi_read_index = 0;
+
+    /* 1, we send out dummy bytes */
+    memset(spi_dummy_buf, SPI_DUMMY_BYTES_FOR_READING, SPI_READ_WRITE_BUF_MAX_LEN);
+    write_ret = spi_write(spi_dummy_buf, SPI_READ_WRITE_BUF_MAX_LEN);
+    if (write_ret <= 0)
+    {
+      ulLen = 0;
+      *buf = NULL;
+    }
+    else
+    {
+      /* 2, we will get back length of data as the lengh we already send out */
+      read_ret = 0;
+      checkcount = 0;
+      *buf = spi_read_buf;
+      
+      do
+      {
+        read_ret = spi_read(&spi_read_buf[spi_read_buf_len], SPI_READ_WRITE_BUF_MAX_LEN - spi_read_buf_len);
+        if ((read_ret < 0) || (checkcount++ >= SPI_MX_CHECK_VALID_COUNT))
+        {
+          ulLen = 0;
+          *buf = NULL;
+          break;
+        }
+        else
+        {
+          spi_read_buf_len += read_ret;
+          ulLen = spi_read_buf_len;
+        }
+      } while(spi_read_buf_len < write_ret);
+    }  
+  }
+  else
+  {
+    /* There are still some data when we "spi_receive_byte()", return all of them to APP first,
+         * then we can receive pkt high speed next time */
+    *buf = &spi_read_buf[spi_read_index];
+    ulLen = spi_read_buf_len - spi_read_index;
+  }
+
+  spi_read_buf_len = 0;
+  spi_read_index = 0;
+  return ulLen;
+}
+
+/************
+ *
+ * Name:      spi_transmit_pkt
+ *
+ * Purpose:  This function transmit a buffer to the host.
+ *
+ * Params:    pkt - pointer to pkt to be transmitted
+ *                 len - number of bytes to tx
+ *
+ * Return:    None
+ *
+ * Note:      None
+ *
+ * Abort:     None
+ *
+ ************/
+void spi_transmit_pkt (unsigned char *pkt, uint32 len)
+{
+  uint32 ttl_send = 0, len_to_send = 0;
+  int write_ret = 0, read_ret = 0, read_ttl = 0, checkcount= 0;
+    
+  if (pkt == NULL)
+  {
+    return;
+  }
+
+  ttl_send = 0;
+  do
+  {
+    len_to_send = (len - ttl_send > SPI_READ_WRITE_BUF_MAX_LEN) ? SPI_READ_WRITE_BUF_MAX_LEN:len - ttl_send;
+
+    /* 1, we send out bytes */
+    write_ret = spi_write(&pkt[ttl_send], len_to_send);
+    if (write_ret <= 0)
+    {
+      return;
+    }
+    else
+    {
+      /* 2, we will get back length of dummy data as the lengh we already send out, and discard all of those dummy data */
+      read_ret = 0;
+      read_ttl = 0;
+      checkcount = 0;
+      
+      do
+      {
+        read_ret = spi_read(&spi_dummy_buf[read_ttl], SPI_READ_WRITE_BUF_MAX_LEN - read_ttl);
+        if ((read_ret < 0) || (checkcount++ >= SPI_MX_CHECK_VALID_COUNT))
+        {
+          return;
+        }
+        else
+        {
+          read_ttl += read_ret;
+        }
+      } while(read_ttl < write_ret);
+    }
+
+    ttl_send += write_ret;
+  } while (len > ttl_send);
+
+  return;
 }
 
 /************
