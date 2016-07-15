@@ -14,32 +14,13 @@
 #ifndef cweudefs_h
 #define cweudefs_h
 
+#include <stdint.h>
+
 /* Constants and enumerated types */
 
 #define _global
 #define _local
 #define _package
-
-typedef unsigned char      uint8;   /* 8  bit integer unsigned  */
-typedef unsigned short     uint16;  /* 16 bit integer unsigned  */
-typedef unsigned long long uint64;  /* 64 bit integer unsigned  */
-typedef signed char        int8;    /* 8  bit integer signed    */
-typedef signed short       int16;   /* 16 bit integer signed    */
-typedef signed long long   int64;   /* 64 bit integer signed    */
-
-/* This section is for building for 64-bit Linux hosts */
-
-#ifdef __LP64__                     /* GCC macro indicating longs are 64-bits */
-typedef signed int         int32;   /* 32 bit integer signed    */
-#else                               /* longs are 32-bits (default) */
-typedef signed long        int32;   /* 32 bit integer signed    */
-#endif /* __LP64__ */
-
-typedef  unsigned char      boolean;     /* Boolean value type. */
-
-
-#define TRUE		1
-#define FALSE		0
 
 /* constants for image header */
 #define CWE_HEADER_VER                          03  /* Current header version      */

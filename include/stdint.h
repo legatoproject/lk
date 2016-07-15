@@ -56,5 +56,46 @@ typedef unsigned long uintptr_t;
 typedef long long intmax_t;
 typedef unsigned long long uintmax_t;
 
+/* SWISTART */
+#ifdef SIERRA
+typedef unsigned char      uint8;   /* 8  bit integer unsigned  */
+typedef unsigned short     uint16;  /* 16 bit integer unsigned  */
+typedef unsigned long long uint64;  /* 64 bit integer unsigned  */
+typedef signed char        int8;    /* 8  bit integer signed    */
+typedef signed short       int16;   /* 16 bit integer signed    */
+typedef signed long long   int64;   /* 64 bit integer signed    */
+
+/* This section is for building for 64-bit Linux hosts */
+
+#ifdef __LP64__                     /* GCC macro indicating longs are 64-bits */
+typedef signed int         int32;   /* 32 bit integer signed    */
+#else                               /* longs are 32-bits (default) */
+typedef signed long        int32;   /* 32 bit integer signed    */
+#endif /* __LP64__ */
+
+
+typedef  unsigned char      boolean;     /* Boolean value type. */
+typedef unsigned int       uint32;
+
+typedef unsigned char        byte;
+typedef  unsigned short     word;
+typedef  unsigned int       dword;
+
+
+#ifndef TRUE
+#define TRUE   1   /* Boolean true value. */
+#endif
+
+#ifndef FALSE
+#define FALSE  0   /* Boolean false value. */
+#endif
+
+#ifndef NULL
+#define NULL        0
+#endif
+
+#endif
+/* SWISTOP */
+
 #endif
 

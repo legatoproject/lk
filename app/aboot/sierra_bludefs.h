@@ -195,12 +195,39 @@ typedef struct secboot_image_info_type
 #define BL_BACKUP_PARTI_NAME "backup"
 
 #define BL_PRODUCT_ID                  0x39583430       /* "9X40" */
+#define BL_HW_COMPAT_MASK   0x000000FFU
+#define BL_FW_COMPAT_MASK   0x0000FF00U
+/* Compatibility mask for the application */
+#define BL_APP_COMPAT_MASK  (BL_HW_COMPAT_MASK | BL_FW_COMPAT_MASK)
+/* Compatibility mask for the bootloader */
+#define BL_BOOT_COMPAT_MASK (BL_HW_COMPAT_MASK)
+
+#define BL_FW_COMPAT_BYTE_SHIFT     8
+
+
+#define BL_FW_COMPAT_BYTE 0x00
+#define BL_HW_COMPAT_BYTE 0x00
+
+/* Compatibility Words */
+#define BL_APP_COMPAT_WORD  (BL_HW_COMPAT_BYTE | \
+                            (BL_FW_COMPAT_BYTE << BL_FW_COMPAT_BYTE_SHIFT))
+
+#define BL_BOOT_COMPAT_WORD (BL_HW_COMPAT_BYTE)
+
 
 /* SWI LK will store Boot.cwe in 0x88000000 */
 /* fastboot of LK will use "SCRATCH_REGION2:0x88000000" as download region, 
   for feature to update boot_parti_update.cwe in SBL, we use this address to store image,
   then SBL will update module with update boot_parti_update.cwe */
 #define BL_BOOT_IMG_STORED_BY_LK         0x88000000
+
+#define BLRXBUFSZ         2000  /* maximum allowed by data link protocol */
+#define BLTXBUFSZ         2000  /* maximum allowed by data link protocol; must
+                                 * match RX buffer for loopback to work properly
+                                 */
+
+/* protocol header sizes */
+#define BLHEADERSZ        4     /* header is 4 bytes long (length x 2, cmd ID & code) */
 
 
 /************
@@ -268,6 +295,45 @@ enum blif_type
 
 /************
  *
+ * Name:     bl_dld_seq_e
+ *
+ * Purpose:  Bootloader download sequence enum
+ *
+ * Members:  See below
+ *
+ * Notes:    Update bl_dld_seq_str when this is changed 
+ *
+ ************/
+enum bl_dld_seq_e
+{
+  BL_DLD,               /* Download to RAM */
+  BL_DLD_FLASH,         /* Flash write to NAND */
+  BL_DLD_VERIFY,        /* Verification after download to RAM */
+  BL_DLD_PREDLD_VERIFY, /* Verification before download to RAM */
+};
+
+/************
+ *
+ * Name:     bluistateE
+ *
+ * Purpose:  List of UI states
+ *
+ * Members:  see below
+ *
+ * Notes:    None
+ *
+ ************/
+enum bluistateE
+{
+  BLUISTATE_IDLE,        /* Idle */
+  BLUISTATE_DOWNLOADING, /* Downloading */
+  BLUISTATE_UPDATING,    /* Updating */
+  BLUISTATE_ERROR,       /* Error */
+};
+
+
+/************
+ *
  * Name:      blCtrlBlk
  *
  * Purpose:   This is the main control block for the BL package. It defines all
@@ -289,6 +355,8 @@ struct blCtrlBlk
   uint32 blmodemsync;           /* Statistic to count data link Sync packets */
   struct cwe_header_s blhd;     /* Structure for storing the application header (CWE header) */
   boolean blallowusbd;             /* TRUE when USBD image download is allowed */
+  uint8 blcrxbuf[BLRXBUFSZ + BLHEADERSZ]; /* Buffer for storing newly received packets from the host */
+  uint8 bltxbuf[BLTXBUFSZ];     /* Storage for responses to be transmitted to the host during download */
   boolean blcominited;             /* Flag indicating whether the communication interfaces have been initialized */
   enum cwe_image_type_e imagetype; /* Type of image read from top-level CWE header */
   uint8 dload_reason;              /* reason for going to bootloader */
@@ -306,6 +374,13 @@ extern void sierra_smem_reset_type_set(unsigned int reset_type);
 extern boolean sierra_smem_get_auth_en(void);
 extern boolean image_authenticate(secboot_image_info_type* secboot_info_ptr);
 
+enum blresultcode blprocessdldcontinue(uint8 *payloadp, uint32 tlen, uint32 *bytesleftp);
+enum blresultcode blprocessdldend(void);
+enum blresultcode blprocessdldstart(uint8 *cwehdrp, uint32 tlen);
+
+uint8 *blgetrxbuf(void);
+void bluisetstate(enum bluistateE state);
+void blReset(void);
 enum blresultcode  blProcessFastbootImage(unsigned char *bufp, unsigned int image_size);
 void sierra_check_mibib_state_clear(void);
 
