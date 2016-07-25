@@ -87,9 +87,25 @@ struct tlmm_cfgs {
 	uint32_t reg;  /* TLMM ping register */
 };
 
+/* SWISTART */
+#ifdef SIERRA
+/* GPIO SPI CNF ID */
+#define GPIO_BLSP_QUP1_GPIO_CNF_ID  0
+#define GPIO_BLSP_QUP2_GPIO_CNF_ID  1  /* SPI1 module */
+#define GPIO_BLSP_QUP3_GPIO_CNF_ID  2  /* SPI2 module */
+#endif
+/* SWISTOP */
+
 /* APIs: exposed for other drivers */
 /* API: Hdrive control for tlmm pins */
 void tlmm_set_hdrive_ctrl(struct tlmm_cfgs *, uint8_t);
 /* API:  Pull control for tlmm pins */
 void tlmm_set_pull_ctrl(struct tlmm_cfgs *, uint8_t);
+
+/* SWISTART */
+#ifdef SIERRA
+void gpio_config_spi(uint8_t id);
+#endif
+/* SWISTOP */
+
 #endif

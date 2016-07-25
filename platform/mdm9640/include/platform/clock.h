@@ -37,4 +37,10 @@ void clock_config_uart_dm(uint8_t id);
 void clock_usb30_init(void);
 void clock_config_ce(uint8_t instance);
 
+/* SWISTART */
+#ifdef SIERRA
+void clock_config_spi(uint8_t id, unsigned long rate);
+#endif
+/* SWISTOP */
+
 #endif

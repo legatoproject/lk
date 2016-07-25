@@ -72,6 +72,14 @@
 #include "devinfo.h"
 #include "board.h"
 #include "scm.h"
+/* SWISTART */
+#ifdef SIERRA
+#include "mach/sierra_smem.h"
+#include "sierra_bludefs.h"
+#include "sierra_dsudefs.h"
+#include "sierra_cweudefs.h"
+#endif
+/* SWISTOP */
 
 extern  bool target_use_signed_kernel(void);
 extern void platform_uninit(void);
@@ -1191,6 +1199,112 @@ unified_boot:
 	return 0;
 }
 
+/* SWISTART */
+#ifdef SIERRA
+boolean boot_swi_lk_auth_kernel(struct ptentry *ptn,boot_img_hdr *hdr)
+{
+	unsigned kernel_actual;
+	unsigned ramdisk_actual;
+	unsigned second_actual;
+	unsigned dt_actual;
+	unsigned offset = 0;
+	unsigned read_size = 0;
+	mi_boot_image_header_type *mbn_header_ptr = 0;
+	unsigned char *image_addr = NULL;
+	secboot_image_info_type secboot_image_info;
+
+	memset((void*)&secboot_image_info, 0, sizeof(secboot_image_info));
+	secboot_image_info.sw_type = SECBOOT_SWI_APPS_SW_TYPE;
+
+	/*Get some temp buff for auth. use buffer from half of SCRATCH_REGION2 */
+	image_addr = (unsigned char *)target_get_scratch_address();
+	mbn_header_ptr = (mi_boot_image_header_type *)(image_addr + SCRATCH_REGION2_SIZE/2);
+
+	/*Get acutal size of each segments */
+	kernel_actual = ROUND_TO_PAGE(hdr->kernel_size, page_mask);
+	ramdisk_actual = ROUND_TO_PAGE(hdr->ramdisk_size, page_mask);
+	second_actual = ROUND_TO_PAGE(hdr->second_size, page_mask);
+	dt_actual = ROUND_TO_PAGE(hdr->dt_size, page_mask);
+
+	/* Get MBN header offset, kernel image have aligned to page size */
+	offset = page_size + kernel_actual + ramdisk_actual + second_actual + dt_actual;
+
+	/* Read MBN head page to check whether have mbn header, it will also read out siganture and part of cert chain */
+	if(flash_read(ptn, offset,(void *)mbn_header_ptr, page_size)) {
+		dprintf(CRITICAL, "ERROR: Cannot read mbn header, mbn_hdrp = 0x%x\n",(unsigned int)mbn_header_ptr);
+		return FALSE;
+	}
+
+	/* Check whether have MBN header; only signed image have MBN header + signature + certification chain */
+	if((mbn_header_ptr->image_id == APPS_IMG)&&(mbn_header_ptr->image_size != 0)&&(mbn_header_ptr->image_size = 
+		mbn_header_ptr->code_size+ mbn_header_ptr->signature_size + mbn_header_ptr->cert_chain_size) )
+	{ /* have MBN header*/
+		secboot_image_info.header_ptr_1 = (const uint8*)mbn_header_ptr;
+		secboot_image_info.header_len_1 = sizeof(mi_boot_image_header_type);
+		secboot_image_info.signature_len = mbn_header_ptr->signature_size;
+		secboot_image_info.x509_chain_len = mbn_header_ptr->cert_chain_size;
+		secboot_image_info.code_len_1 = mbn_header_ptr->code_size;
+	}
+	else /*have not MBN header, mean image not signed*/
+	{
+		dprintf(CRITICAL, "[lk_debug]MBN header is NULL\n");
+		return FALSE;
+	}
+	dprintf(INFO, "[lk_debug]mbn header offset:0x%x, code_szie:0x%x, sig_size:0x%x, certs_size:0x%x\n",
+			offset, mbn_header_ptr->code_size, secboot_image_info.signature_len, secboot_image_info.x509_chain_len);
+
+	/*Continue to read rest part of cert chain.*/
+	image_addr= (unsigned char *)mbn_header_ptr;
+	read_size = secboot_image_info.header_len_1 + secboot_image_info.signature_len
+			+ secboot_image_info.x509_chain_len - page_size;
+	read_size = ROUND_TO_PAGE(read_size, page_mask);
+	offset += page_size;
+	if(flash_read(ptn, offset,(void *)(image_addr + page_size), read_size)) {
+		dprintf(CRITICAL, "ERROR: Cannot read rest of sign + cert chain.\n");
+		return FALSE;
+	}
+	secboot_image_info.signature_ptr = secboot_image_info.header_ptr_1 + secboot_image_info.header_len_1;
+	secboot_image_info.x509_chain_ptr = secboot_image_info.signature_ptr + secboot_image_info.signature_len;
+
+	/*Start to read out image data. move or read all kernel image data together to RAM */
+	image_addr = (unsigned char *)mbn_header_ptr + page_size +read_size; /*offset one page size from start address */
+	secboot_image_info.code_ptr_1 = (const uint8 *)image_addr;
+
+	/*First read boot_img_hdr page*/
+	offset = 0;
+	if(flash_read(ptn, offset, (void *)image_addr, read_size)) {
+		dprintf(CRITICAL, "ERROR: Cannot read kernel image header\n");
+		return FALSE;
+	}
+
+	/* kernel and ramdisk have been read out to correct address, now collect them together to buff */
+	offset +=  page_size;
+	memmove((void*) (image_addr + page_size), (char *)hdr->kernel_addr, kernel_actual);
+	offset += kernel_actual;
+	memmove((void*) (image_addr + page_size + kernel_actual), (char *)hdr->ramdisk_addr, ramdisk_actual);
+	offset += ramdisk_actual;
+
+	/*for other image(e.g. device tree), just read from FLASH*/
+	if(offset < secboot_image_info.code_len_1)
+	{
+		read_size= ROUND_TO_PAGE(secboot_image_info.code_len_1 - offset, page_mask);
+		if(flash_read(ptn, offset,(void *)(image_addr + offset), read_size)) {
+		dprintf(CRITICAL, "ERROR: Cannot read device tree, offset=0x%x, read_size=0x%x\n",offset,read_size);
+		return FALSE;
+		}
+	}
+
+	/*Call TZ SCM_CALL to auth kernel image*/
+	if(!image_authenticate(&secboot_image_info))
+	{
+		dprintf(CRITICAL, "ERROR: authenticate image failed\n");
+		return FALSE;
+	}
+	return TRUE;
+}
+#endif
+/* SWISTOP */
+
 int boot_linux_from_flash(void)
 {
 	struct boot_img_hdr *hdr = (void*) buf;
@@ -1214,6 +1328,13 @@ int boot_linux_from_flash(void)
 	unsigned char *best_match_dt_addr = NULL;
 #endif
 
+/* SWISTART */
+#ifdef SIERRA
+	bool kernel_is_bad = FALSE;
+	uint64 bad_image_mask = 0;
+#endif
+/* SWISTOP */
+	
 	if (target_is_emmc_boot()) {
 		hdr = (struct boot_img_hdr *)EMMC_BOOT_IMG_HEADER_ADDR;
 		if (memcmp(hdr->magic, BOOT_MAGIC, BOOT_MAGIC_SIZE)) {
@@ -1231,8 +1352,25 @@ int boot_linux_from_flash(void)
 
 	if(!boot_into_recovery)
 	{
+/* SWISTART */
+#ifdef SIERRA
+		/* Get Kernel partition handler according to current boot system */
+		if(DS_SYSTEM_2 == sierra_ds_smem_get_boot_system())
+		{
+			dprintf(CRITICAL, "Load kernel from boot2 partition due to boot system 2\n");
+			ptn = ptable_find(ptable, "boot2");
+			bad_image_mask = DS_IMAGE_BOOT_2;
+		}
+		else
+		{
+			dprintf(CRITICAL, "Load kernel from boot partition due to boot system 1\n");
+			ptn = ptable_find(ptable, "boot");
+			bad_image_mask = DS_IMAGE_BOOT_1;
+		}
+#else
 	        ptn = ptable_find(ptable, "boot");
-
+#endif
+/* SWISTOP */
 	        if (ptn == NULL) {
 		        dprintf(CRITICAL, "ERROR: No boot partition found\n");
 		        return -1;
@@ -1344,6 +1482,21 @@ int boot_linux_from_flash(void)
 		}
 
 		verify_signed_bootimg((uint32_t)image_addr, imagesize_actual);
+
+/* SWISTART */
+#ifdef SIERRA
+		/* Get the result that secure boot authenticate kernel */
+		/* TBD until secure boot part finished */
+		if(kernel_is_bad)
+		{
+			sierra_ds_smem_write_bad_image_and_swap(bad_image_mask);
+
+			/* Swap system after bad kernel detected */
+			dprintf(CRITICAL, "rebooting the device as bad kernel\n");
+			reboot_device(0);
+		}
+#endif
+/* SWISTOP */
 
 		/* Move kernel and ramdisk to correct address */
 		memmove((void*) hdr->kernel_addr, (char *)(image_addr + page_size), hdr->kernel_size);
@@ -1476,6 +1629,30 @@ int boot_linux_from_flash(void)
 			}
 		}
 #endif
+
+/* SWISTART */
+#ifdef SIERRA
+		/*If secure boot enabled, auth kernel image.*/
+		if(sierra_smem_get_auth_en())
+		{
+			if(!boot_swi_lk_auth_kernel(ptn,hdr))
+			{
+				dprintf(CRITICAL, "[lk_debug]ERROR: LK auth kernel failed\n");
+				kernel_is_bad = TRUE;
+			}
+		}
+		/* Get the result that program reliability authenticate kernel when secure boot disabled */
+		/* TBD until program reliability part finished */
+		if(kernel_is_bad)
+		{
+			sierra_ds_smem_write_bad_image_and_swap(bad_image_mask);
+
+			/* Swap system after bad kernel detected */
+			dprintf(INFO, "rebooting the device\n");
+			reboot_device(0);
+		}
+#endif
+/* SWISTOP */
 
 	}
 continue_boot:
@@ -1770,7 +1947,7 @@ void cmd_boot(const char *arg, void *data, unsigned sz)
 	uint32_t image_actual;
 	uint32_t dt_actual = 0;
 	uint32_t sig_actual = 0;
-	struct boot_img_hdr *hdr = NULL;
+	struct boot_img_hdr *hdr = NULL, header;
 	struct kernel64_hdr *kptr = NULL;
 	char *ptr = ((char*) data);
 	int ret = 0;
@@ -1793,6 +1970,10 @@ void cmd_boot(const char *arg, void *data, unsigned sz)
 
 	/* ensure commandline is terminated */
 	hdr->cmdline[BOOT_ARGS_SIZE-1] = 0;
+
+	/* boot image header may be overwritten, move it where it's safe */
+	memcpy(&header, hdr, sizeof(header));
+	hdr = &header;
 
 	if(target_is_emmc_boot() && hdr->page_size) {
 		page_size = hdr->page_size;
@@ -1863,6 +2044,10 @@ void cmd_boot(const char *arg, void *data, unsigned sz)
 		return;
 	}
 
+	/* Load ramdisk & kernel */
+	memmove((void*) hdr->ramdisk_addr, ptr + page_size + kernel_actual, hdr->ramdisk_size);
+	memmove((void*) hdr->kernel_addr, ptr + page_size, hdr->kernel_size);
+
 #if DEVICE_TREE
 	/* find correct dtb and copy it to right location */
 	ret = copy_dtb(data);
@@ -1875,10 +2060,6 @@ void cmd_boot(const char *arg, void *data, unsigned sz)
 		return;
 	}
 #endif
-
-	/* Load ramdisk & kernel */
-	memmove((void*) hdr->ramdisk_addr, ptr + page_size + kernel_actual, hdr->ramdisk_size);
-	memmove((void*) hdr->kernel_addr, ptr + page_size, hdr->kernel_size);
 
 #if DEVICE_TREE
 	/*
@@ -1992,6 +2173,13 @@ void cmd_erase_mmc(const char *arg, void *data, unsigned sz)
 
 void cmd_erase(const char *arg, void *data, unsigned sz)
 {
+/* SWISTART */
+	/* clear error reset count */
+	sierra_smem_err_count_set(0);
+	/* set reset type to BS_BCMSG_RTYPE_SW_UPDATE_IN_LK */
+	sierra_smem_reset_type_set(BS_BCMSG_RTYPE_SW_UPDATE_IN_LK);
+/* SWISTOP */
+
 	if(target_is_emmc_boot())
 		cmd_erase_mmc(arg, data, sz);
 	else
@@ -2427,7 +2615,76 @@ void cmd_flash_nand(const char *arg, void *data, unsigned sz)
 	struct ptentry *ptn;
 	struct ptable *ptable;
 	unsigned extra = 0;
+/* SWISTART */
+	enum blresultcode ret = BLRESULT_OK;
 
+	if (!strcmp(arg, "sierra"))
+	{
+		ret = blProcessFastbootImage((unsigned char *)data, sz);
+
+		switch (ret)
+		{
+			case  BLRESULT_OK:
+			break;
+			case BLRESULT_AUTHENTICATION_ERROR:
+			fastboot_fail("SIERRA AUTHENTICATION_ERROR. exit");
+			sierra_check_mibib_state_clear();
+			return;
+			case BLRESULT_FLASH_WRITE_ERROR:
+			fastboot_fail("SIERRA FLASH_WRITE_ERROR. exit");
+			sierra_check_mibib_state_clear();
+			return;
+			case BLRESULT_PRODUCT_TYPE_INVALID:
+			fastboot_fail("SIERRA PRODUCT_TYPE_INVALID. exit");
+			sierra_check_mibib_state_clear();
+			return;
+			case BLRESULT_DECOMPRESSION_ERROR:
+			fastboot_fail("SIERRA DECOMPRESSION_ERROR. exit");
+			sierra_check_mibib_state_clear();
+			return;
+			case BLRESULT_FLASH_READ_ERROR:
+			fastboot_fail("SIERRA FLASH_READ_ERROR. exit");
+			sierra_check_mibib_state_clear();
+			return;
+			case BLRESULT_CRC32_CHECK_ERROR:
+			fastboot_fail("SIERRA CRC32_CHECK_ERROR. exit");
+			sierra_check_mibib_state_clear();
+			return;
+			case BLRESULT_CWE_HEADER_ERROR:
+			fastboot_fail("SIERRA CWE_HEADER_ERROR. exit");
+			sierra_check_mibib_state_clear();
+			return;
+			default:
+			fastboot_fail("SIERRA IMG FLASH WRITE ERROR. exit");
+			sierra_check_mibib_state_clear();
+			return;
+		}
+
+		if(to_update_mibib)
+		{
+			to_update_mibib = FALSE;
+			dprintf(INFO, "Rebooting the device to finish MIBIB update in SBL.\n");
+			fastboot_info("System reboot to finish MIBIB update.");
+			fastboot_okay("");
+			reboot_device(FASTBOOT_MODE);
+		}
+
+		sierra_check_mibib_state_clear();
+	}
+/* SWISTART */
+#ifdef SIERRA_DUAL_SYSTEM_TEST
+	else if(!strcmp(arg, "swi_ds_read")
+			|| !strcmp(arg, "swi_dssd_write")
+			|| !strcmp(arg, "swi_dssd_init")
+			|| !strcmp(arg, "swi_ds_smem_write"))
+	{
+		sierra_ds_test(arg);
+	}
+#endif /* SIERRA_DUAL_SYSTEM_TEST */
+/* SWISTOP */
+	else
+	{
+/* SWISTOP */
 	ptable = flash_get_ptable();
 	if (ptable == NULL) {
 		fastboot_fail("partition table doesn't exist");
@@ -2469,11 +2726,22 @@ void cmd_flash_nand(const char *arg, void *data, unsigned sz)
 		}
 	}
 	dprintf(INFO, "partition '%s' updated\n", ptn->name);
+/* SWISTART */
+	}
+/* SWISTOP */
+
 	fastboot_okay("");
 }
 
 void cmd_flash(const char *arg, void *data, unsigned sz)
 {
+/* SWISTART */
+	/* clear error reset count */
+	sierra_smem_err_count_set(0);
+	/* set reset type to BS_BCMSG_RTYPE_SW_UPDATE_IN_LK */
+	sierra_smem_reset_type_set(BS_BCMSG_RTYPE_SW_UPDATE_IN_LK);
+/* SWISTOP */
+
 	if(target_is_emmc_boot())
 		cmd_flash_mmc(arg, data, sz);
 	else
@@ -2936,6 +3204,13 @@ void aboot_init(const struct app_descriptor *app)
 	} else if(reboot_mode == ALARM_BOOT) {
 		boot_reason_alarm = true;
 	}
+
+/* SWISTART */
+	if (sierra_if_enter_fastboot())
+	{
+		boot_into_fastboot = true;
+	}
+/* SWISTOP */
 
 normal_boot:
 	if (!boot_into_fastboot)

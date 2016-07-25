@@ -56,6 +56,8 @@ ifeq ($(EMMC_BOOT),1)
   CFLAGS += -D_EMMC_BOOT=1
 endif
 
+CFLAGS += -DSIERRA
+
 ifeq ($(SIGNED_KERNEL),1)
   CFLAGS += -D_SIGNED_KERNEL=1
 endif
@@ -75,6 +77,13 @@ LDFLAGS :=
 
 CFLAGS += -ffunction-sections -fdata-sections
 LDFLAGS += -gc-sections
+
+# Provide sysroot option to compilers/linker
+ifneq ($(PKG_CONFIG_SYSROOT_DIR),)
+  CFLAGS += --sysroot=$(PKG_CONFIG_SYSROOT_DIR)
+  CPPFLAGS += --sysroot=$(PKG_CONFIG_SYSROOT_DIR)
+  LDFLAGS += --sysroot=$(PKG_CONFIG_SYSROOT_DIR)
+endif
 
 # top level rule
 all:: $(OUTBIN) $(OUTELF).lst $(OUTELF).debug.lst $(OUTELF).sym $(OUTELF).size $(OUTELF_STRIP) APPSBOOTHEADER

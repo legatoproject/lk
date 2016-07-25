@@ -38,6 +38,14 @@
 #include <platform.h>
 #include <platform/clock.h>
 #include <platform/iomap.h>
+#include <target.h>
+#include "bootimg.h"
+
+/* SWISTART */
+#ifdef SIERRA
+#include "sierra_bludefs.h"
+#endif
+/* SWISTOP */
 
 static uint32_t nand_base;
 static struct ptable *flash_ptable;
@@ -1381,6 +1389,33 @@ flash_spare_size(void)
     return flash.spare_size;
 }
 
+/* SWISTART */
+#ifdef SIERRA
+unsigned
+flash_page_size_sierra(void)
+{
+	return flash.page_size;
+}
+
+unsigned
+flash_num_pages_per_block_sierra(void)
+{
+	return flash.num_pages_per_blk;
+}
+
+nand_result_t qpic_nand_write_page_sierra(uint32_t page, unsigned char* buffer)
+{
+   uint32_t *spare = (unsigned *)flash_spare_bytes;
+   uint32_t spare_byte_count = 0;
+
+   spare_byte_count = ((flash.cw_size * flash.cws_per_page)- flash.page_size);
+   memset(spare, 0xff, (spare_byte_count / flash.cws_per_page));
+
+   return qpic_nand_write_page(page, NAND_CFG, buffer, spare);
+}
+#endif
+/* SWISTOP */
+
 struct ptable *
 flash_get_ptable(void)
 {
@@ -2048,6 +2083,96 @@ flash_ecc_bch_enabled()
 	return (flash.ecc_width == NAND_WITH_4_BIT_ECC)? 0 : 1;
 }
 
+/* SWISTART */
+#ifdef SIERRA
+int qpic_nand_read_page_sierra(uint32_t page, unsigned char* buffer)
+{
+   unsigned char *spare = flash_spare_bytes;
+   return qpic_nand_read_page(page, buffer, spare);
+}
+
+int convert_bootimg_4K_2K(const char *ori_buf, int old_size, char* new_buf)
+{
+    uint32 ori_kernel_offset, ori_ramdisk_offset, ori_second_offset, ori_dtb_offset;
+    uint32 ori_mbn_header_offset, secboot_data_size = 0;
+    mi_boot_image_header_type *mbn_header_ptr;
+    boot_img_hdr *hdr, *new_hdr;
+    uint32 new_buf_pos = 0;
+
+    hdr = (boot_img_hdr *)ori_buf;
+    new_hdr = (boot_img_hdr *)new_buf;
+
+    ori_kernel_offset = sizeof(boot_img_hdr) + ADD_PADDING_4096(sizeof(boot_img_hdr));
+    ori_ramdisk_offset = ori_kernel_offset + hdr->kernel_size + ADD_PADDING_4096(hdr->kernel_size);
+
+    if (hdr->ramdisk_size != 0)
+        ori_second_offset = ori_ramdisk_offset + hdr->ramdisk_size + ADD_PADDING_4096(hdr->ramdisk_size);
+    else
+        ori_second_offset = ori_ramdisk_offset;
+
+    if (hdr->second_size != 0)
+        ori_dtb_offset = ori_second_offset + hdr->second_size + ADD_PADDING_4096(hdr->second_size);
+    else
+        ori_dtb_offset = ori_second_offset;
+
+
+    printf("hdr->kernel_size:0x%x, ori_kernel_offset:0x%x, ori_ramdisk_offset:0x%x, ori_second_offset:0x%x\n",
+        hdr->kernel_size, ori_kernel_offset, ori_ramdisk_offset, ori_second_offset);
+
+    //hdr->page_size = 2048;
+    memcpy(new_buf, hdr, sizeof(boot_img_hdr));
+    new_hdr->page_size = 2048;
+    new_buf_pos += sizeof(boot_img_hdr);
+    new_buf_pos += ADD_PADDING_2048(new_buf_pos);
+    printf("sizeof(hdr): %d, new_buf_pos11 %d\n", (int)sizeof(boot_img_hdr), new_buf_pos);
+
+    memcpy(new_buf+new_buf_pos, ori_buf+ori_kernel_offset, hdr->kernel_size);
+    new_buf_pos += hdr->kernel_size;
+    new_buf_pos += ADD_PADDING_2048(hdr->kernel_size);
+    printf("kernel size: %d, new_buf_pos22 %d\n", hdr->kernel_size, new_buf_pos);
+
+    if (hdr->ramdisk_size != 0)
+    {
+        memcpy(new_buf+new_buf_pos, ori_buf+ori_ramdisk_offset, hdr->ramdisk_size);
+        new_buf_pos += hdr->ramdisk_size;
+        new_buf_pos += ADD_PADDING_2048(hdr->ramdisk_size);
+    }
+    
+    printf("hdr->ramdisk_size: %d, new_buf_pos33: %d\n", hdr->ramdisk_size, new_buf_pos);
+    
+    if (hdr->second_size != 0)
+    {
+        memcpy(new_buf+new_buf_pos, ori_buf+ori_second_offset, hdr->second_size);
+        new_buf_pos += hdr->second_size;
+        new_buf_pos += ADD_PADDING_2048(hdr->second_size);
+    }
+
+    if (hdr->dt_size != 0)
+    {
+        memcpy(new_buf+new_buf_pos, ori_buf+ori_dtb_offset, hdr->dt_size);
+        new_buf_pos += hdr->dt_size;
+        new_buf_pos += ADD_PADDING_2048(hdr->dt_size);
+    }
+    printf("new_buf_pos=0x%x,ori_dtb_offset:0x%x,dt_size=0x%x\n",new_buf_pos,ori_dtb_offset,hdr->dt_size);
+    ori_mbn_header_offset = ori_dtb_offset + hdr->dt_size +ADD_PADDING_4096(hdr->dt_size);
+    /*Check whether image have been signed*/
+    mbn_header_ptr = (mi_boot_image_header_type* )(ori_buf + ori_mbn_header_offset);
+    /*Check whether have MBN header*/
+    if((uint32)mbn_header_ptr->image_id == APPS_IMG)
+    {
+      secboot_data_size = sizeof(mi_boot_image_header_type)+ mbn_header_ptr->signature_size + mbn_header_ptr->cert_chain_size;
+      memcpy(new_buf+new_buf_pos, ori_buf+ ori_mbn_header_offset, secboot_data_size);
+      new_buf_pos += secboot_data_size;
+      new_buf_pos += ADD_PADDING_2048(secboot_data_size);
+      printf("image signed, code_szie:0x%x, sig_size:0x%x, certs_size:0x%x, new_buf_pos:0x%x\n",
+        mbn_header_ptr->code_size, mbn_header_ptr->signature_size, mbn_header_ptr->cert_chain_size, new_buf_pos);
+    }
+    return new_buf_pos;
+
+}
+#endif
+/* SWISTOP */
+
 int
 flash_write(struct ptentry *ptn,
 			unsigned write_extra_bytes,
@@ -2061,6 +2186,41 @@ flash_write(struct ptentry *ptn,
 	uint32_t wsize;
 	uint32_t spare_byte_count = 0;
 	int r;
+    
+/* SWISTART */
+#ifdef SIERRA
+	boot_img_hdr *hdr;
+	char *convert_data = NULL;
+	uint32 convert_data_len = 0;
+
+	/* check if need to convert boot.img from 4k to 2k  */
+	if (!strcmp(ptn->name, "boot"))
+	{
+		hdr = (boot_img_hdr *)data;
+		if ((flash.page_size == 2048) && (hdr->page_size == 4096))
+		{
+			dprintf(CRITICAL, "\nNeed to convert bootimg, malloc: %d\n", bytes);
+			convert_data = (char *)target_get_scratch_address();
+			dprintf(CRITICAL, "convert_data: 0x%x\n", (int)convert_data);
+			convert_data += CONVERTED_IMG_MEM_OFFSET;
+			dprintf(CRITICAL, "Add 0x4000000, convert_data: 0x%x\n", (int)convert_data);
+			if (convert_data == NULL)
+			{
+				dprintf(CRITICAL, "fail to use malloc\n");
+				return -1;
+			}
+			convert_data_len = convert_bootimg_4K_2K(data, bytes, convert_data);
+			dprintf(CRITICAL, "convert_data_len: %d\n", convert_data_len);
+		}
+	}
+
+	if (convert_data_len != 0) {
+		image = (unsigned char *)convert_data;
+		data = convert_data;
+		bytes = convert_data_len;
+	}
+#endif
+/* SWISTOP */
 
 	spare_byte_count = ((flash.cw_size * flash.cws_per_page)- flash.page_size);
 
@@ -2163,6 +2323,356 @@ flash_write(struct ptentry *ptn,
 	dprintf(INFO, "flash_write_image: success\n");
 	return 0;
 }
+
+/* SWISTART */
+int
+flash_write_sierra(struct ptentry *ptn,
+			unsigned write_extra_bytes,
+			const void *data,
+			unsigned bytes)
+{
+	uint32_t page = ptn->start * flash.num_pages_per_blk;
+	uint32_t lastpage = (ptn->start + ptn->length) * flash.num_pages_per_blk;
+	uint32_t *spare = (unsigned *)flash_spare_bytes;
+	const unsigned char *image = data;
+	uint32_t wsize;
+	uint32_t spare_byte_count = 0;
+	int r;
+
+/* SWISTART */
+#ifdef SIERRA
+        boot_img_hdr *hdr;
+        char *convert_data = NULL;
+        uint32 convert_data_len = 0;
+    
+        /* check if need to convert boot.img from 4k to 2k  */
+        if (!strcmp(ptn->name, "boot"))
+        {
+            hdr = (boot_img_hdr *)data;
+            if ((flash.page_size == 2048) && (hdr->page_size == 4096))
+            {
+                dprintf(CRITICAL, "\nNeed to convert bootimg, malloc: %d\n", bytes);
+                convert_data = (char *)target_get_scratch_address();
+                dprintf(CRITICAL, "convert_data: 0x%x\n", (int)convert_data);
+                convert_data += CONVERTED_IMG_MEM_OFFSET;
+                dprintf(CRITICAL, "Add 0x4000000, convert_data: 0x%x\n", (int)convert_data);
+                if (convert_data == NULL)
+                {
+                    dprintf(CRITICAL, "fail to use malloc\n");
+                    return -1;
+                }
+                convert_data_len = convert_bootimg_4K_2K(data, bytes, convert_data);
+                dprintf(CRITICAL, "convert_data_len: %d\n", convert_data_len);
+            }
+        }
+    
+        if (convert_data_len != 0) {
+            image = (unsigned char *)convert_data;
+            data = convert_data;
+            bytes = convert_data_len;
+        }
+#endif
+/* SWISTOP */
+
+	spare_byte_count = ((flash.cw_size * flash.cws_per_page)- flash.page_size);
+	if(write_extra_bytes)
+		wsize = flash.page_size + spare_byte_count;
+	else
+		wsize = flash.page_size;
+
+	memset(spare, 0xff, (spare_byte_count / flash.cws_per_page));
+	while (bytes > 0)
+	{
+		/* For Sierra  CUSTOM_IMG, we will fill it with 0xff when (bytes < wsize) */
+		if ((bytes < wsize) && (0 != write_extra_bytes))
+		{
+			dprintf(CRITICAL,
+					"flash_write_image: image undersized (%d < %d)\n",
+					bytes,
+					wsize);
+			return -1;
+		}
+
+		if (page >= lastpage)
+		{
+			dprintf(CRITICAL, "flash_write_image: out of space\n");
+			return -1;
+		}
+
+		if ((page & flash.num_pages_per_blk_mask) == 0)
+		{
+			if (qpic_nand_blk_erase(page))
+			{
+				dprintf(INFO,
+					"flash_write_image: bad block @ %d\n",
+					page / flash.num_pages_per_blk);
+
+				page += flash.num_pages_per_blk;
+				continue;
+			}
+		}
+
+		if (bytes >= wsize)
+		{
+			memcpy(rdwr_buf, image, flash.page_size);
+		}
+		else
+		{
+			/* For Sierra  CUSTOM_IMG, we will fill it with 0xff when (bytes < wsize) */
+			memset(rdwr_buf, 0xFF, flash.page_size);
+			memcpy(rdwr_buf, image, bytes);
+			/* Loop should be ended at this time */
+			bytes = wsize;
+		}  
+
+		if (write_extra_bytes)
+		{
+			memcpy(rdwr_buf + flash.page_size, image + flash.page_size, spare_byte_count);
+			r = qpic_nand_write_page(page,
+									 NAND_CFG,
+									 rdwr_buf,
+									 rdwr_buf + flash.page_size);
+		}
+		else
+		{
+			r = qpic_nand_write_page(page, NAND_CFG, rdwr_buf, spare);
+		}
+
+		if (r)
+		{
+			dprintf(INFO,
+					"flash_write_image: write failure @ page %d (src %d)\n",
+					page,
+					image - (const unsigned char *)data);
+
+			image -= (page & flash.num_pages_per_blk_mask) * wsize;
+			bytes += (page & flash.num_pages_per_blk_mask) * wsize;
+			page &= ~flash.num_pages_per_blk_mask;
+			if (qpic_nand_blk_erase(page))
+			{
+				dprintf(INFO,
+						"flash_write_image: erase failure @ page %d\n",
+						page);
+			}
+
+			qpic_nand_mark_badblock(page);
+
+			dprintf(INFO,
+					"flash_write_image: restart write @ page %d (src %d)\n",
+					page, image - (const unsigned char *)data);
+
+			page += flash.num_pages_per_blk;
+			continue;
+		}
+		page++;
+		image += wsize;
+		bytes -= wsize;
+	}
+
+	/* erase any remaining pages in the partition */
+	page = (page + flash.num_pages_per_blk_mask) & (~flash.num_pages_per_blk_mask);
+
+	while (page < lastpage)
+	{
+		if (qpic_nand_blk_erase(page))
+		{
+			dprintf(INFO, "flash_write_image: bad block @ %d\n",
+					page / flash.num_pages_per_blk);
+		}
+		page += flash.num_pages_per_blk;
+	}
+
+	return 0;
+}
+
+int flash_write_sierra_file_img(struct ptentry *ptn,
+			unsigned write_extra_bytes,
+			const void *data,
+			unsigned bytes,
+			go_cwe_file_func_type gocwe)
+{
+	uint32_t page = ptn->start * flash.num_pages_per_blk;
+	uint32_t lastpage = (ptn->start + ptn->length) * flash.num_pages_per_blk;
+	uint32_t *spare = (unsigned *)flash_spare_bytes;
+	const unsigned char *image = data;
+	uint32_t wsize;
+	uint32_t spare_byte_count = 0;
+	int r;
+	uint32_t i = 0, ttl_page;
+	unsigned int go_len, free_page_count = 0, go_page, pages_to_write;
+
+	dprintf(CRITICAL, "flash_write_sierra_file_img()11, page:%d\n", page);
+
+	ttl_page = lastpage - page;
+	pages_to_write = ((bytes/flash.page_size) +1);
+	/* find a space first */
+	while (i < ttl_page)
+	{
+		if (0 == flash_read(ptn, i * flash.page_size, rdwr_buf, flash.page_size))
+		{
+			go_len = gocwe(rdwr_buf, flash.page_size);
+		}
+		else
+		{
+			/* failed to read this page, so go  */
+			dprintf(CRITICAL, "read failed\n");
+			
+			/* go to next block */
+			i++;
+			/* refer to mdm9x15, we store each NVUP file start from a block, it will be more stable */
+			/* go to a new block */
+			if ((i%flash.num_pages_per_blk) != 0)
+			{
+				i = ((i/flash.num_pages_per_blk) + 1) * flash.num_pages_per_blk;
+			}
+			free_page_count = 0;
+			continue;
+		} 
+
+		if (go_len == 0)
+		{
+			/* This page is free, so we got one page space */
+			i++;
+			free_page_count++;
+			if (free_page_count >= pages_to_write)
+			{
+				/* got enouth space, break, we can write image to page[i - free_page_count] */
+				break;
+			}
+		} 
+		else
+		{
+			/* Those page was used. Go */
+			go_page = go_len/flash.page_size;
+			if ((go_page * flash.page_size) < go_len)
+			{
+				go_page++;
+			}
+			i += go_page;
+			
+			/* refer to mdm9x15, we store each NVUP file start from a block, it will be more stable */
+			/* go to a new block */
+			if ((i%flash.num_pages_per_blk) != 0)
+			{
+				i = ((i/flash.num_pages_per_blk) + 1) * flash.num_pages_per_blk;
+			}
+			free_page_count = 0;
+				
+		}
+	}
+
+	if (free_page_count >= pages_to_write)
+	{
+		page += (i - free_page_count);
+	}
+	else
+	{
+		dprintf(CRITICAL, "flash_write_sierra_file_img(), we don't have enouth pages to write image\n");
+		return  -1;
+	}
+  
+	spare_byte_count = ((flash.cw_size * flash.cws_per_page)- flash.page_size);
+	if(write_extra_bytes)
+		wsize = flash.page_size + spare_byte_count;
+	else
+		wsize = flash.page_size;
+
+	memset(spare, 0xff, (spare_byte_count / flash.cws_per_page));
+	while (bytes > 0)
+	{
+		/* For Sierra  CUSTOM_IMG, we will fill it with 0xff when (bytes < wsize) */
+		if ((bytes < wsize) && (0 != write_extra_bytes))
+		{
+			dprintf(CRITICAL,
+					"flash_write_image: image undersized (%d < %d)\n",
+					bytes,
+					wsize);
+			return -1;
+		}
+
+		if (page >= lastpage)
+		{
+			dprintf(CRITICAL, "flash_write_image: out of space\n");
+			return -1;
+		}
+
+		if ((page & flash.num_pages_per_blk_mask) == 0)
+		{
+			if (qpic_nand_blk_erase(page))
+			{
+				dprintf(INFO,
+					"flash_write_image: bad block @ %d\n",
+					page / flash.num_pages_per_blk);
+
+				page += flash.num_pages_per_blk;
+				continue;
+			}
+		}
+
+		if (bytes >= wsize)
+		{
+			memcpy(rdwr_buf, image, flash.page_size);
+		}
+		else
+		{
+			/* For Sierra  CUSTOM_IMG, we will fill it with 0xff when (bytes < wsize) */
+			memset(rdwr_buf, 0xFF, flash.page_size);
+			memcpy(rdwr_buf, image, bytes);
+			/* Loop should be ended at this time */
+			bytes = wsize;
+		}  
+
+		if (write_extra_bytes)
+		{
+			memcpy(rdwr_buf + flash.page_size, image + flash.page_size, spare_byte_count);
+			r = qpic_nand_write_page(page,
+									 NAND_CFG,
+									 rdwr_buf,
+									 rdwr_buf + flash.page_size);
+		}
+		else
+		{
+			r = qpic_nand_write_page(page, NAND_CFG, rdwr_buf, spare);
+		}
+
+		if (r)
+		{
+			dprintf(INFO,
+					"flash_write_image: write failure @ page %d (src %d)\n",
+					page,
+					image - (const unsigned char *)data);
+
+			image -= (page & flash.num_pages_per_blk_mask) * wsize;
+			bytes += (page & flash.num_pages_per_blk_mask) * wsize;
+			page &= ~flash.num_pages_per_blk_mask;
+			if (qpic_nand_blk_erase(page))
+			{
+				dprintf(INFO,
+						"flash_write_image: erase failure @ page %d\n",
+						page);
+			}
+
+			qpic_nand_mark_badblock(page);
+
+			dprintf(INFO,
+					"flash_write_image: restart write @ page %d (src %d)\n",
+					page, image - (const unsigned char *)data);
+
+			page += flash.num_pages_per_blk;
+			continue;
+		}
+		page++;
+		image += wsize;
+		bytes -= wsize;
+	}
+
+
+
+	dprintf(INFO, "flash_write_image: success\n");
+	return 0;
+}
+
+/* SWISTOP */
 
 uint32_t nand_device_base()
 {

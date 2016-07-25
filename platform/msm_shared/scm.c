@@ -818,6 +818,120 @@ int mdtp_cipher_dip_cmd(uint8_t *in_buf, uint32_t in_buf_size, uint8_t *out_buf,
 	return 0;
 }
 
+/* SWISTART */
+#ifdef SIERRA
+/*
+ * scm call to read qfuse value from TZ.
+ * @row_address : qfuse row address.
+ * @row_address : addr type, see addr_type.
+ * @row_data : data buff.
+ * @qfprom_api_status: qfuse API stauts.
+ */
+int qfprom_read_row_cmd(uint32_t row_address,
+                        uint32_t addr_type,
+                        uint32_t *row_data,
+                        uint32_t *qfprom_api_status)
+{
+	uint32_t svc_id;
+	uint32_t cmd_id;
+	void *cmd_buf;
+	void *rsp_buf;
+	size_t cmd_len;
+	size_t rsp_len;
+	qfprom_read_row_req req;
+	scmcall_arg scm_arg = {0};
+	scmcall_ret scm_ret = {0};
+	int ret = 0;
+
+	ASSERT(row_data != NULL);
+	ASSERT(qfprom_api_status != NULL);
+
+	req.row_address = row_address;
+	req.addr_type = addr_type;
+	req.row_data = row_data;
+	req.qfprom_api_status = qfprom_api_status;
+
+	dprintf(CRITICAL, "[lk_debug]scm_arm_support=%d\n",scm_arm_support);
+	if (!scm_arm_support)
+	{
+		svc_id = SCM_SVC_FUSE;
+		cmd_id = SCM_QFPROM_READ_ROW_ID;
+		cmd_buf = (void *)&req;
+		cmd_len = sizeof(req);
+		rsp_buf = NULL;
+		rsp_len = 0;
+
+		ret =  scm_call(svc_id, cmd_id, cmd_buf, cmd_len, rsp_buf, rsp_len);
+		dprintf(CRITICAL, "[lk_debug]qfprom_read_row_cmd ret=%d\n",ret);
+		if (ret)
+		{
+			dprintf(CRITICAL, "Failed to call SCM_SVC_FUSE.SCM_QFPROM_READ_ROW_ID SCM\n");
+			return -1;
+		}
+	}
+
+	else
+	{
+		scm_arg.x0 = MAKE_SIP_SCM_CMD(SCM_SVC_FUSE, SCM_QFPROM_READ_ROW_ID);
+		scm_arg.x1 = MAKE_SCM_ARGS(0x4, SMC_PARAM_TYPE_VALUE, SMC_PARAM_TYPE_VALUE,
+										SMC_PARAM_TYPE_BUFFER_READWRITE, SMC_PARAM_TYPE_BUFFER_READWRITE);
+		scm_arg.x2 = req.row_address;
+		scm_arg.x3 = req.addr_type;
+		scm_arg.x4 = (uint32_t)req.row_data;
+		scm_arg.x5[0] = (uint32_t)req.qfprom_api_status;
+
+		if (scm_call2(&scm_arg, &scm_ret))
+		{
+			dprintf(CRITICAL, "Failed to call SCM_SVC_FUSE.SCM_QFPROM_READ_ROW_ID SCM\n");
+			return -1;
+		}
+	}
+
+	return 0;
+}
+
+/*
+ * call scm_call to auth image.
+ * @image_info_data : see secboot_image_info_type.
+ * @buff_size: buff size
+ * 
+ */
+int scm_auth_image_cmd(uint32_t *image_info_data, uint32_t buff_size) 
+{
+	uint32_t svc_id;
+	uint32_t cmd_id;
+	void *cmd_buf;
+	void *rsp_buf;
+	size_t cmd_len;
+	size_t rsp_len;
+
+	ASSERT(image_info_data != NULL);
+
+	if (scm_arm_support)
+	{
+		dprintf(CRITICAL, "%s:SCM call is not supported\n",__func__);
+		return -1;
+	}
+
+	svc_id = SCM_SVC_PIL;
+	cmd_id = PIL_INIT_ID;
+	cmd_buf = (void *)image_info_data;
+	cmd_len = buff_size;
+	rsp_buf = NULL;
+	rsp_len = 0;
+
+	if (scm_call(svc_id, cmd_id, cmd_buf, cmd_len, rsp_buf, rsp_len))
+	{
+		dprintf(CRITICAL, "Failed to call SCM_SVC_PIL.PIL_INIT_ID SCM\n");
+		return -1;
+	}
+	dprintf(CRITICAL, "SCM call SCM_SVC_PIL.PIL_INIT_ID SCM succeed\n");
+
+	return 0;
+}
+#endif
+/* SWISTOP */
+
 /*
  * Switches the CE1 channel between ADM and register usage.
  * channel : AP_CE_REGISTER_USE, CE1 uses register interface

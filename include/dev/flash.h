@@ -33,6 +33,24 @@
 
 #include <lib/ptable.h>
 
+/* SWISTART */
+#ifdef SIERRA
+#define FLASH_PAGE_SIZE_2K	0x800
+#define FLASH_PAGE_SIZE_4K	0x1000
+
+#define LEB_SIZE_2K	(62*FLASH_PAGE_SIZE_2K)
+#define LEB_SIZE_4K	(62*FLASH_PAGE_SIZE_4K)
+
+#define BLOCK_SIZE_2K	(64*FLASH_PAGE_SIZE_2K)
+#define BLOCK_SIZE_4K	(64*FLASH_PAGE_SIZE_4K)
+
+#define CONVERTED_IMG_MEM_OFFSET (80*1024*1024)
+    
+#define ADD_PADDING_2048(pos) (((pos) % FLASH_PAGE_SIZE_2K)?(FLASH_PAGE_SIZE_2K - ((pos) % FLASH_PAGE_SIZE_2K)):0)
+#define ADD_PADDING_4096(pos) (((pos) % FLASH_PAGE_SIZE_4K)?(FLASH_PAGE_SIZE_4K - ((pos) % FLASH_PAGE_SIZE_4K)):0)
+#endif
+/* SWISTOP */
+
 enum nand_ecc_width
 {
 	NAND_WITH_4_BIT_ECC,
@@ -72,6 +90,18 @@ int flash_read_ext(struct ptentry *ptn, unsigned extra_per_page,
 		   unsigned offset, void *data, unsigned bytes);
 int flash_write(struct ptentry *ptn, unsigned write_extra_bytes, const void *data,
 		unsigned bytes);
+/* SWISTART */
+typedef unsigned int (*go_cwe_file_func_type)(unsigned char *buf, unsigned int len);
+
+int flash_write_sierra(struct ptentry *ptn, unsigned write_extra_bytes, const void *data,
+		unsigned bytes);
+int flash_write_sierra_file_img(struct ptentry *ptn,
+			unsigned write_extra_bytes,
+			const void *data,
+			unsigned bytes,
+			go_cwe_file_func_type gocwe);
+/* SWISTOP */
+
 static inline int flash_read(struct ptentry *ptn, unsigned offset, void *data,
 			     unsigned bytes)
 {
