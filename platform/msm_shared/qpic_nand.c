@@ -2096,86 +2096,6 @@ int qpic_nand_read_page_sierra(uint32_t page, unsigned char* buffer)
    unsigned char *spare = flash_spare_bytes;
    return qpic_nand_read_page(page, buffer, spare);
 }
-
-int convert_bootimg_4K_2K(const char *ori_buf, int old_size, char* new_buf)
-{
-    uint32 ori_kernel_offset, ori_ramdisk_offset, ori_second_offset, ori_dtb_offset;
-    uint32 ori_mbn_header_offset, secboot_data_size = 0;
-    mi_boot_image_header_type *mbn_header_ptr;
-    boot_img_hdr *hdr, *new_hdr;
-    uint32 new_buf_pos = 0;
-
-    hdr = (boot_img_hdr *)ori_buf;
-    new_hdr = (boot_img_hdr *)new_buf;
-
-    ori_kernel_offset = sizeof(boot_img_hdr) + ADD_PADDING_4096(sizeof(boot_img_hdr));
-    ori_ramdisk_offset = ori_kernel_offset + hdr->kernel_size + ADD_PADDING_4096(hdr->kernel_size);
-
-    if (hdr->ramdisk_size != 0)
-        ori_second_offset = ori_ramdisk_offset + hdr->ramdisk_size + ADD_PADDING_4096(hdr->ramdisk_size);
-    else
-        ori_second_offset = ori_ramdisk_offset;
-
-    if (hdr->second_size != 0)
-        ori_dtb_offset = ori_second_offset + hdr->second_size + ADD_PADDING_4096(hdr->second_size);
-    else
-        ori_dtb_offset = ori_second_offset;
-
-
-    printf("hdr->kernel_size:0x%x, ori_kernel_offset:0x%x, ori_ramdisk_offset:0x%x, ori_second_offset:0x%x\n",
-        hdr->kernel_size, ori_kernel_offset, ori_ramdisk_offset, ori_second_offset);
-
-    //hdr->page_size = 2048;
-    memcpy(new_buf, hdr, sizeof(boot_img_hdr));
-    new_hdr->page_size = 2048;
-    new_buf_pos += sizeof(boot_img_hdr);
-    new_buf_pos += ADD_PADDING_2048(new_buf_pos);
-    printf("sizeof(hdr): %d, new_buf_pos11 %d\n", (int)sizeof(boot_img_hdr), new_buf_pos);
-
-    memcpy(new_buf+new_buf_pos, ori_buf+ori_kernel_offset, hdr->kernel_size);
-    new_buf_pos += hdr->kernel_size;
-    new_buf_pos += ADD_PADDING_2048(hdr->kernel_size);
-    printf("kernel size: %d, new_buf_pos22 %d\n", hdr->kernel_size, new_buf_pos);
-
-    if (hdr->ramdisk_size != 0)
-    {
-        memcpy(new_buf+new_buf_pos, ori_buf+ori_ramdisk_offset, hdr->ramdisk_size);
-        new_buf_pos += hdr->ramdisk_size;
-        new_buf_pos += ADD_PADDING_2048(hdr->ramdisk_size);
-    }
-    
-    printf("hdr->ramdisk_size: %d, new_buf_pos33: %d\n", hdr->ramdisk_size, new_buf_pos);
-    
-    if (hdr->second_size != 0)
-    {
-        memcpy(new_buf+new_buf_pos, ori_buf+ori_second_offset, hdr->second_size);
-        new_buf_pos += hdr->second_size;
-        new_buf_pos += ADD_PADDING_2048(hdr->second_size);
-    }
-
-    if (hdr->dt_size != 0)
-    {
-        memcpy(new_buf+new_buf_pos, ori_buf+ori_dtb_offset, hdr->dt_size);
-        new_buf_pos += hdr->dt_size;
-        new_buf_pos += ADD_PADDING_2048(hdr->dt_size);
-    }
-    printf("new_buf_pos=0x%x,ori_dtb_offset:0x%x,dt_size=0x%x\n",new_buf_pos,ori_dtb_offset,hdr->dt_size);
-    ori_mbn_header_offset = ori_dtb_offset + hdr->dt_size +ADD_PADDING_4096(hdr->dt_size);
-    /*Check whether image have been signed*/
-    mbn_header_ptr = (mi_boot_image_header_type* )(ori_buf + ori_mbn_header_offset);
-    /*Check whether have MBN header*/
-    if((uint32)mbn_header_ptr->image_id == APPS_IMG)
-    {
-      secboot_data_size = sizeof(mi_boot_image_header_type)+ mbn_header_ptr->signature_size + mbn_header_ptr->cert_chain_size;
-      memcpy(new_buf+new_buf_pos, ori_buf+ ori_mbn_header_offset, secboot_data_size);
-      new_buf_pos += secboot_data_size;
-      new_buf_pos += ADD_PADDING_2048(secboot_data_size);
-      printf("image signed, code_szie:0x%x, sig_size:0x%x, certs_size:0x%x, new_buf_pos:0x%x\n",
-        mbn_header_ptr->code_size, mbn_header_ptr->signature_size, mbn_header_ptr->cert_chain_size, new_buf_pos);
-    }
-    return new_buf_pos;
-
-}
 #endif
 /* SWISTOP */
 
@@ -2196,34 +2116,15 @@ flash_write(struct ptentry *ptn,
 /* SWISTART */
 #ifdef SIERRA
 	boot_img_hdr *hdr;
-	char *convert_data = NULL;
-	uint32 convert_data_len = 0;
-
-	/* check if need to convert boot.img from 4k to 2k  */
+	/* Make sure the binary of boot image is match the hardware NAND flash! */
 	if (!strcmp(ptn->name, "boot"))
 	{
 		hdr = (boot_img_hdr *)data;
 		if ((flash.page_size == 2048) && (hdr->page_size == 4096))
 		{
-			dprintf(CRITICAL, "\nNeed to convert bootimg, malloc: %d\n", bytes);
-			convert_data = (char *)target_get_scratch_address();
-			dprintf(CRITICAL, "convert_data: 0x%x\n", (int)convert_data);
-			convert_data += CONVERTED_IMG_MEM_OFFSET;
-			dprintf(CRITICAL, "Add 0x4000000, convert_data: 0x%x\n", (int)convert_data);
-			if (convert_data == NULL)
-			{
-				dprintf(CRITICAL, "fail to use malloc\n");
-				return -1;
-			}
-			convert_data_len = convert_bootimg_4K_2K(data, bytes, convert_data);
-			dprintf(CRITICAL, "convert_data_len: %d\n", convert_data_len);
+			dprintf(CRITICAL, "\nERROR: This is for 4k page binary, But the device is 2k page size!\n");
+			return -1;
 		}
-	}
-
-	if (convert_data_len != 0) {
-		image = (unsigned char *)convert_data;
-		data = convert_data;
-		bytes = convert_data_len;
 	}
 #endif
 /* SWISTOP */
@@ -2347,36 +2248,17 @@ flash_write_sierra(struct ptentry *ptn,
 
 /* SWISTART */
 #ifdef SIERRA
-        boot_img_hdr *hdr;
-        char *convert_data = NULL;
-        uint32 convert_data_len = 0;
-    
-        /* check if need to convert boot.img from 4k to 2k  */
-        if (!strcmp(ptn->name, "boot"))
-        {
-            hdr = (boot_img_hdr *)data;
-            if ((flash.page_size == 2048) && (hdr->page_size == 4096))
-            {
-                dprintf(CRITICAL, "\nNeed to convert bootimg, malloc: %d\n", bytes);
-                convert_data = (char *)target_get_scratch_address();
-                dprintf(CRITICAL, "convert_data: 0x%x\n", (int)convert_data);
-                convert_data += CONVERTED_IMG_MEM_OFFSET;
-                dprintf(CRITICAL, "Add 0x4000000, convert_data: 0x%x\n", (int)convert_data);
-                if (convert_data == NULL)
-                {
-                    dprintf(CRITICAL, "fail to use malloc\n");
-                    return -1;
-                }
-                convert_data_len = convert_bootimg_4K_2K(data, bytes, convert_data);
-                dprintf(CRITICAL, "convert_data_len: %d\n", convert_data_len);
-            }
-        }
-    
-        if (convert_data_len != 0) {
-            image = (unsigned char *)convert_data;
-            data = convert_data;
-            bytes = convert_data_len;
-        }
+	boot_img_hdr *hdr;
+	/* Make sure the binary of boot image is match the hardware NAND flash! */
+	if (!strcmp(ptn->name, "boot"))
+	{
+		hdr = (boot_img_hdr *)data;
+		if ((flash.page_size == 2048) && (hdr->page_size == 4096))
+		{
+			dprintf(CRITICAL, "\nERROR: This is for 4k page binary, But the device is 2k page size!\n");
+			return -1;
+		}
+	}
 #endif
 /* SWISTOP */
 

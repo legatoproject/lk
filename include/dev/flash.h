@@ -33,24 +33,6 @@
 
 #include <lib/ptable.h>
 
-/* SWISTART */
-#ifdef SIERRA
-#define FLASH_PAGE_SIZE_2K	0x800
-#define FLASH_PAGE_SIZE_4K	0x1000
-
-#define LEB_SIZE_2K	(62*FLASH_PAGE_SIZE_2K)
-#define LEB_SIZE_4K	(62*FLASH_PAGE_SIZE_4K)
-
-#define BLOCK_SIZE_2K	(64*FLASH_PAGE_SIZE_2K)
-#define BLOCK_SIZE_4K	(64*FLASH_PAGE_SIZE_4K)
-
-#define CONVERTED_IMG_MEM_OFFSET (80*1024*1024)
-    
-#define ADD_PADDING_2048(pos) (((pos) % FLASH_PAGE_SIZE_2K)?(FLASH_PAGE_SIZE_2K - ((pos) % FLASH_PAGE_SIZE_2K)):0)
-#define ADD_PADDING_4096(pos) (((pos) % FLASH_PAGE_SIZE_4K)?(FLASH_PAGE_SIZE_4K - ((pos) % FLASH_PAGE_SIZE_4K)):0)
-#endif
-/* SWISTOP */
-
 enum nand_ecc_width
 {
 	NAND_WITH_4_BIT_ECC,
