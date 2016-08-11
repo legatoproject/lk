@@ -604,6 +604,81 @@ boolean image_authenticate(secboot_image_info_type* secboot_info_ptr)
   return ret;
 }
 
+/************
+ *
+ * Name:     swipart_get_logical_partition_from_backup
+ *
+ * Purpose:  Get the start block and end block of logical partition
+ *                from physical 0:BACKUP partition
+ *
+ * Parms:    (IN) block_size -block size
+ *               (IN) logical_partition - logical partition ID
+ *               (OUT) start_block - start block of logical partition
+ *               (OUT) end_block - end block of logical partition
+ *
+ * Return:   TRUE  - success
+ *           FALSE - fail
+ *
+ * Abort:    None
+ *
+ * Notes:    None
+ *
+ ************/
+boolean swipart_get_logical_partition_from_backup(
+  uint32 block_size,
+  backup_logical_partition_type logical_partition,
+  uint32 *start_block,
+  uint32 *end_block)
+{
+  uint32 dedb_block_count, sedb_block_count, log_block_count;
+
+  /* Make sure it is not NULL in order to get correct 'block_size' */
+  if ((end_block == NULL) || (start_block == NULL))
+  {
+    dprintf(CRITICAL, "swipart_get_logical_partition_from_backup, bad parameter\n");
+    return FALSE;
+  }
+
+  if((logical_partition <= LOGICAL_PARTITION_NONE) || 
+    (logical_partition >= LOGICAL_PARTITION_INVALID))
+  {
+    dprintf(CRITICAL, "wrong logical partition ID(%d)", logical_partition);
+    return FALSE;
+  }
+
+  /* Calculate block count for every logical partition */
+  dedb_block_count = LOGICAL_PARTITION_DEDB_SIZE/block_size;
+  sedb_block_count = LOGICAL_PARTITION_SEDB_SIZE/block_size;
+  log_block_count = LOGICAL_PARTITION_LOG_SIZE/block_size;
+
+  /* Get start block and end block of logcial partition */
+  *start_block = 0;
+  *end_block = 0;
+  switch(logical_partition)
+  {
+    case LOGICAL_PARTITION_DEDB:
+      *start_block = 0;
+      *end_block = dedb_block_count - 1;
+      break;
+
+    case LOGICAL_PARTITION_SEDB:
+      *start_block = dedb_block_count;
+      *end_block = dedb_block_count + sedb_block_count - 1;
+      break;
+
+    case LOGICAL_PARTITION_LOG:
+      *start_block = dedb_block_count + sedb_block_count;
+      *end_block = dedb_block_count + sedb_block_count + log_block_count - 1;
+      break;
+
+    default:
+      dprintf(CRITICAL, "wrong logical partition ID(%d)", logical_partition);
+      return FALSE;
+  }
+
+  return TRUE;
+}
+
 
 /************
  *

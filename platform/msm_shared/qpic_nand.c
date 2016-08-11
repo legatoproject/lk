@@ -2379,8 +2379,8 @@ int flash_write_sierra_file_img(struct ptentry *ptn,
 			unsigned bytes,
 			go_cwe_file_func_type gocwe)
 {
-	uint32_t page = ptn->start * flash.num_pages_per_blk;
-	uint32_t lastpage = (ptn->start + ptn->length) * flash.num_pages_per_blk;
+	uint32_t page = 0;
+	uint32_t lastpage = 0;
 	uint32_t *spare = (unsigned *)flash_spare_bytes;
 	const unsigned char *image = data;
 	uint32_t wsize;
@@ -2388,8 +2388,20 @@ int flash_write_sierra_file_img(struct ptentry *ptn,
 	int r;
 	uint32_t i = 0, ttl_page;
 	unsigned int go_len, free_page_count = 0, go_page, pages_to_write;
+	uint32 start_block, end_block;
 
-	dprintf(CRITICAL, "flash_write_sierra_file_img()11, page:%d\n", page);
+	if (FALSE == swipart_get_logical_partition_from_backup(flash.block_size,  
+															LOGICAL_PARTITION_DEDB,
+															&start_block,
+															&end_block))
+	{
+		dprintf(CRITICAL, "swipart_get_logical_partition_from_backup failed\n");
+		return -1;
+	}
+
+	page = (start_block + ptn->start) * flash.num_pages_per_blk;
+	lastpage = (end_block + ptn->start) * flash.num_pages_per_blk;
+	dprintf(CRITICAL, "flash_write_sierra_file_img(), page:%u, lastpage:%u\n", page, lastpage);
 
 	ttl_page = lastpage - page;
 	pages_to_write = ((bytes/flash.page_size) +1);
@@ -2458,7 +2470,7 @@ int flash_write_sierra_file_img(struct ptentry *ptn,
 		dprintf(CRITICAL, "flash_write_sierra_file_img(), we don't have enouth pages to write image\n");
 		return  -1;
 	}
-  
+
 	spare_byte_count = ((flash.cw_size * flash.cws_per_page)- flash.page_size);
 	if(write_extra_bytes)
 		wsize = flash.page_size + spare_byte_count;

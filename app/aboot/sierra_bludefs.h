@@ -19,6 +19,23 @@
 /* Constants and enumerated types */
 
 /* Types of images that can be programmed */
+/* BACKUP partition is divided into 3 logcial partitions below.
+ * |    DEDB(6.5M)    |    SEDB(3M)    |    LOG(4M)    |
+ */
+#define LOGICAL_PARTITION_DEDB_SIZE    6815744   /* 0x680000 = 6.5M */
+#define LOGICAL_PARTITION_SEDB_SIZE    3145728   /* 0x300000 = 3M */
+#define LOGICAL_PARTITION_LOG_SIZE     4194304   /* 0x400000 = 4M */
+
+/* ENUM for logical partition types in physical BACKUP partition */
+typedef enum
+{
+  LOGICAL_PARTITION_NONE,
+  LOGICAL_PARTITION_DEDB,
+  LOGICAL_PARTITION_SEDB,
+  LOGICAL_PARTITION_LOG,
+  LOGICAL_PARTITION_INVALID,
+} backup_logical_partition_type;
+
 typedef enum {
   FLASH_PROG_NO_IMG = 0,
   FLASH_PROG_QCSBLHD_CONFIGDAT_IMG,
@@ -305,6 +322,11 @@ extern void sierra_smem_err_count_set(unsigned int err_cnt);
 extern void sierra_smem_reset_type_set(unsigned int reset_type);
 extern boolean sierra_smem_get_auth_en(void);
 extern boolean image_authenticate(secboot_image_info_type* secboot_info_ptr);
+extern boolean swipart_get_logical_partition_from_backup(
+  uint32 block_size,
+  backup_logical_partition_type logical_partition,
+  uint32 *start_block,
+  uint32 *end_block);
 
 enum blresultcode  blProcessFastbootImage(unsigned char *bufp, unsigned int image_size);
 void sierra_check_mibib_state_clear(void);
