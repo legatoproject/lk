@@ -140,7 +140,7 @@ enum msm_spi_state {
 /* SPI driver globe configuration begin:
   * Developer should modify these item to adapt SPI register and clock of MDM9x40 */
 
-#define SPI_USE_BLSP_QUP2
+/* #define SPI_USE_BLSP_QUP2 */
 
 #ifdef SPI_USE_BLSP_QUP2
 /* We use QUP2 config, real index is 3 in QC's HW document*/
@@ -182,10 +182,10 @@ unsigned int qup_register = 0x78B8000;  /* Now we use BLSP_QUP3_QUP_CONFIG: 0x78
   * 9600000; 
   * 19200000
 */
-#define SPI_CLOCK_RATE 960000
+#define SPI_CLOCK_RATE 9600000
 
 /* SPI_BYTES_PER_WORD should be 1 ~ 4 */
-#define SPI_BYTES_PER_WORD          1
+#define SPI_BYTES_PER_WORD          4
 
 /* Refer to Kernel, set SPI_DEASSERT_WAIT to 42 ticks */
 #define SPI_DEASSERT_WAIT_TICKS     0x14
