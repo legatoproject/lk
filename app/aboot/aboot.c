@@ -2834,7 +2834,7 @@ void cmd_flash_nand(const char *arg, void *data, unsigned sz)
 	}
 
 	if (!strcmp(ptn->name, "system")
-		|| !strcmp(ptn->name, "userdata")
+                || !strcmp(ptn->name, "userdata")
 		|| !strcmp(ptn->name, "persist")
 		|| !strcmp(ptn->name, "recoveryfs")
 		|| !strcmp(ptn->name, "modem"))
