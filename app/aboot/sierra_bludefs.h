@@ -64,7 +64,7 @@ typedef enum {
 #define BL_MIBIB_PARTI_NAME "mibib"
 #define BL_ABOOT_PARTI_NAME "aboot"
 #define BL_LINUX_BOOT_PARTI_NAME "boot"
-#define BL_LINUX_UDATA_PARTI_NAME "userdata"
+#define BL_LINUX_UDATA_PARTI_NAME "lefwkro"
 #define BL_LINUX_UAPP_PARTI_NAME "userapp"
 #define BL_LINUX_SYSTEM_PARTI_NAME "system"
 #define BL_TZ_PARTI_NAME "tz"
