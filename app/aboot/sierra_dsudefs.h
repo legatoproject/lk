@@ -26,7 +26,7 @@
 #define DS_DATA_BLOCK_ERASED         0x66726565 /* "free" */
 #define DS_NO_FREE_BLOCK             (-1)       /* All block are bad blocks in the partition, should not be happened */
 
-#define BL_DSSD_PARTI_NAME "dssd"
+#define BL_SSDATA_PARTI_NAME "ssdata"           /* Dual system shared data(DSSD) */
 
 /************
  *

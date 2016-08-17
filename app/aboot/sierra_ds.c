@@ -589,7 +589,7 @@ void sierra_ds_dssd_partition_read(
     return;
   }
 
-  ptn = ptable_find(ptable, (const char *)BL_DSSD_PARTI_NAME);
+  ptn = ptable_find(ptable, (const char *)BL_SSDATA_PARTI_NAME);
   if (ptn == NULL)
   {
     dprintf(CRITICAL, "sierra_ds_dssd_partition_read(): ptable_find 'dssd' partition failed\n");
@@ -691,7 +691,7 @@ void sierra_ds_dssd_partition_write(
     return;
   }
 
-  ptn = ptable_find(ptable, (const char *)BL_DSSD_PARTI_NAME);
+  ptn = ptable_find(ptable, (const char *)BL_SSDATA_PARTI_NAME);
   if (ptn == NULL)
   {
     dprintf(CRITICAL, "sierra_ds_dssd_partition_write(): ptable_find 'dssd' partition failed\n");
