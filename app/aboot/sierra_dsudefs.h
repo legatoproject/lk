@@ -81,13 +81,16 @@ enum ds_sw_update_state_e
  ************/
 struct ds_flag_s
 {
-  uint32  boot_system;           /* Boot system flag */
-  uint32  swap_reason;           /* Dual system swap reasons */
-  uint32  out_of_sync;           /* Out of sync flag */
-  uint32  sw_update_state;       /* SW update state */
-  uint64  updated_image;         /* Record updated images */
-  uint64  bad_image;             /* Record bad images */
-  uint64  refresh_image;         /* Record images which need to do refresh */
+  uint8   ssid_modem_idx;                 /* SSID modem index flag */
+  uint8   ssid_lk_idx;                    /* SSID LK index flag */
+  uint8   ssid_linux_idx;                 /* SSID Linux index flag */
+  uint8   reserved_8bits;                 /* Reserved for 8 bytes align */
+  uint32  swap_reason;                    /* Dual system swap reasons */
+  uint32  sw_update_state;                /* SW update state */
+  uint32  out_of_sync;                    /* Out of sync flag */
+  uint32  efs_corruption_in_sw_update;    /* EFS corruption in SW update flag */
+  uint32  edb_in_sw_update;               /* EDB in SW update flag */
+  uint64  bad_image;                      /* Bad image mask */
 };
 
 /************
@@ -101,26 +104,28 @@ struct ds_flag_s
  ************/
 struct ds_shared_data_s
 {
-  uint32  magic_beg;             /* Magic begin flag */
-  uint32  boot_system;           /* Boot system flag */
-  uint32  swap_reason;           /* Dual system swap reasons */
-  uint32  out_of_sync;           /* Out of sync flag */
-  uint64  updated_image;         /* Record updated images */
-  uint64  bad_image;             /* Record bad images */
-  uint64  refresh_image;         /* Record images which need to do refresh */
-  uint32  sw_update_state;       /* SW update state */
-  uint32  reserved;              /* Add it in order to keep 8 bytes align */
-  uint32  magic_end;             /* Magic ending flag */
-  uint32  crc32;                 /* CRC value */
+  uint32  magic_beg;                      /* Magic begin flag */
+  uint8   ssid_modem_idx;                 /* SSID modem index flag */
+  uint8   ssid_lk_idx;                    /* SSID LK index flag */
+  uint8   ssid_linux_idx;                 /* SSID Linux index flag */
+  uint8   reserved_8bits;                 /* Reserved for 8 bytes align */
+  uint32  reserved_32bits;                /* Reserved for 8 bytes align */
+  uint32  swap_reason;                    /* Dual system swap reasons */
+  uint32  sw_update_state;                /* SW update state */
+  uint32  out_of_sync;                    /* Out of sync flag */
+  uint32  efs_corruption_in_sw_update;    /* EFS corruption in SW update flag */
+  uint32  edb_in_sw_update;               /* EDB in SW update flag */
+  uint64  bad_image;                      /* Bad image mask */
+  uint32  magic_end;                      /* Magic ending flag */
+  uint32  crc32;                          /* CRC value */
 };
 
 extern bool sierra_ds_check_if_out_of_sync(void);
 extern bool sierra_ds_write_flags_in_lk(
   uint32 sw_update_state,
   uint32 out_of_sync,
-  uint64 updated_image,
   uint64 bad_image);
-extern uint32 sierra_ds_smem_get_boot_system(void);
+extern uint8 sierra_ds_smem_get_ssid_linux_index(void);
 extern void sierra_ds_smem_write_bad_image_and_swap(uint64 bad_image_mask);
 #ifdef SIERRA_DUAL_SYSTEM_TEST
 extern void sierra_ds_test(const char *arg);
