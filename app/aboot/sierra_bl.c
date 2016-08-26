@@ -664,7 +664,7 @@ unsigned int blGoCweFile(unsigned char *buf, unsigned int len)
   if (TRUE != cwe_image_validate(&temphdr, 
                                                           buf + sizeof(struct cwe_header_s), 
                                                           CWE_IMAGE_TYPE_ANY, 
-                                                          BL_PRODUCT_ID, 
+                                                          0, 
                                                           FALSE))
   {
     return 0;
