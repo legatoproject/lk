@@ -76,129 +76,6 @@ typedef enum {
   FLASH_PROG_UNKNOWN_IMG
   } flash_prog_img_type_t;
 
-/* Image type definition */
-/************************************************************/
-/*  Image Type Enum definition is moved from miheader.h     */
-/************************************************************/
-
-typedef enum
-{
-  NONE_IMG = 0,
-  OEM_SBL_IMG,
-  AMSS_IMG,
-  QCSBL_IMG,
-  HASH_IMG,
-  APPSBL_IMG,
-  APPS_IMG,
-  HOSTDL_IMG,
-  DSP1_IMG,
-  FSBL_IMG,
-  DBL_IMG,
-  OSBL_IMG,
-  DSP2_IMG,
-  EHOSTDL_IMG,
-  NANDPRG_IMG,
-  NORPRG_IMG,
-  RAMFS1_IMG,
-  RAMFS2_IMG,
-  ADSP_Q5_IMG,
-  APPS_KERNEL_IMG,
-  BACKUP_RAMFS_IMG,
-  SBL1_IMG,
-  SBL2_IMG,
-  RPM_IMG,  
-  SBL3_IMG,
-  TZ_IMG,
-  SSD_KEYS_IMG,
-  GEN_IMG,
-  DSP3_IMG,
-
- /******************************************************/
- /* Always add enums at the end of the list. there are */
- /*  hard dependencies on this enum in apps builds     */
- /*  which DONOT SHARE this definition file            */
- /******************************************************/
-
-  /* add above */
-  MAX_IMG = 0x7FFFFFFF
-}image_type;
-
-
-typedef struct
-{
-  image_type image_id;       /* Identifies the type of image this header
-                                 represents (OEM SBL, AMSS, Apps boot loader,
-                                 etc.). */
-  uint32 header_vsn_num;     /* Header version number. */
-  uint32 image_src;          /* Location of image in flash: Address of
-                                 image in NOR or page/sector offset to image
-                                 from page/sector 0 in NAND/SUPERAND. */
-  uint8* image_dest_ptr;     /* Pointer to location to store image in RAM.
-                                 Also, entry point at which image execution
-                                 begins. */
-  uint32 image_size;         /* Size of complete image in bytes */
-  uint32 code_size;          /* Size of code region of image in bytes */
-  uint8* signature_ptr;      /* Pointer to images attestation signature */
-  uint32 signature_size;     /* Size of the attestation signature in
-                                 bytes */
-  uint8* cert_chain_ptr;     /* Pointer to the chain of attestation
-                                 certificates associated with the image. */
-  uint32 cert_chain_size;    /* Size of the attestation chain in bytes */
-
-} mi_boot_image_header_type;
-
-/*---------------------------------------------------------------------------
-  Software Type identifiying image being authenticated. These values
-  correspond to the code signing tools (CSMS) Software ID field which has
-  lower 32 bits for Software type and upper 32 bits for Software version.
----------------------------------------------------------------------------*/
-typedef enum
-{
-  SECBOOT_SBL_SW_TYPE                = 0,
-  SECBOOT_SBL1_SW_TYPE               = 0,
-  SECBOOT_AMSS_SW_TYPE               = 1, 
-  SECBOOT_DMSS_SW_TYPE               = 1,
-  SECBOOT_MBA_SW_TYPE                = 1, /* Modem boot authenticator image */
-  SECBOOT_AMSS_HASH_TABLE_SW_TYPE    = 2,
-  SECBOOT_FLASH_PRG_SW_TYPE          = 3,
-  SECBOOT_EHOSTD_SW_TYPE             = 3,
-  SECBOOT_DSP_HASH_TABLE_SW_TYPE     = 4,
-  SECBOOT_LPASS_HASH_TABLE_TYPE      = 4, /* Lpass hash table */
-  SECBOOT_SBL2_SW_TYPE               = 5,
-  SECBOOT_SBL3_SW_TYPE               = 6,
-  SECBOOT_TZ_KERNEL_SW_TYPE          = 7, /* TZBSP Image */
-  SECBOOT_QSEE_SW_TYPE               = 7, /* TZ is now called QSEE */
-  SECBOOT_HOSTDL_SW_TYPE             = 8,
-  SECBOOT_APPSBL_SW_TYPE             = 9,
-  SECBOOT_RPM_FW_SW_TYPE             = 10,
-  SECBOOT_SPS_HASH_TABLE_TYPE        = 11,
-  SECBOOT_TZ_EXEC_HASH_TABLE_TYPE    = 12, /* Playready or TZ Executive Image */
-  SECBOOT_RIVA_HASH_TABLE_TYPE       = 13,
-  SECBOOT_APPS_HASH_TABLE_TYPE       = 14, /* Apps Image */
-  SECBOOT_SWI_APPS_SW_TYPE           = 14, /* SWI apps(kernel) image in "binary" format */
-  SECBOOT_WDT_SW_TYPE                = 18, /* Wdog debug image */
-  SECBOOT_QHEE_SW_TYPE               = 0x15,
-  SECBOOT_MAX_SW_TYPE                = 0x7FFFFFFF /* force to 32 bits*/
-} secboot_sw_type;
-
-/**
- * @brief Information about the image to be authenticated
- */
-typedef struct secboot_image_info_type
-{
-  const uint8* header_ptr_1;   /**< Pointer to the header */
-  uint32       header_len_1;   /**< Length in bytes of the image header */
-  const uint8* code_ptr_1;     /**< Pointer to the code */
-  uint32       code_len_1;     /**< Length in bytes of the image */
-  const uint8* x509_chain_ptr; /**< Pointer to the certificate chain */
-  uint32       x509_chain_len; /**< Length in bytes of the certificate chain */
-  const uint8* signature_ptr;  /**< Pointer to the signature */
-  uint32       signature_len;  /**< Length in bytes of the  signature */
-  uint32       sw_type;        /**< Type of the image being authenticated - SBL1, TZ etc */
-  uint32       sw_version;     /**< Minimum version of the image that can be executed (for rollback prevention) */
-} secboot_image_info_type;
-
-
 #define BL_SBL_PARTI_NAME "sbl"
 #define BL_MIBIB_PARTI_NAME "mibib"
 #define BL_ABOOT_PARTI_NAME "aboot"
@@ -442,8 +319,6 @@ extern bool sierra_if_enter_fastboot(void);
 extern unsigned int sierra_smem_err_count_get(void);
 extern void sierra_smem_err_count_set(unsigned int err_cnt);
 extern void sierra_smem_reset_type_set(unsigned int reset_type);
-extern boolean sierra_smem_get_auth_en(void);
-extern boolean image_authenticate(secboot_image_info_type* secboot_info_ptr);
 extern boolean swipart_get_logical_partition_from_backup(
   uint32 block_size,
   backup_logical_partition_type logical_partition,
