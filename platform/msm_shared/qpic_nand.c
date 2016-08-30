@@ -41,6 +41,12 @@
 #include <target.h>
 #include "bootimg.h"
 
+/* SWISTART */
+#ifdef SIERRA
+#include "sierra_bludefs.h"
+#endif
+/* SWISTOP */
+
 static uint32_t nand_base;
 static struct ptable *flash_ptable;
 static struct flash_info flash;
@@ -2434,8 +2440,8 @@ int flash_write_sierra_file_img(struct ptentry *ptn,
 			unsigned bytes,
 			go_cwe_file_func_type gocwe)
 {
-	uint32_t page = ptn->start * flash.num_pages_per_blk;
-	uint32_t lastpage = (ptn->start + ptn->length) * flash.num_pages_per_blk;
+	uint32_t page = 0;
+	uint32_t lastpage = 0;
 	uint32_t *spare = (unsigned *)flash_spare_bytes;
 	const unsigned char *image = data;
 	uint32_t wsize;
@@ -2443,8 +2449,55 @@ int flash_write_sierra_file_img(struct ptentry *ptn,
 	int r;
 	uint32_t i = 0, ttl_page;
 	unsigned int go_len, free_page_count = 0, go_page, pages_to_write;
+	uint32 start_block, end_block;
+	/* ASCII : AR*/
+	uint32 product_flag, product_name = 0x4152;
+	struct ptable *ptable;
+	struct ptentry *lptn;
 
-	dprintf(CRITICAL, "flash_write_sierra_file_img()11, page:%d\n", page);
+	/* If can find the partition "modem2" in the partition table, we think it is AR.*/
+	/* Otherwise, we think it is WP.*/
+	ptable = flash_get_ptable();
+	if (ptable == NULL)
+	{
+		dprintf(CRITICAL, "flash_write_sierra_file_img: flash_get_ptable failed\n");
+		return BLRESULT_FLASH_WRITE_ERROR;
+	}
+
+	lptn = ptable_find(ptable, (const char *)BL_MODEM2_PARTI_NAME);
+	if (lptn == NULL)
+	{
+		/* Can't find "modem2", we think it is WP.*/
+		product_flag = 0;
+		dprintf(CRITICAL, "flash_write_sierra_file_img: ptable_find can't find: %s\n", BL_MODEM2_PARTI_NAME);
+	}
+	else
+	{
+		dprintf(CRITICAL, "flash_write_sierra_file_img: ptable_find find: %s\n", BL_MODEM2_PARTI_NAME);
+		product_flag = product_name;
+	}
+
+	if (product_name == product_flag)
+	{
+		if (FALSE == swipart_get_logical_partition_from_backup(flash.block_size,
+								LOGICAL_PARTITION_DEDB,
+								&start_block,
+								&end_block))
+		{
+			dprintf(CRITICAL, "swipart_get_logical_partition_from_backup failed\n");
+			return -1;
+		}
+
+		page = (start_block + ptn->start) * flash.num_pages_per_blk;
+		lastpage = (end_block + ptn->start) * flash.num_pages_per_blk;
+		dprintf(CRITICAL, "flash_write_sierra_file_img(), page:%u, lastpage:%u\n", page, lastpage);
+	}
+	else
+	{
+		lastpage = (ptn->start + ptn->length) * flash.num_pages_per_blk;
+		page = ptn->start * flash.num_pages_per_blk;
+		dprintf(CRITICAL, "flash_write_sierra_file_img()11, page:%d\n", page);
+	}
 
 	ttl_page = lastpage - page;
 	pages_to_write = ((bytes/flash.page_size) +1);
