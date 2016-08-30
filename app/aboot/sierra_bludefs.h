@@ -20,6 +20,23 @@
 /* Constants and enumerated types */
 
 /* Types of images that can be programmed */
+/* BACKUP partition is divided into 3 logcial partitions below.
+ * |    DEDB(6.5M)    |    SEDB(3M)    |    LOG(4M)    |
+ */
+#define LOGICAL_PARTITION_DEDB_SIZE    6815744   /* 0x680000 = 6.5M */
+#define LOGICAL_PARTITION_SEDB_SIZE    3145728   /* 0x300000 = 3M */
+#define LOGICAL_PARTITION_LOG_SIZE     4194304   /* 0x400000 = 4M */
+
+/* ENUM for logical partition types in physical BACKUP partition */
+typedef enum
+{
+  LOGICAL_PARTITION_NONE,
+  LOGICAL_PARTITION_DEDB,
+  LOGICAL_PARTITION_SEDB,
+  LOGICAL_PARTITION_LOG,
+  LOGICAL_PARTITION_INVALID,
+} backup_logical_partition_type;
+
 typedef enum {
   FLASH_PROG_NO_IMG = 0,
   FLASH_PROG_QCSBLHD_CONFIGDAT_IMG,
@@ -69,8 +86,10 @@ typedef enum {
 #define BL_LINUX_SYSTEM_PARTI_NAME "system"
 #define BL_TZ_PARTI_NAME "tz"
 #define BL_MODEM_PARTI_NAME "modem"
+#define BL_MODEM2_PARTI_NAME "modem2"
 #define BL_RPM_PARTI_NAME "rpm"
 #define BL_BACKUP_PARTI_NAME "backup"
+
 
 #define BL_PRODUCT_ID                  0x39583238       /* "9X28" */
 
@@ -180,6 +199,12 @@ extern bool sierra_if_enter_fastboot(void);
 extern unsigned int sierra_smem_err_count_get(void);
 extern void sierra_smem_err_count_set(unsigned int err_cnt);
 extern void sierra_smem_reset_type_set(unsigned int reset_type);
+
+extern boolean swipart_get_logical_partition_from_backup(
+  uint32 block_size,
+  backup_logical_partition_type logical_partition,
+  uint32 *start_block,
+  uint32 *end_block);
 
 enum blresultcode  blProcessFastbootImage(unsigned char *bufp, unsigned int image_size);
 void sierra_check_mibib_state_clear(void);
