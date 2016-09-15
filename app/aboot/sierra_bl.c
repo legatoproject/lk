@@ -515,7 +515,7 @@ bool sierra_smem_mibib_set_flag(uint32 update_flag)
  ************/
 bool sierra_if_enter_fastboot(void)
 {
-  return (sierra_smem_err_count_get() >= BLERRTHRESHOLD_FASTBOOT) ? true : false;
+  return (sierra_smem_err_count_get() > BLERRTHRESHOLD_FASTBOOT) ? true : false;
 }
 
 /************
