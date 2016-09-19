@@ -1661,3 +1661,60 @@ _global enum blresultcode blProcessFastbootImage(unsigned char *bufp, unsigned i
   return result;
 }
 
+/************
+ *
+ * Name:     is_dual_system_supported
+ *
+ * Purpose:  Find the partition "modem2" in the partition table, it is AR, other is WP
+ *
+ * Parms:    None
+ *
+ * Return:   TRUE  - success ar
+ *           FALSE - fail wp
+ *
+ * Abort:    None
+ *
+ * Notes:    None
+ *
+ ************/
+
+bool is_dual_system_supported(void)
+{
+    /* ASCII : AR*/
+    uint32 product_flag, product_name = 0x4152;
+    struct ptable *ptable;
+    struct ptentry *lptn;
+
+    /* If can find the partition "modem2" in the partition table, we think it is AR.*/
+    /* Otherwise, we think it is WP.*/
+    ptable = flash_get_ptable();
+    if (ptable == NULL)
+    {
+        dprintf(CRITICAL, "flash_write_sierra_file_img: flash_get_ptable failed\n");
+        return BLRESULT_FLASH_WRITE_ERROR;
+    }
+
+    lptn = ptable_find(ptable, (const char *)BL_MODEM2_PARTI_NAME);
+    if (lptn == NULL)
+    {
+        /* Can't find "modem2", we think it is WP.*/
+        product_flag = 0;
+        dprintf(CRITICAL, "flash_write_sierra_file_img: ptable_find can't find: %s\n", BL_MODEM2_PARTI_NAME);
+    }
+    else
+    {
+        dprintf(CRITICAL, "flash_write_sierra_file_img: ptable_find find: %s\n", BL_MODEM2_PARTI_NAME);
+        product_flag = product_name;
+    }
+
+    if (product_name == product_flag)
+    {
+        return TRUE;
+    }
+    else
+    {
+        return FALSE;
+    }
+}
+
+

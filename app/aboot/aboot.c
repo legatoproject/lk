@@ -93,6 +93,7 @@
 #ifdef SIERRA
 #include "mach/sierra_smem.h"
 #include "sierra_bludefs.h"
+#include "sierra_dsudefs.h"
 #endif
 /* SWISTOP */
 
@@ -1263,6 +1264,14 @@ int boot_linux_from_flash(void)
 	unsigned char *best_match_dt_addr = NULL;
 #endif
 
+/* SWISTART */
+#ifdef SIERRA
+	bool kernel_is_bad = FALSE;
+	uint64 bad_image_mask = 0;
+#endif
+
+/* SWISTOP */
+
 	if (target_is_emmc_boot()) {
 		hdr = (struct boot_img_hdr *)EMMC_BOOT_IMG_HEADER_ADDR;
 		if (memcmp(hdr->magic, BOOT_MAGIC, BOOT_MAGIC_SIZE)) {
@@ -1280,7 +1289,28 @@ int boot_linux_from_flash(void)
 
 	if(!boot_into_recovery)
 	{
-	        ptn = ptable_find(ptable, "boot");
+/* SWISTART */
+#ifdef SIERRA
+		/* Get Kernel partition handler according to current boot system */
+		if(is_dual_system_supported())
+		{
+			if(DS_SYSTEM_2 == sierra_ds_smem_get_boot_system())
+			{
+				dprintf(CRITICAL, "Load kernel from boot2 partition due to boot system 2\n");
+				ptn = ptable_find(ptable, "boot2");
+				bad_image_mask = DS_IMAGE_BOOT_2;
+			}
+			else
+			{
+				dprintf(CRITICAL, "Load kernel from boot partition due to boot system 1\n");
+				ptn = ptable_find(ptable, "boot");
+				bad_image_mask = DS_IMAGE_BOOT_1;
+			}
+		}
+#else
+		ptn = ptable_find(ptable, "boot");
+#endif
+/* SWISTOP */
 
 	        if (ptn == NULL) {
 		        dprintf(CRITICAL, "ERROR: No boot partition found\n");
@@ -1398,6 +1428,22 @@ int boot_linux_from_flash(void)
 		}
 
 		verify_signed_bootimg((uint32_t)image_addr, imagesize_actual);
+/* SWISTART */
+#ifdef SIERRA
+        /* Get the result that secure boot authenticate kernel */
+        /* TBD until secure boot part finished */
+
+		if(kernel_is_bad)
+		{
+			sierra_ds_smem_write_bad_image_and_swap(bad_image_mask);
+
+			/* Swap system after bad kernel detected */
+			dprintf(CRITICAL, "rebooting the device as bad kernel\n");
+			reboot_device(0);
+		}
+
+#endif
+/* SWISTOP */
 
 		/* Move kernel and ramdisk to correct address */
 		memmove((void*) hdr->kernel_addr, (char*) (image_addr + page_size), hdr->kernel_size);
@@ -1523,6 +1569,22 @@ int boot_linux_from_flash(void)
 				dprintf(CRITICAL, "ERROR: Cannot read device tree\n");
 				return -1;
 			}
+/* SWISTART */
+#ifdef SIERRA
+
+			/* Get the result that program reliability authenticate kernel when secure boot disabled */
+			/* TBD until program reliability part finished */
+			if(kernel_is_bad)
+			{
+				sierra_ds_smem_write_bad_image_and_swap(bad_image_mask);
+
+				/* Swap system after bad kernel detected */
+				dprintf(INFO, "rebooting the device\n");
+				reboot_device(0);
+			}
+
+#endif
+/* SWISTOP */
 		}
 #endif
 
@@ -2830,6 +2892,15 @@ void cmd_flash_nand(const char *arg, void *data, unsigned sz)
 
 		sierra_check_mibib_state_clear();
 	}
+#ifdef SIERRA_DUAL_SYSTEM_TEST
+	else if(!strcmp(arg, "swi_ds_read")
+			|| !strcmp(arg, "swi_dssd_write")
+			|| !strcmp(arg, "swi_dssd_init")
+			|| !strcmp(arg, "swi_ds_smem_write"))
+	{
+		sierra_ds_test(arg);
+	}
+#endif /* SIERRA_DUAL_SYSTEM_TEST */
 	else
 	{
 #endif
@@ -2856,7 +2927,7 @@ void cmd_flash_nand(const char *arg, void *data, unsigned sz)
 	}
 
 	if (!strcmp(ptn->name, "system")
-                || !strcmp(ptn->name, "userdata")
+		|| !strcmp(ptn->name, "userdata")
 		|| !strcmp(ptn->name, "persist")
 		|| !strcmp(ptn->name, "recoveryfs")
 		|| !strcmp(ptn->name, "modem"))

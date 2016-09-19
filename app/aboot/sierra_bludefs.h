@@ -193,6 +193,8 @@ struct blCtrlBlk
 
 extern bool to_update_mibib;
 
+extern unsigned char *sierra_smem_base_addr_get(void);
+
 extern int sierra_smem_boothold_mode_set();
 extern bool sierra_is_fastboot_disabled(void);
 extern bool sierra_if_enter_fastboot(void);
@@ -205,7 +207,7 @@ extern boolean swipart_get_logical_partition_from_backup(
   backup_logical_partition_type logical_partition,
   uint32 *start_block,
   uint32 *end_block);
-
+extern bool is_dual_system_supported(void);
 enum blresultcode  blProcessFastbootImage(unsigned char *bufp, unsigned int image_size);
 void sierra_check_mibib_state_clear(void);
 
