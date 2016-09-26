@@ -31,6 +31,11 @@
 #include <platform/iomap.h>
 #include <platform/gpio.h>
 #include <blsp_qup.h>
+/* SWISTART */
+#ifdef SIERRA
+#include <board.h>
+#endif
+/* SWISTOP */
 
 void gpio_tlmm_config(uint32_t gpio, uint8_t func,
 			uint8_t dir, uint8_t pull,
@@ -77,13 +82,27 @@ void gpio_config_uart_dm(uint8_t id)
 	gpio_tlmm_config(8, 2, GPIO_OUTPUT, GPIO_NO_PULL,
 				GPIO_8MA, GPIO_DISABLE);
 #else /* SIERRA */
-	/* configure rx gpio */
-	gpio_tlmm_config(13, 2, GPIO_INPUT, GPIO_NO_PULL,
+	if (board_hardware_subtype() == SWI_WP_BOARD)
+	{
+		/* configure rx gpio */
+		gpio_tlmm_config(13, 2, GPIO_INPUT, GPIO_NO_PULL,
 				GPIO_8MA, GPIO_DISABLE);
 
-	/* configure tx gpio */
-	gpio_tlmm_config(12, 2, GPIO_OUTPUT, GPIO_NO_PULL,
+		/* configure tx gpio */
+		gpio_tlmm_config(12, 2, GPIO_OUTPUT, GPIO_NO_PULL,
+					GPIO_8MA, GPIO_DISABLE);
+	}
+	else
+	{
+		/* configure rx gpio */
+		gpio_tlmm_config(9, 2, GPIO_INPUT, GPIO_NO_PULL,
 				GPIO_8MA, GPIO_DISABLE);
+
+		/* configure tx gpio */
+		gpio_tlmm_config(8, 2, GPIO_OUTPUT, GPIO_NO_PULL,
+					GPIO_8MA, GPIO_DISABLE);
+	}
+	
 #endif /* SIERRA */
 /* SWISTOP */
 }
