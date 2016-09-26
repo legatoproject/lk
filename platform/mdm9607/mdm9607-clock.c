@@ -35,6 +35,11 @@
 #include <platform/clock.h>
 #include <platform/iomap.h>
 #include <platform.h>
+/* SWISTART */
+#ifdef SIERRA
+#include <board.h>
+#endif
+/* SWISTOP */
 
 /* Mux source select values */
 #define cxo_source_val    0
@@ -111,8 +116,6 @@ static struct pll_vote_clk gpll0_clk_src =
 	},
 };
 
-/* SWISTART */
-#ifndef SIERRA
 /* UART Clocks */
 static struct clk_freq_tbl ftbl_gcc_blsp1_2_uart5_apps_clk[] =
 {
@@ -162,8 +165,9 @@ static struct branch_clk gcc_blsp1_uart5_apps_clk =
 		.ops      = &clk_ops_branch,
 	},
 };
-#else /* SIERRA */
-/* UART Clocks */
+
+/* SWISTART */
+#ifdef SIERRA
 static struct clk_freq_tbl ftbl_gcc_blsp1_2_uart1_apps_clk[] =
 {
        F( 3686400,  gpll0,    1,  72,  15625),
@@ -323,15 +327,8 @@ static struct vote_clk gcc_ce1_axi_clk = {
 /* Clock lookup table */
 static struct clk_lookup mdm_clocks_9607[] =
 {
-/* SWISTART */
-#ifndef SIERRA
 	CLK_LOOKUP("uart5_iface_clk", gcc_blsp1_ahb_clk.c),
 	CLK_LOOKUP("uart5_core_clk",  gcc_blsp1_uart5_apps_clk.c),
-#else /* SIERRA */
-	CLK_LOOKUP("uart1_iface_clk", gcc_blsp1_ahb_clk.c),
-	CLK_LOOKUP("uart1_core_clk",  gcc_blsp1_uart1_apps_clk.c),
-#endif /* SIERRA */
-/* SWISTOP */ 
 
 	CLK_LOOKUP("usb_iface_clk",  gcc_usb_hs_ahb_clk.c),
 	CLK_LOOKUP("usb_core_clk",   gcc_usb_hs_system_clk.c),
@@ -342,7 +339,39 @@ static struct clk_lookup mdm_clocks_9607[] =
 	CLK_LOOKUP("ce1_src_clk",  ce1_clk_src.c),
 };
 
+/* SWISTART */
+#ifdef SIERRA
+/* Clock lookup table */
+static struct clk_lookup mdm_clocks_9607_wp[] =
+{
+	CLK_LOOKUP("uart1_iface_clk", gcc_blsp1_ahb_clk.c),
+	CLK_LOOKUP("uart1_core_clk",  gcc_blsp1_uart1_apps_clk.c),
+
+	CLK_LOOKUP("usb_iface_clk",  gcc_usb_hs_ahb_clk.c),
+	CLK_LOOKUP("usb_core_clk",   gcc_usb_hs_system_clk.c),
+
+	CLK_LOOKUP("ce1_ahb_clk",  gcc_ce1_ahb_clk.c),
+	CLK_LOOKUP("ce1_axi_clk",  gcc_ce1_axi_clk.c),
+	CLK_LOOKUP("ce1_core_clk", gcc_ce1_clk.c),
+	CLK_LOOKUP("ce1_src_clk",  ce1_clk_src.c),
+};
+#endif
+/* SWISTOP */
+
 void platform_clock_init(void)
 {
+/* SWISTART */
+#ifndef SIERRA	
 	clk_init(mdm_clocks_9607, ARRAY_SIZE(mdm_clocks_9607));
+#else /* SIERRA */
+	if (board_hardware_subtype() == SWI_WP_BOARD)
+	{
+		clk_init(mdm_clocks_9607_wp, ARRAY_SIZE(mdm_clocks_9607_wp));
+	}
+	else
+	{
+		clk_init(mdm_clocks_9607, ARRAY_SIZE(mdm_clocks_9607));
+	}
+#endif /* SIERRA */
+/* SWISTOP */
 }
