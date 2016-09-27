@@ -1563,15 +1563,15 @@ int boot_linux_from_flash(void)
 		/* Get Kernel partition handler according to current boot system */
 		if(is_dual_system_supported())
 		{
-			if(DS_SYSTEM_2 == sierra_ds_smem_get_boot_system())
+			if(DS_SSID_SUB_SYSTEM_2 == sierra_ds_smem_get_ssid_linux_index())
 			{
-				dprintf(CRITICAL, "Load kernel from boot2 partition due to boot system 2\n");
+				dprintf(CRITICAL, "Load kernel from boot2 partition due to linux sub system 2\n");
 				ptn = ptable_find(ptable, "boot2");
 				bad_image_mask = DS_IMAGE_BOOT_2;
 			}
 			else
 			{
-				dprintf(CRITICAL, "Load kernel from boot partition due to boot system 1\n");
+				dprintf(CRITICAL, "Load kernel from boot partition due to linux sub system 1\n");
 				ptn = ptable_find(ptable, "boot");
 				bad_image_mask = DS_IMAGE_BOOT_1;
 			}
@@ -1716,22 +1716,6 @@ int boot_linux_from_flash(void)
 		}
 
 		verify_signed_bootimg((uint32_t)image_addr, imagesize_actual);
-/* SWISTART */
-#ifdef SIERRA
-        /* Get the result that secure boot authenticate kernel */
-        /* TBD until secure boot part finished */
-
-		if(kernel_is_bad)
-		{
-			sierra_ds_smem_write_bad_image_and_swap(bad_image_mask);
-
-			/* Swap system after bad kernel detected */
-			dprintf(CRITICAL, "rebooting the device as bad kernel\n");
-			reboot_device(0);
-		}
-
-#endif
-/* SWISTOP */
 
 		/* Move kernel and ramdisk to correct address */
 		memmove((void*) hdr->kernel_addr, (char*) (image_addr + page_size), hdr->kernel_size);
