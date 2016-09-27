@@ -1572,6 +1572,10 @@ int boot_linux_from_flash(void)
 				bad_image_mask = DS_IMAGE_BOOT_1;
 			}
 		}
+		else
+		{
+			ptn = ptable_find(ptable, "boot");
+		}
 #else
 		ptn = ptable_find(ptable, "boot");
 #endif
