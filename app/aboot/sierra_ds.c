@@ -31,8 +31,8 @@
 uint8 ds_page_buf[DS_MAX_PAGE_SIZE];
 boolean ds_page_buf_available = TRUE;
 
-/*
- * Local functions
+/* 
+ * Local functions 
  */
 
 /************
@@ -43,7 +43,7 @@ boolean ds_page_buf_available = TRUE;
  *
  * Parms: None
  *
- * Return: page buf pointer if available
+ * Return: page buf pointer if available 
  *             NULL otherwise.
  *
  * Abort: None
@@ -106,7 +106,9 @@ void sierra_ds_flag_init(
   ASSERT(ds_flag);
 
   memset((void *)ds_flag, 0, sizeof(struct ds_flag_s));
-  ds_flag->boot_system = DS_SYSTEM_1;
+  ds_flag->ssid_modem_idx = DS_SSID_SUB_SYSTEM_1;
+  ds_flag->ssid_lk_idx= DS_SSID_SUB_SYSTEM_1;
+  ds_flag->ssid_linux_idx= DS_SSID_SUB_SYSTEM_1;
   ds_flag->swap_reason = DS_SWAP_REASON_NONE;
   ds_flag->sw_update_state = DS_SW_UPDATE_STATE_NORMAL;
 
@@ -131,7 +133,7 @@ void sierra_ds_flag_init(
  *
  ************/
 bool sierra_ds_dssd_is_erased_page(
-  uint8 *page_buf,
+  uint8 *page_buf, 
   uint32 page_size)
 {
   uint8 *page_buf_p = NULL;
@@ -189,7 +191,7 @@ bool sierra_ds_dssd_data_blocks_find(
   block_size = flash_num_pages_per_block_sierra();
 
 #ifdef SIERRA_DUAL_SYSTEM_TEST
-  dprintf(CRITICAL, "sierra_ds_dssd_data_blocks_find(): total_block=%d, page_size=%d, block_size=%d\n",
+  dprintf(CRITICAL, "sierra_ds_dssd_data_blocks_find(): total_block=%d, page_size=%d, block_size=%d\n", 
                     total_block, page_size, block_size);
 #endif /* SIERRA_DUAL_SYSTEM_TEST */
 
@@ -256,7 +258,7 @@ bool sierra_ds_dssd_data_blocks_find(
  * Purpose: Search for free block
  *
  * Parms: (IN) handle -pointer to the nand device
- *            (IN) start_search_block	-start search from the block number
+ *            (IN) start_search_block	-start search from the block number 
  *
  * Return: Free block number or -1
  *
@@ -329,7 +331,7 @@ int32 sierra_ds_dssd_free_block_find(
  * Purpose: Write data to first page of two free blocks
  *
  * Parms: (IN) handle - pointer to the nand device
- *            (IN) start_search_block	-start search from the block number
+ *            (IN) start_search_block	-start search from the block number 
  *            (IN) data_block_count - data block counter
  *            (IN) data_block - data blocks
  *            (IN) page_buf	 -page buffer to write
@@ -388,7 +390,7 @@ bool sierra_ds_dssd_free_blocks_write(
         if((uint32)free_block == data_block[data_block_no])
         {
 #ifdef SIERRA_DUAL_SYSTEM_TEST
-          dprintf(CRITICAL, "sierra_ds_dssd_free_blocks_write(): free block(%d) is data block, mark the data block as erased\n",
+          dprintf(CRITICAL, "sierra_ds_dssd_free_blocks_write(): free block(%d) is data block, mark the data block as erased\n", 
                             (uint32)free_block);
 #endif /* SIERRA_DUAL_SYSTEM_TEST */
           data_block[data_block_no] = DS_DATA_BLOCK_ERASED;
@@ -463,7 +465,7 @@ bool sierra_ds_dssd_last_valid_data_page_find(
   {
     dprintf(CRITICAL, "sierra_ds_dssd_last_valid_data_page_find(): block number %d is out of scope\n", data_block);
     *data_page_no = page_no;
-    return FALSE;
+    return FALSE;	 
   }
 
   page_buf_p = sierra_ds_page_buf_allocate(page_size);
@@ -496,7 +498,7 @@ bool sierra_ds_dssd_last_valid_data_page_find(
 
       /* Page read OK */
       data_p = (struct ds_shared_data_s *)page_buf_p;
-      if((DS_MAGIC_NUMBER == data_p->magic_beg)
+      if((DS_MAGIC_NUMBER == data_p->magic_beg) 
           && (DS_MAGIC_NUMBER == data_p->magic_end)
           && (data_p->crc32 == crcrc32((void *)page_buf_p, (sizeof(struct ds_shared_data_s) - sizeof(uint32)), CRSTART_CRC32)))
       {
@@ -528,7 +530,7 @@ bool sierra_ds_dssd_last_valid_data_page_find(
           continue;
         }
         else
-        {
+        {	  
           /* DS data corrupted */
           dprintf(CRITICAL, "ds_dssd_last_valid_data_page_find(): DS data corrupted in page %d\n", page_no);
           result = FALSE;
@@ -583,7 +585,7 @@ void sierra_ds_dssd_partition_read(
 
   /* 1. Get DSSD partition handler */
   ptable = flash_get_ptable();
-  if (ptable == NULL)
+  if (ptable == NULL) 
   {
     dprintf(CRITICAL, "sierra_ds_dssd_partition_read(): flash_get_ptable failed\n");
     return;
@@ -631,7 +633,7 @@ void sierra_ds_dssd_partition_read(
       /* Find the one last valid data page from the data blocks */
       for(data_block_no = 0; data_block_no < data_block_count; data_block_no++)
       {
-        if(sierra_ds_dssd_last_valid_data_page_find(ptn, data_block[data_block_no],
+        if(sierra_ds_dssd_last_valid_data_page_find(ptn, data_block[data_block_no], 
                                                     &last_data_page[data_block_no], ds_data))
         {
           /* Already find one last valid data page and store DS data, exit the loop */
@@ -685,7 +687,7 @@ void sierra_ds_dssd_partition_write(
 
   /* 1. Get DSSD partition handler */
   ptable = flash_get_ptable();
-  if (ptable == NULL)
+  if (ptable == NULL) 
   {
     dprintf(CRITICAL, "sierra_ds_dssd_partition_write(): flash_get_ptable failed\n");
     return;
@@ -738,7 +740,7 @@ void sierra_ds_dssd_partition_write(
 
       /* 3.0.2 Write DS data to two free blocks */
       start_search_block = start_block_no;
-      if(!sierra_ds_dssd_free_blocks_write(ptn, start_search_block,
+      if(!sierra_ds_dssd_free_blocks_write(ptn, start_search_block, 
                                            data_block_count, data_block, page_buf_p))
       {
         dprintf(CRITICAL, "sierra_ds_dssd_partition_write(): Write data to two free blocks failed\n");
@@ -760,7 +762,7 @@ void sierra_ds_dssd_partition_write(
       /* 3.2.1 Find the last data page from the two data blocks */
       for(data_block_no = 0; data_block_no < data_block_count; data_block_no++)
       {
-        sierra_ds_dssd_last_valid_data_page_find(ptn, data_block[data_block_no],
+        sierra_ds_dssd_last_valid_data_page_find(ptn, data_block[data_block_no], 
                                                  &last_data_page[data_block_no], NULL);
       }
 
@@ -782,7 +784,7 @@ void sierra_ds_dssd_partition_write(
       memcpy((void *)page_buf_p, (void *)ds_data, sizeof(struct ds_shared_data_s));
 
       /* 3.2.3 Start to write data */
-      if((last_data_page[0] == (data_block[0] + 1) * block_size - 1)
+      if((last_data_page[0] == (data_block[0] + 1) * block_size - 1) 
          || (last_data_page[1] == (data_block[1] + 1) * block_size - 1))
       {
         /* 3.2.3.1 If data page is the last page of the block, no free page for new DS data in this block.
@@ -793,7 +795,7 @@ void sierra_ds_dssd_partition_write(
 #endif /* SIERRA_DUAL_SYSTEM_TEST */
 
         start_search_block = data_block[data_block_count - 1] + 1;
-        if(!sierra_ds_dssd_free_blocks_write(ptn, start_search_block,
+        if(!sierra_ds_dssd_free_blocks_write(ptn, start_search_block, 
                                              data_block_count, data_block, page_buf_p))
         {
           dprintf(CRITICAL, "sierra_ds_dssd_partition_write(): Write data to two free blocks failed\n");
@@ -804,8 +806,8 @@ void sierra_ds_dssd_partition_write(
         /* Erase outdated two data blocks */
         for(data_block_no = 0; data_block_no < data_block_count; data_block_no++)
         {
-          if((DS_DATA_BLOCK_ERASED == data_block[data_block_no])
-             || (data_block[data_block_no] < start_block_no)
+          if((DS_DATA_BLOCK_ERASED == data_block[data_block_no]) 
+             || (data_block[data_block_no] < start_block_no) 
              || (data_block[data_block_no] > max_block_no))
           {
             dprintf(CRITICAL, "sierra_ds_dssd_partition_write(): data block erased or out of scope\n");
@@ -831,7 +833,7 @@ void sierra_ds_dssd_partition_write(
           last_page = start_page + block_size - 1;
 
 #ifdef SIERRA_DUAL_SYSTEM_TEST
-          dprintf(CRITICAL, "sierra_ds_dssd_partition_write(): start_page=%d, last_page=%d, last_data_page[data_block_no]=%d\n",
+          dprintf(CRITICAL, "sierra_ds_dssd_partition_write(): start_page=%d, last_page=%d, last_data_page[data_block_no]=%d\n", 
                              start_page, last_page, last_data_page[data_block_no]);
 #endif /* SIERRA_DUAL_SYSTEM_TEST */
 
@@ -882,7 +884,7 @@ void sierra_ds_dssd_partition_write(
 
       /* 3.n.2 Find two free blocks and write new DS data to them */
       start_search_block = data_block[data_block_count - 1] + 1;
-      if(!sierra_ds_dssd_free_blocks_write(ptn, start_search_block,
+      if(!sierra_ds_dssd_free_blocks_write(ptn, start_search_block, 
                                     data_block_count, data_block, page_buf_p))
       {
         dprintf(CRITICAL, "sierra_ds_dssd_partition_write(): Write data to two free blocks failed\n");
@@ -893,8 +895,8 @@ void sierra_ds_dssd_partition_write(
       /* 3.n.3 Erase outdated data blocks */
       for(data_block_no = 0; data_block_no < data_block_count; data_block_no++)
       {
-        if((DS_DATA_BLOCK_ERASED == data_block[data_block_no])
-           || (data_block[data_block_no] < start_block_no)
+        if((DS_DATA_BLOCK_ERASED == data_block[data_block_no]) 
+           || (data_block[data_block_no] < start_block_no) 
            || (data_block[data_block_no] > max_block_no))
         {
           dprintf(CRITICAL, "sierra_ds_dssd_partition_write(): data block erased or out of scope\n");
@@ -937,13 +939,15 @@ void sierra_ds_init_flag_to_not_set(
 {
   ASSERT(ds_flag);
 
-  ds_flag->boot_system = DS_FLAG_NOT_SET;
+  ds_flag->ssid_modem_idx = DS_SSID_NOT_SET;
+  ds_flag->ssid_lk_idx = DS_SSID_NOT_SET;
+  ds_flag->ssid_linux_idx = DS_SSID_NOT_SET;
   ds_flag->swap_reason = DS_FLAG_NOT_SET;
-  ds_flag->out_of_sync = DS_FLAG_NOT_SET;
   ds_flag->sw_update_state = DS_FLAG_NOT_SET;
-  ds_flag->updated_image = DS_IMAGE_FLAG_NOT_SET;
+  ds_flag->out_of_sync = DS_FLAG_NOT_SET;
+  ds_flag->efs_corruption_in_sw_update = DS_FLAG_NOT_SET;
+  ds_flag->edb_in_sw_update = DS_FLAG_NOT_SET;
   ds_flag->bad_image = DS_IMAGE_FLAG_NOT_SET;
-  ds_flag->refresh_image = DS_IMAGE_FLAG_NOT_SET;
 
   return;
 }
@@ -971,13 +975,15 @@ void sierra_ds_data_to_flag_sync(
   ASSERT(ds_data);
   ASSERT(ds_flag);
 
-  ds_flag->boot_system = ds_data->boot_system;
+  ds_flag->ssid_modem_idx = ds_data->ssid_modem_idx;
+  ds_flag->ssid_lk_idx = ds_data->ssid_lk_idx;
+  ds_flag->ssid_linux_idx = ds_data->ssid_linux_idx;
   ds_flag->swap_reason = ds_data->swap_reason;
-  ds_flag->out_of_sync = ds_data->out_of_sync;
   ds_flag->sw_update_state = ds_data->sw_update_state;
-  ds_flag->updated_image = ds_data->updated_image;
+  ds_flag->out_of_sync = ds_data->out_of_sync;
+  ds_flag->efs_corruption_in_sw_update = ds_data->efs_corruption_in_sw_update;
+  ds_flag->edb_in_sw_update = ds_data->edb_in_sw_update;
   ds_flag->bad_image = ds_data->bad_image;
-  ds_flag->refresh_image = ds_data->refresh_image;
 
   return;
 }
@@ -1061,19 +1067,49 @@ struct ds_flag_s *ds_flag)
   memset((void *)&ds_data_destination, 0, sizeof(struct ds_shared_data_s));
 
   /* Deal with the flags according to different cases */
-  if(DS_FLAG_NOT_SET != ds_flag->boot_system)
+  /* 1. SSID modem index */
+  if(DS_SSID_NOT_SET != ds_flag->ssid_modem_idx)
   {
-    ds_data_destination.boot_system = ds_flag->boot_system;
+    ds_data_destination.ssid_modem_idx = ds_flag->ssid_modem_idx;
   }
   else
   {
 #ifdef SIERRA_DUAL_SYSTEM_TEST
-    dprintf(CRITICAL, "sierra_ds_set_full_data(): boot system flag is not set\n");
+    dprintf(CRITICAL, "sierra_ds_set_full_data(): SSID modem index flag is not set\n");
 #endif /* SIERRA_DUAL_SYSTEM_TEST */
 
-    ds_data_destination.boot_system = ds_flag_source.boot_system;
+    ds_data_destination.ssid_modem_idx = ds_flag_source.ssid_modem_idx;
   }
 
+  /* 2. SSID LK index */
+  if(DS_SSID_NOT_SET != ds_flag->ssid_lk_idx)
+  {
+    ds_data_destination.ssid_lk_idx = ds_flag->ssid_lk_idx;
+  }
+  else
+  {
+#ifdef SIERRA_DUAL_SYSTEM_TEST
+    dprintf(CRITICAL, "sierra_ds_set_full_data(): SSID LK index flag is not set\n");
+#endif /* SIERRA_DUAL_SYSTEM_TEST */
+
+    ds_data_destination.ssid_lk_idx = ds_flag_source.ssid_lk_idx;
+  }
+
+  /* 3. SSID Linux index */
+  if(DS_SSID_NOT_SET != ds_flag->ssid_linux_idx)
+  {
+    ds_data_destination.ssid_linux_idx = ds_flag->ssid_linux_idx;
+  }
+  else
+  {
+#ifdef SIERRA_DUAL_SYSTEM_TEST
+    dprintf(CRITICAL, "sierra_ds_set_full_data(): SSID Linux index flag is not set\n");
+#endif /* SIERRA_DUAL_SYSTEM_TEST */
+
+    ds_data_destination.ssid_linux_idx = ds_flag_source.ssid_linux_idx;
+  }
+
+  /* 4. dual system swap reason */
   if(DS_FLAG_NOT_SET != ds_flag->swap_reason)
   {
     ds_data_destination.swap_reason = ds_flag->swap_reason;
@@ -1087,19 +1123,7 @@ struct ds_flag_s *ds_flag)
     ds_data_destination.swap_reason = ds_flag_source.swap_reason;
   }
 
-  if(DS_FLAG_NOT_SET != ds_flag->out_of_sync)
-  {
-    ds_data_destination.out_of_sync = ds_flag->out_of_sync;
-  }
-  else
-  {
-#ifdef SIERRA_DUAL_SYSTEM_TEST
-    dprintf(CRITICAL, "sierra_ds_set_full_data(): out of sync flag is not set\n");
-#endif /* SIERRA_DUAL_SYSTEM_TEST */
-
-    ds_data_destination.out_of_sync = ds_flag_source.out_of_sync;
-  }
-
+  /* 5. SW update state */
   if(DS_FLAG_NOT_SET != ds_flag->sw_update_state)
   {
     ds_data_destination.sw_update_state = ds_flag->sw_update_state;
@@ -1113,28 +1137,49 @@ struct ds_flag_s *ds_flag)
     ds_data_destination.sw_update_state = ds_flag_source.sw_update_state;
   }
 
-  if(DS_IMAGE_CLEAR_FLAG == ds_flag->updated_image)
+  /* 6. Out of sync flag */
+  if(DS_FLAG_NOT_SET != ds_flag->out_of_sync)
   {
-#ifdef SIERRA_DUAL_SYSTEM_TEST
-    dprintf(CRITICAL, "sierra_ds_set_full_data(): updated image flag is clear\n");
-#endif /* SIERRA_DUAL_SYSTEM_TEST */
-
-    ds_data_destination.updated_image = DS_IMAGE_CLEAR_FLAG;
-  }
-  else if(DS_IMAGE_FLAG_NOT_SET == ds_flag->updated_image)
-  {
-#ifdef SIERRA_DUAL_SYSTEM_TEST
-    dprintf(CRITICAL, "sierra_ds_set_full_data(): updated image flag is not set\n");
-#endif /* SIERRA_DUAL_SYSTEM_TEST */
-
-    ds_data_destination.updated_image = ds_flag_source.updated_image;
+    ds_data_destination.out_of_sync = ds_flag->out_of_sync;
   }
   else
   {
-    ds_data_destination.updated_image = ds_flag->updated_image;
-    ds_data_destination.updated_image |= ds_flag_source.updated_image;
+#ifdef SIERRA_DUAL_SYSTEM_TEST
+    dprintf(CRITICAL, "sierra_ds_set_full_data(): out of sync flag is not set\n");
+#endif /* SIERRA_DUAL_SYSTEM_TEST */
+
+    ds_data_destination.out_of_sync = ds_flag_source.out_of_sync;
   }
 
+  /* 7. EFS corruption in SW update */
+  if(DS_FLAG_NOT_SET != ds_flag->efs_corruption_in_sw_update)
+  {
+    ds_data_destination.efs_corruption_in_sw_update = ds_flag->efs_corruption_in_sw_update;
+  }
+  else
+  {
+#ifdef SIERRA_DUAL_SYSTEM_TEST
+    dprintf(CRITICAL, "sierra_ds_set_full_data(): EFS corruption in SW update flag is not set\n");
+#endif /* SIERRA_DUAL_SYSTEM_TEST */
+
+    ds_data_destination.efs_corruption_in_sw_update = ds_flag_source.efs_corruption_in_sw_update;
+  }
+
+  /* 8. EDB in SW update */
+  if(DS_FLAG_NOT_SET != ds_flag->edb_in_sw_update)
+  {
+    ds_data_destination.edb_in_sw_update = ds_flag->edb_in_sw_update;
+  }
+  else
+  {
+#ifdef SIERRA_DUAL_SYSTEM_TEST
+    dprintf(CRITICAL, "sierra_ds_set_full_data(): EDB in SW update flag is not set\n");
+#endif /* SIERRA_DUAL_SYSTEM_TEST */
+
+    ds_data_destination.edb_in_sw_update = ds_flag_source.edb_in_sw_update;
+  }
+
+  /* 9. Bad image flag  */
   if(DS_IMAGE_CLEAR_FLAG == ds_flag->bad_image)
   {
 #ifdef SIERRA_DUAL_SYSTEM_TEST
@@ -1157,28 +1202,6 @@ struct ds_flag_s *ds_flag)
     ds_data_destination.bad_image |= ds_flag_source.bad_image;
   }
 
-  if(DS_IMAGE_CLEAR_FLAG == ds_flag->refresh_image)
-  {
-#ifdef SIERRA_DUAL_SYSTEM_TEST
-    dprintf(CRITICAL, "sierra_ds_set_full_data(): refresh image flag is clear\n");
-#endif /* SIERRA_DUAL_SYSTEM_TEST */
-
-    ds_data_destination.refresh_image = DS_IMAGE_CLEAR_FLAG;
-  }
-  else if(DS_IMAGE_FLAG_NOT_SET == ds_flag->refresh_image)
-  {
-#ifdef SIERRA_DUAL_SYSTEM_TEST
-    dprintf(CRITICAL, "sierra_ds_set_full_data(): refresh image flag is not set\n");
-#endif /* SIERRA_DUAL_SYSTEM_TEST */
-
-    ds_data_destination.refresh_image = ds_flag_source.refresh_image;
-  }
-  else
-  {
-    ds_data_destination.refresh_image = ds_flag->refresh_image;
-    ds_data_destination.refresh_image |= ds_flag_source.refresh_image;
-  }
-
   ds_data_destination.magic_beg = DS_MAGIC_NUMBER;
   ds_data_destination.magic_end = DS_MAGIC_NUMBER;
   ds_data_destination.crc32 = crcrc32((void *)(&ds_data_destination), (sizeof(struct ds_shared_data_s) - sizeof(uint32)), CRSTART_CRC32);
@@ -1188,11 +1211,11 @@ struct ds_flag_s *ds_flag)
 #ifdef SIERRA_DUAL_SYSTEM_TEST
   if(result)
   {
-    dprintf(CRITICAL, "sierra_ds_set_full_data(): Write successfully\n");
+    dprintf(CRITICAL, "sierra_ds_set_full_data(): Write successfully");
   }
   else
   {
-    dprintf(CRITICAL, "sierra_ds_set_full_data(): Write failed\n");
+    dprintf(CRITICAL, "sierra_ds_set_full_data(): Write failed");
   }
 #endif /* SIERRA_DUAL_SYSTEM_TEST */
 
@@ -1248,7 +1271,6 @@ bool sierra_ds_check_if_out_of_sync(
  *
  * Parms: sw_update_state - SW update state, fill 'DS_IMAGE_FLAG_NOT_SET' if it is unnecessary to update it.
  *            out_of_sync - Out of Sync flag, fill 'DS_IMAGE_FLAG_NOT_SET' if it is unnecessary to update it.
- *            updated_image - updated image mask, fill 'DS_IMAGE_FLAG_NOT_SET' if it is unnecessary to update it.
  *            bad_image - bad image mask, fill 'DS_IMAGE_FLAG_NOT_SET' if it is unnecessary to update it.
  *
  * Return: TRUE - request successfully
@@ -1259,26 +1281,24 @@ bool sierra_ds_check_if_out_of_sync(
  * Notes: It is used in below cases:
  *           1. Write 'sw_update_state' during SW recovery
  *           2. Clear 'out_of_sync' flag after sync done in LK
- *           3. Write 'updated_image' after SW update in LK
- *           4. Write 'bad_image' before SW update in LK and clear it after SW update done
+ *           3. Write 'bad_image' before SW update in LK and clear it after SW update done
  *
  ************/
 bool sierra_ds_write_flags_in_lk(
   uint32 sw_update_state,
   uint32 out_of_sync,
-  uint64 updated_image,
   uint64 bad_image)
 {
   struct ds_flag_s ds_flag;
 
-  if((sw_update_state < DS_SW_UPDATE_STATE_MIN)
+  if((sw_update_state < DS_SW_UPDATE_STATE_MIN) 
       || (sw_update_state > DS_SW_UPDATE_STATE_MAX))
   {
     dprintf(CRITICAL, "sierra_ds_write_flags_in_lk(): Invalid SW update state parameter 0x%d.\n", sw_update_state);
     return FALSE;
   }
 
-  if((DS_OUT_OF_SYNC != out_of_sync)
+  if((DS_OUT_OF_SYNC != out_of_sync) 
      && (DS_IS_SYNC != out_of_sync)
      && (0 != out_of_sync))
   {
@@ -1289,7 +1309,6 @@ bool sierra_ds_write_flags_in_lk(
   sierra_ds_init_flag_to_not_set(&ds_flag);
   ds_flag.sw_update_state = sw_update_state;
   ds_flag.out_of_sync = out_of_sync;
-  ds_flag.updated_image = updated_image;
   ds_flag.bad_image = bad_image;
 
   return sierra_ds_set_full_data(&ds_flag);
@@ -1301,7 +1320,7 @@ bool sierra_ds_write_flags_in_lk(
  *
  * Purpose:  Get DS SMEM base address
  *
- * Parms:   None
+ * Parms:   None 
  *
  * Return:   pointer to DSSD SMEM buffer
  *
@@ -1351,8 +1370,8 @@ bool sierra_ds_smem_is_valid(
   ASSERT(ds_smem_bufp);
 
   ds_smem_crc = crcrc32((uint8 *)ds_smem_bufp, sizeof(struct ds_smem_message_s) - sizeof(uint32), CRSTART_CRC32);
-  if((DS_MAGIC_NUMBER == ds_smem_bufp->magic_beg)
-      && (DS_MAGIC_NUMBER == ds_smem_bufp->magic_end)
+  if((DS_MAGIC_NUMBER == ds_smem_bufp->magic_beg) 
+      && (DS_MAGIC_NUMBER == ds_smem_bufp->magic_end) 
       && (ds_smem_bufp->crc32 == ds_smem_crc))
   {
 #ifdef SIERRA_DUAL_SYSTEM_TEST
@@ -1369,8 +1388,10 @@ bool sierra_ds_smem_is_valid(
                       ds_smem_bufp->magic_beg, ds_smem_bufp->magic_end);
     dprintf(CRITICAL, "sierra_ds_smem_is_valid(): ds_smem_crc=%x, ds_smem_bufp->crc32=%x\n",
                       ds_smem_crc, ds_smem_bufp->crc32);
-    dprintf(CRITICAL, "sierra_ds_smem_is_valid(): ds_smem_bufp->boot_system=%x, ds_smem_bufp->swap_reason=%u\n",
-                      ds_smem_bufp->boot_system, ds_smem_bufp->swap_reason);
+    dprintf(CRITICAL, "sierra_ds_smem_is_valid(): ds_smem_bufp->ssid_modem_idx=%u, ds_smem_bufp->ssid_lk_idx=%u\n",
+                      ds_smem_bufp->ssid_modem_idx, ds_smem_bufp->ssid_lk_idx);
+    dprintf(CRITICAL, "sierra_ds_smem_is_valid(): ds_smem_bufp->ssid_linux_idx=%u, ds_smem_bufp->swap_reason=%u\n",
+                      ds_smem_bufp->ssid_linux_idx, ds_smem_bufp->swap_reason);
     dprintf(CRITICAL, "sierra_ds_smem_is_valid(): ds_smem_bufp->bad_image=%08X%08X\n",
                       (uint32)(ds_smem_bufp->bad_image >> 32), (uint32)ds_smem_bufp->bad_image);
     dprintf(CRITICAL, "sierra_ds_smem_is_valid(): ds_smem_bufp->is_changed=%x\n",
@@ -1404,7 +1425,9 @@ void sierra_ds_smem_init(
 
   memset((void *)ds_smem_bufp, 0, sizeof(struct ds_smem_message_s));
   ds_smem_bufp->magic_beg = DS_MAGIC_NUMBER;
-  ds_smem_bufp->boot_system = DS_SYSTEM_1;
+  ds_smem_bufp->ssid_modem_idx = DS_SSID_SUB_SYSTEM_1;
+  ds_smem_bufp->ssid_lk_idx = DS_SSID_SUB_SYSTEM_1;
+  ds_smem_bufp->ssid_linux_idx = DS_SSID_SUB_SYSTEM_1;
   ds_smem_bufp->magic_end = DS_MAGIC_NUMBER;
   ds_smem_bufp->crc32 = crcrc32((uint8 *)ds_smem_bufp, sizeof(struct ds_smem_message_s) - sizeof(uint32), CRSTART_CRC32);
 
@@ -1413,20 +1436,20 @@ void sierra_ds_smem_init(
 
 /************
  *
- * Name:     sierra_ds_smem_get_boot_system
+ * Name:     sierra_ds_smem_get_ssid_linux_index
  *
- * Purpose:  Get current boot system
+ * Purpose:  Get current linux sub system
  *
  * Parms:   None
  *
- * Return:   boot system
+ * Return:   current linux sub system
  *
  * Abort:    None
  *
  * Notes:   None
  *
  ************/
-uint32 sierra_ds_smem_get_boot_system(
+uint8 sierra_ds_smem_get_ssid_linux_index(
   void)
 {
   struct ds_smem_message_s * ds_smem_bufp = NULL;
@@ -1435,8 +1458,8 @@ uint32 sierra_ds_smem_get_boot_system(
   ds_smem_bufp = sierra_ds_smem_get_address();
   if(NULL == ds_smem_bufp)
   {
-    dprintf(CRITICAL, "sierra_ds_smem_get_boot_system(): Can't get DS SMEM region\n");
-    return DS_SYSTEM_1;
+    dprintf(CRITICAL, "sierra_ds_smem_get_ssid_linux_index(): Can't get DS SMEM region\n");
+    return DS_SSID_SUB_SYSTEM_1;
   }
 
   /* Make sure it is valid DS SMEM */
@@ -1445,7 +1468,7 @@ uint32 sierra_ds_smem_get_boot_system(
     sierra_ds_smem_init(ds_smem_bufp);
   }
 
-  return ds_smem_bufp->boot_system;
+  return ds_smem_bufp->ssid_linux_idx;
 }
 
 /************
@@ -1482,14 +1505,32 @@ void sierra_ds_smem_write_bad_image_and_swap(
     sierra_ds_smem_init(ds_smem_bufp);
   }
 
-  /* Swap system next boot up as bad image detected */
-  if(DS_SYSTEM_1 == ds_smem_bufp->boot_system)
+  /* Swap system next boot up when bad kernel image detected */
+  if(DS_SSID_SUB_SYSTEM_1 == ds_smem_bufp->ssid_modem_idx)
   {
-    ds_smem_bufp->boot_system = DS_SYSTEM_2;
+    ds_smem_bufp->ssid_modem_idx = DS_SSID_SUB_SYSTEM_2;
   }
   else
   {
-    ds_smem_bufp->boot_system = DS_SYSTEM_1;
+    ds_smem_bufp->ssid_modem_idx = DS_SSID_SUB_SYSTEM_1;
+  }
+
+  if(DS_SSID_SUB_SYSTEM_1 == ds_smem_bufp->ssid_lk_idx)
+  {
+    ds_smem_bufp->ssid_lk_idx = DS_SSID_SUB_SYSTEM_2;
+  }
+  else
+  {
+    ds_smem_bufp->ssid_lk_idx = DS_SSID_SUB_SYSTEM_1;
+  }
+
+  if(DS_SSID_SUB_SYSTEM_1 == ds_smem_bufp->ssid_linux_idx)
+  {
+    ds_smem_bufp->ssid_linux_idx = DS_SSID_SUB_SYSTEM_2;
+  }
+  else
+  {
+    ds_smem_bufp->ssid_linux_idx = DS_SSID_SUB_SYSTEM_1;
   }
 
   if(DS_IMAGE_CLEAR_FLAG == bad_image_mask)
@@ -1525,7 +1566,7 @@ void sierra_ds_smem_write_bad_image_and_swap(
  *
  * Abort:    None
  *
- * Notes:
+ * Notes:   
  *     Fastboot command: fastboot flash <test command> [file path]
  *     <test command>
  *     swi_ds_read - Get all dual system flags from DSSD partition and DS SMEM
@@ -1544,7 +1585,7 @@ void sierra_ds_test(
   struct ds_flag_s ds_flag;
   struct ds_smem_message_s * ds_smem_bufp = NULL;
   uint32 sw_update_state, out_of_sync;
-  uint64 updated_image_mask, bad_image_mask;
+  uint64 bad_image_mask;
 
   ASSERT(arg);
 
@@ -1554,16 +1595,16 @@ void sierra_ds_test(
 
     /* Display all flags */
     dprintf(CRITICAL, "Get all dual system related flags:\n");
-    dprintf(CRITICAL, "  boot_system: 0x%x\n", ds_flag.boot_system);
+    dprintf(CRITICAL, "  ssid_modem_idx: %u\n", ds_flag.ssid_modem_idx);
+    dprintf(CRITICAL, "  ssid_lk_idx: %u\n", ds_flag.ssid_lk_idx);
+    dprintf(CRITICAL, "  ssid_linux_idx: %u\n", ds_flag.ssid_linux_idx);
     dprintf(CRITICAL, "  swap_reason: %u\n", ds_flag.swap_reason);
-    dprintf(CRITICAL, "  out_of_sync: 0x%x\n", ds_flag.out_of_sync);
     dprintf(CRITICAL, "  sw_update_state: %u\n", ds_flag.sw_update_state);
-    dprintf(CRITICAL, "  updated_image: 0x%08X%08X\n",
-                  (uint32)(ds_flag.updated_image >> 32), (uint32)ds_flag.updated_image);
+    dprintf(CRITICAL, "  out_of_sync: 0x%x\n", ds_flag.out_of_sync);
+    dprintf(CRITICAL, "  efs_corruption_in_sw_update: 0x%x\n", ds_flag.efs_corruption_in_sw_update);
+    dprintf(CRITICAL, "  edb_in_sw_update: 0x%x\n", ds_flag.edb_in_sw_update);
     dprintf(CRITICAL, "  bad_image: 0x%08X%08X\n",
                   (uint32)(ds_flag.bad_image >> 32), (uint32)ds_flag.bad_image);
-    dprintf(CRITICAL, "  refresh_image: 0x%08X%08X\n",
-                  (uint32)(ds_flag.refresh_image >> 32), (uint32)ds_flag.refresh_image);
 
     ds_smem_bufp = sierra_ds_smem_get_address();
     if(NULL == ds_smem_bufp)
@@ -1575,7 +1616,9 @@ void sierra_ds_test(
     if(sierra_ds_smem_is_valid(ds_smem_bufp))
     {
       dprintf(CRITICAL, "Get all DS SMEM related flags:\n");
-      dprintf(CRITICAL, "  boot_system: 0x%x\n", ds_smem_bufp->boot_system);
+      dprintf(CRITICAL, "  ssid_modem_idx: %u\n", ds_smem_bufp->ssid_modem_idx);
+      dprintf(CRITICAL, "  ssid_lk_idx: %u\n", ds_smem_bufp->ssid_lk_idx);
+      dprintf(CRITICAL, "  ssid_linux_idx: %u\n", ds_smem_bufp->ssid_linux_idx);
       dprintf(CRITICAL, "  swap_reason: %u\n", ds_smem_bufp->swap_reason);
       dprintf(CRITICAL, "  bad_image: 0x%08X%08X\n",
                     (uint32)(ds_smem_bufp->bad_image >> 32), (uint32)ds_smem_bufp->bad_image);
@@ -1591,22 +1634,22 @@ void sierra_ds_test(
     /* Test function 'sierra_ds_write_flags_in_lk' to write a group of flags to DSSD partition */
     out_of_sync = DS_IS_SYNC;
     sw_update_state = DS_SW_UPDATE_STATE_RECOVERY_PHASE_2;
-    updated_image_mask = 0x0000111122223333;
     bad_image_mask = 0x4444555500000000;
 
-    sierra_ds_write_flags_in_lk(sw_update_state, out_of_sync,
-                                updated_image_mask, bad_image_mask);
+    sierra_ds_write_flags_in_lk(sw_update_state, out_of_sync, bad_image_mask);
   }
   else if (!strcmp(arg, "swi_dssd_init"))
   {
     /* Test to init flags to DSSD partition */
-    ds_flag.boot_system = DS_SYSTEM_1;
+    ds_flag.ssid_modem_idx = DS_SSID_SUB_SYSTEM_1;
+    ds_flag.ssid_lk_idx= DS_SSID_SUB_SYSTEM_1;
+    ds_flag.ssid_linux_idx= DS_SSID_SUB_SYSTEM_1;
     ds_flag.swap_reason = DS_SWAP_REASON_NONE;
-    ds_flag.out_of_sync = 0;
     ds_flag.sw_update_state = DS_SW_UPDATE_STATE_NORMAL;
-    ds_flag.updated_image = 0;
+    ds_flag.out_of_sync = 0;
+    ds_flag.efs_corruption_in_sw_update = 0;
+    ds_flag.edb_in_sw_update = 0;
     ds_flag.bad_image = 0;
-    ds_flag.refresh_image = 0;
 
     sierra_ds_set_full_data(&ds_flag);
   }
@@ -1619,5 +1662,6 @@ void sierra_ds_test(
   return;
 }
 #endif /* SIERRA_DUAL_SYSTEM_TEST */
+
 
 
