@@ -191,6 +191,7 @@ struct blCtrlBlk
   uint8 dload_reason;              /* reason for going to bootloader */
 };
 
+
 extern bool to_update_mibib;
 
 extern unsigned char *sierra_smem_base_addr_get(void);
@@ -201,7 +202,6 @@ extern bool sierra_if_enter_fastboot(void);
 extern unsigned int sierra_smem_err_count_get(void);
 extern void sierra_smem_err_count_set(unsigned int err_cnt);
 extern void sierra_smem_reset_type_set(unsigned int reset_type);
-
 extern boolean swipart_get_logical_partition_from_backup(
   uint32 block_size,
   backup_logical_partition_type logical_partition,
