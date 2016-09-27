@@ -98,6 +98,7 @@
 #include "mach/sierra_smem.h"
 #include "sierra_bludefs.h"
 #include "sierra_dsudefs.h"
+#include "sierra_secudefs.h"
 #endif
 /* SWISTOP */
 
@@ -1898,9 +1899,18 @@ int boot_linux_from_flash(void)
 
 /* SWISTART */
 #ifdef SIERRA
-
+		/*If secure boot enabled, auth kernel image.*/
+		if(sierra_smem_get_auth_en())
+		{
+			if(!boot_swi_lk_auth_kernel(ptn,hdr))
+			{
+				dprintf(CRITICAL, "ERROR: LK auth kernel failed\n");
+				kernel_is_bad = TRUE;
+			}
+		}
 			/* Get the result that program reliability authenticate kernel when secure boot disabled */
 			/* TBD until program reliability part finished */
+			dprintf(INFO, "L%d_%s():kernel_is_bad=%d\n", __LINE__, __func__, kernel_is_bad);
 			if(kernel_is_bad)
 			{
 				sierra_ds_smem_write_bad_image_and_swap(bad_image_mask);
