@@ -246,6 +246,15 @@ typedef struct secboot_image_info_type
 /* protocol header sizes */
 #define BLHEADERSZ        4     /* header is 4 bytes long (length x 2, cmd ID & code) */
 
+#define BLPRIMAGE_MASK_SBL  0x00000001   /* Processed Recovery Image mask for SBL */
+#define BLPRIMAGE_MASK_TZ   0x00000002   /* Processed Recovery Image mask for TZ */
+#define BLPRIMAGE_MASK_RPM  0x00000004   /* Processed Recovery Image mask for RPM */
+#define BLPRIMAGE_MASK_LK   0x00000008   /* Processed Recovery Image mask for LK */
+#define BLPRIMAGE_MASK_LR   0x00000010   /* Processed Recovery Image mask for Linux_RAM */
+#define BLPRIMAGE_MASK_KN   0x00000020   /* Processed Recovery Image mask for Linux_Kernel */
+#define BLPRIMAGE_MASK_SYS  0x00000040   /* Processed Recovery Image mask for System */
+#define BLPRIMAGE_MASK_LG   0x00000080   /* Processed Recovery Image mask for Legato */
+
 
 /************
  *
@@ -348,6 +357,25 @@ enum bluistateE
   BLUISTATE_ERROR,       /* Error */
 };
 
+/************
+ *
+ * Name:     blmodulestate
+ *
+ * Purpose:  List of module state for recovery
+ *
+ * Members:  see below
+ *
+ * Notes:    None
+ *
+ ************/
+enum blmodulestate
+{
+   BLSTATE_NORMAL = 1,           /* Normal */
+   BLSTATE_REQ_OCU3SBL = 2,      /* OCU3SBL image set is requested */
+   BLSTATE_REQ_TZ_RPM_LK = 3,    /* TZ_RPM_LK  image set is requested */
+   BLSTATE_REQ_LINUX_RAM = 4,    /* LINUX_RAM  image set is requested */
+   BLSTATE_REQ_FULL = 5          /* FULL  image set is requested */
+};
 
 /************
  *
@@ -399,6 +427,7 @@ extern boolean swipart_get_logical_partition_from_backup(
 enum blresultcode blprocessdldcontinue(uint8 *payloadp, uint32 tlen, uint32 *bytesleftp);
 enum blresultcode blprocessdldend(void);
 enum blresultcode blprocessdldstart(uint8 *cwehdrp, uint32 tlen);
+enum blresultcode bldlend(enum blmodulestate modulestate);
 
 uint8 *blgetrxbuf(void);
 void bluisetstate(enum bluistateE state);

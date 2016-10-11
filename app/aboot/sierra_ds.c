@@ -1265,6 +1265,46 @@ bool sierra_ds_check_if_out_of_sync(
 
 /************
  *
+ * Name: sierra_ds_check_is_recovery_phase2
+ *
+ * Purpose: Check if it is recovery_phase2
+ *
+ * Parms: None
+ *
+ * Return: TRUE - it is recovery phase2
+ *             FALSE - not recovery phase2
+ *
+ * Abort: None
+ *
+ * Notes: None
+ *
+ ************/
+bool sierra_ds_check_is_recovery_phase2(void)
+{
+  struct ds_flag_s ds_flag;
+
+  sierra_ds_get_full_data(&ds_flag);
+
+  if(DS_SW_UPDATE_STATE_RECOVERY_PHASE_2 == ds_flag.sw_update_state)
+  {
+#ifdef SIERRA_DUAL_SYSTEM_TEST
+    dprintf(CRITICAL, "It is RECOVERY_PHASE_2\n");
+#endif /* SIERRA_DUAL_SYSTEM_TEST */
+
+    return TRUE;
+  }
+  else
+  {
+#ifdef SIERRA_DUAL_SYSTEM_TEST
+    dprintf(CRITICAL, "It isn't RECOVERY_PHASE_2\n");
+#endif /* SIERRA_DUAL_SYSTEM_TEST */
+
+    return FALSE;
+  }
+}
+
+/************
+ *
  * Name: sierra_ds_write_flags_in_lk
  *
  * Purpose: Write DS data to DSSD partition

@@ -30,6 +30,7 @@
 /*
  *  externs
  */
+extern void boot_linux_from_ram(void *data, unsigned sz);
 
 
 /*
@@ -973,60 +974,55 @@ _global enum blresultcode blprocessdldcontinue(
 
 /************
  *
- * Name:     blprocessdldend - process Download done
+ * Name:     bl_dload_area_start_get
  *
- * Purpose:  Process the host's Download done image and write image to flash
+ * Purpose:  Returns the start of the download RAM area
  *
- * Params:   none
+ * Params:   cbp - pointer to the download handler control block
  *
- * Return:   result code (as defined in 'enum blresultcode')
+ * Return:   Start of download RAM area
  *
- * Notes:
+ * Notes:    None
  *
  * Abort:
  *
  ************/
-_global enum blresultcode blprocessdldend(
-  void)
+_package uint8 *bl_dload_area_start_get(
+  struct blCtrlBlk *cbp)
 {
-  enum blresultcode result = BLRESULT_OK;
-  /* ptr to control block structure */
-  struct blCtrlBlk *cbp = blGetcbp(); 
+  return ((uint8 *)target_get_scratch_address());
+}
 
-  /* ensure file size is ok */
-  if (cbp->blbytesleft != 0)
-  {
-    return blcallerror(BLRESULT_IMGSIZE_MISMATCH_ERROR, BL_DLD_VERIFY);
-  }
 
-  if ((cbp->blhd.misc_opts & CWE_MISC_OPTS_COMPRESS) == 0 &&
-      cbp->blhd.image_crc != cbp->blcrc32)
-  {
-    /* only check CRC for uncompressed image. Will check CRC after decompression */ 
-    return blcallerror(BLRESULT_CRC32_CHECK_ERROR, BL_DLD_VERIFY);
-  }
-#if 0
-  /* Not ready yet, to be implemented when recovery procedure */ 
-  result = blProgramCWEImage(&cbp->blhd,
-                             bl_dload_area_start_get(cbp),
-                             bl_dload_area_used_size_get(cbp),
-                             cbp->blbytesleft);
-
-  if (result != BLRESULT_OK)
-  {
-    blcallerror(result, BL_DLD_FLASH);
+/************
+ *
+ * Name:     bl_dload_area_used_size_get
+ *
+ * Purpose:  Get number of bytes already used in download area.
+ *
+ * Params:   cbp - pointer to the download handler control block
+ *
+ * Return:   Number of bytes used
+ *
+ * Notes:    Will use downloaded image size as 'used' size.
+ *           Buffer after the downloaded image will be free to use 
+ *           (as temp buffer for inflation for example) 
+ *
+ * Abort:
+ *
+ ************/
+_package uint32 bl_dload_area_used_size_get(
+  struct blCtrlBlk * cbp)
+{
+  if((uint32)(cbp->blcbufp) > (uint32)bl_dload_area_start_get(cbp))
+  { 
+    return ((uint32)(cbp->blcbufp) - (uint32)bl_dload_area_start_get(cbp));
   }
   else
   {
-  
-    bl_flog_print(FLOG_CLASS_LONG, TRUE,
-                  "%s", FLOG_STATUS_OK);
-    bl_update_status_set(BC_UPDATE_STATUS_OK);
+    return 0;
   }
-#endif
-  return (result);
 }
-
 
 /************
  *
@@ -1193,27 +1189,6 @@ _package boolean bl_compatibility_test(uint32 value, enum cwe_image_type_e image
   }
 
   return retVal;
-}
-
-/************
- *
- * Name:     bl_dload_area_start_get
- *
- * Purpose:  Returns the start of the download RAM area
- *
- * Params:   cbp - pointer to the download handler control block
- *
- * Return:   Start of download RAM area
- *
- * Notes:    None
- *
- * Abort:
- *
- ************/
-_package uint8 *bl_dload_area_start_get(
-  struct blCtrlBlk *cbp)
-{
-  return ((uint8 *)target_get_scratch_address());
 }
 
 
@@ -2383,6 +2358,288 @@ _global enum blresultcode blProgramCWEImage(
 
   return result;
 
+}
+
+/************
+ *
+ * Name:     blprocessdldend - process Download done
+ *
+ * Purpose:  Process the host's Download done image and write image to flash
+ *
+ * Params:   none
+ *
+ * Return:   result code (as defined in 'enum blresultcode')
+ *
+ * Notes:
+ *
+ * Abort:
+ *
+ ************/
+_global enum blresultcode blprocessdldend(
+  void)
+{
+  enum blresultcode result = BLRESULT_OK;
+  /* ptr to control block structure */
+  struct blCtrlBlk *cbp = blGetcbp(); 
+
+  /* ensure file size is ok */
+  if (cbp->blbytesleft != 0)
+  {
+    return blcallerror(BLRESULT_IMGSIZE_MISMATCH_ERROR, BL_DLD_VERIFY);
+  }
+
+  if ((cbp->blhd.misc_opts & CWE_MISC_OPTS_COMPRESS) == 0 &&
+      cbp->blhd.image_crc != cbp->blcrc32)
+  {
+    /* only check CRC for uncompressed image. Will check CRC after decompression */ 
+    return blcallerror(BLRESULT_CRC32_CHECK_ERROR, BL_DLD_VERIFY);
+  }
+
+  result = blProgramCWEImage(&cbp->blhd,
+                             bl_dload_area_start_get(cbp),
+                             bl_dload_area_used_size_get(cbp),
+                             cbp->blbytesleft);
+
+  if (result != BLRESULT_OK)
+  {
+    blcallerror(result, BL_DLD_FLASH);
+  }
+
+  return (result);
+}
+
+/************
+ *
+ * Name:     blProgramCWERecoveryImage
+ *
+ * Purpose:  This function will program the CWE Recovery image into flash.
+ *
+ * Params:   cbp - pointer to the download handler control block
+ *
+ * Return:   image mask for those image has already been processed by this round
+ *
+ * Abort:    none
+ *
+ * Notes:    The sub-CWE images may be in any order however they must
+ *           contain the correct content.
+ *
+ ************/
+_global uint32 blProgramCWERecoveryImage(
+  struct cwe_header_s *hdr,
+  uint8 *dloadbufp,
+  uint32 dloadsize,
+  uint32 bytesleft,
+  enum blmodulestate modulestate)
+{
+  uint8         *bufp, *startbufp;
+  enum cwe_image_type_e imagetype, flog_imgtype = CWE_IMAGE_TYPE_INVALID;
+  char flog_typestr[CWE_IMAGE_TYP_SZ+1];
+  uint32 ret = 0;
+  const char *imagep;
+
+  /* validate the image type from the CWE sub-header */
+  if (cwe_image_type_validate(hdr->image_type, &imagetype) == FALSE)
+  {
+    dprintf(CRITICAL, "SUBIMAGE=INVALID");
+    return ret;
+  }
+
+  /* Set UI state to UPDATING */
+  bluisetstate(BLUISTATE_UPDATING);
+
+  /* Set the buffer pointer to the first CWE sub-header */
+  startbufp = dloadbufp + sizeof(struct cwe_header_s);
+
+  do                            /* break out of this loop in case of failure */
+  {
+    memmove((void *)&temphdr, (void *)hdr, sizeof(temphdr));
+    bufp = startbufp;
+    /*                    -------------------
+     * APPL image format: | APPL CWE header |
+     * (Linux)            -------------------
+     *                    | SYST CWE hdr    |
+     *                    -------------------
+     *                    | SYST image      |  (Linux rootfs)
+     *                    -------------------
+     *                    | USER CWE hdr    |
+     *                    -------------------
+     *                    | USER image      |  (Linux usrfs)
+     *                    -------------------
+     *                    | APPS CWE hdr    |
+     *                    -------------------
+     *                    | APPS image      |  (Linux kernel)
+     *                    -------------------
+     *                    | USDATA CWE hdr    |
+     *                    -------------------
+     *                    | USDATA image      |  (userdata)
+     *                    -------------------
+     *                    | UAPP CWE hdr    |
+     *                    -------------------
+     *                    | UAPP image      |  (userapp)   
+     *                    -------------------
+     *  (all the images can be optional)
+     */
+    if ((imagetype == CWE_IMAGE_TYPE_APPL) || 
+        (imagetype == CWE_IMAGE_TYPE_SPKG) ||
+        (modulestate == BLSTATE_REQ_LINUX_RAM))
+    {
+      /* BLSTATE_REQ_LINUX_RAM will be supported in LK */
+      /* BLSTATE_REQ_FULL will be supported in LINUX_RAM, not LK */
+      bufp = blSearchCWEImage(CWE_IMAGE_TYPE_LRAM, startbufp, hdr->image_sz);
+      if (bufp != NULL)
+      {
+        dprintf(CRITICAL, "Boot up RAM kernel now!!!!!!!!!!!!!!!!!!!!!!!!\n");
+        boot_linux_from_ram((void *)(bufp+sizeof(struct cwe_header_s)), (unsigned)hdr->image_sz);
+        ret = ret | BLPRIMAGE_MASK_KN;
+      }
+    } /* CWE_IMAGE_TYPE_BOOT */
+    else
+    {
+      /* We won't support other state in LK */
+      /* unsupported image, break and return error */
+      break;
+    }
+
+    blsetcustompartition(NULL);
+  } while (0);
+
+  if (flog_imgtype == CWE_IMAGE_TYPE_INVALID)
+  {
+    /* try to get image type from last processed CWE header */
+    (void)cwe_image_type_validate(temphdr.image_type, &flog_imgtype);
+  }
+
+  memset(flog_typestr, 0, CWE_IMAGE_TYP_SZ + 1);
+  imagep = cwe_image_string_get(flog_imgtype);
+  if (imagep)
+  {
+    strncpy(flog_typestr, imagep, CWE_IMAGE_TYP_SZ);
+  }
+  else
+  {
+  }
+
+  return ret;
+}
+
+/************
+ *
+ * Name:     blprocessrecoveryimage - process recovery image
+ *
+ * Purpose:  process recovery image
+ *
+ * Params:   none
+ *
+ * Return:   image mask for those image has already been processed by this round
+ *
+ * Notes:
+ *
+ * Abort:
+ *
+ ************/
+uint32 blprocessrecoveryimage(enum blmodulestate modulestate)
+{
+  uint32 ret = 0;
+  /* ptr to control block structure */
+  struct blCtrlBlk *cbp = blGetcbp(); 
+
+  /* ensure file size is ok */
+  if (cbp->blbytesleft != 0)
+  {
+    blcallerror(BLRESULT_IMGSIZE_MISMATCH_ERROR, BL_DLD_VERIFY);
+    return ret;
+  }
+
+  if ((cbp->blhd.misc_opts & CWE_MISC_OPTS_COMPRESS) == 0 &&
+      cbp->blhd.image_crc != cbp->blcrc32)
+  {
+    /* only check CRC for uncompressed image. Will check CRC after decompression */ 
+    blcallerror(BLRESULT_CRC32_CHECK_ERROR, BL_DLD_VERIFY);
+    return ret;
+  }
+
+  ret = blProgramCWERecoveryImage(&cbp->blhd,
+                             bl_dload_area_start_get(cbp),
+                             bl_dload_area_used_size_get(cbp),
+                             cbp->blbytesleft,
+                             modulestate);
+  if (ret == 0)
+  {
+    /* Didn't program any image yet. */
+    blcallerror(BLRESULT_FLASH_WRITE_ERROR, BL_DLD_FLASH);
+  }
+
+  return (ret);
+}
+
+/************
+ *
+ * Name:     bldlend - process Download done
+ *
+ * Purpose:  Process the host's Download done image and write image to flash
+ *
+ * Params:   modulestate - module state
+ *
+ * Return:   result code (as defined in 'enum blresultcode')
+ *
+ * Notes:
+ *
+ * Abort:
+ *
+ ************/
+_global enum blresultcode bldlend(enum blmodulestate modulestate)
+{
+  enum blresultcode ret = BLRESULT_FLASH_WRITE_ERROR;
+  uint32 primageret = 0;
+
+  switch (modulestate)
+  {
+    case BLSTATE_NORMAL:
+      ret = blprocessdldend();
+      break;
+    case BLSTATE_REQ_OCU3SBL:
+      /* We should get SBL image in this branch */
+      primageret = blprocessrecoveryimage(modulestate);
+      if (primageret & BLPRIMAGE_MASK_SBL)
+      {
+         ret = BLRESULT_OK;
+      }
+      break;
+    case BLSTATE_REQ_TZ_RPM_LK:
+      /* We should get TZ_RPM_LK image in this branch */
+      primageret = blprocessrecoveryimage(modulestate);
+      if ((primageret & BLPRIMAGE_MASK_TZ) &&
+           (primageret & BLPRIMAGE_MASK_RPM) &&
+           (primageret & BLPRIMAGE_MASK_LK))
+      {
+        ret = BLRESULT_OK;
+      }
+      break;
+    case BLSTATE_REQ_LINUX_RAM:
+      /* We should get Kernel image in this branch */
+      primageret = blprocessrecoveryimage(modulestate);
+      if (primageret & BLPRIMAGE_MASK_LR)
+      {
+        ret = BLRESULT_OK;
+      }
+      break;
+    case BLSTATE_REQ_FULL:
+      /* We should get SBL,TZ_RPM_LK,Kernel,system image in this branch */
+      primageret = blprocessrecoveryimage(modulestate);
+      if ((primageret & BLPRIMAGE_MASK_SBL) &&
+           (primageret & BLPRIMAGE_MASK_TZ) &&
+           (primageret & BLPRIMAGE_MASK_RPM) &&
+           (primageret & BLPRIMAGE_MASK_LK) &&
+           (primageret & BLPRIMAGE_MASK_KN) &&
+           (primageret & BLPRIMAGE_MASK_SYS) &&
+           (primageret & BLPRIMAGE_MASK_LG))
+      {
+        ret = BLRESULT_OK;
+      }
+      break;
+  }
+
+  return ret;
 }
 
 /************
