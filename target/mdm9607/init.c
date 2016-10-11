@@ -149,7 +149,14 @@ void target_early_init(void)
 	/*BLSP1 and UART5*/
 	uart_dm_init(5, 0, BLSP1_UART5_BASE);
 #else /* SIERRA */
-	uart_dm_init(1, 0, BLSP1_UART0_BASE);
+	if (board_hardware_subtype() == SWI_WP_BOARD)
+	{
+		uart_dm_init(1, 0, BLSP1_UART0_BASE);
+	}
+	else
+	{
+		uart_dm_init(5, 0, BLSP1_UART5_BASE);
+	}
 #endif /* SIERRA */
 /* SWISTOP */
 

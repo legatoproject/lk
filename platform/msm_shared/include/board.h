@@ -36,6 +36,13 @@
 #define BOARD_SOC_VERSION2     0x20000
 #define MAX_PMIC_DEVICES       SMEM_MAX_PMIC_DEVICES
 
+/* SWISTART */
+#ifdef SIERRA
+#define SWI_AR_BOARD 0x80
+#define SWI_WP_BOARD 0x81
+#endif
+/* SWISTOP */
+
 struct board_pmic_data {
 	uint32_t pmic_type;
 	uint32_t pmic_version;
