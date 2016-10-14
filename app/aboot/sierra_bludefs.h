@@ -202,12 +202,17 @@ typedef struct secboot_image_info_type
 #define BL_SBL_PARTI_NAME "sbl"
 #define BL_MIBIB_PARTI_NAME "mibib"
 #define BL_ABOOT_PARTI_NAME "aboot"
+#define BL_ABOOT2_PARTI_NAME "aboot2"
 #define BL_LINUX_BOOT_PARTI_NAME "boot"
+#define BL_LINUX_BOOT2_PARTI_NAME "boot2"
 #define BL_LINUX_UDATA_PARTI_NAME "lefwkro"
+#define BL_LINUX_UDATA2_PARTI_NAME "lefwkro2"
 #define BL_LINUX_UAPP_PARTI_NAME "userapp"
 #define BL_LINUX_SYSTEM_PARTI_NAME "system"
+#define BL_LINUX_SYSTEM2_PARTI_NAME "system2"
 #define BL_TZ_PARTI_NAME "tz"
 #define BL_MODEM_PARTI_NAME "modem"
+#define BL_MODEM2_PARTI_NAME "modem2"
 #define BL_RPM_PARTI_NAME "rpm"
 #define BL_BACKUP_PARTI_NAME "backup"
 
@@ -408,6 +413,8 @@ struct blCtrlBlk
 };
 
 extern bool to_update_mibib;
+extern bool write_dual_system;
+extern uint8 *second_ubi_images;
 
 extern unsigned char *sierra_smem_base_addr_get(void);
 extern int sierra_smem_boothold_mode_set();

@@ -1862,6 +1862,16 @@ qpic_nand_read_page_error:
 	return nand_ret;
 }
 
+/* SWISTART */
+#ifdef SIERRA
+int qpic_nand_read_page_sierra(uint32_t page, unsigned char* buffer)
+{
+	unsigned char *spare = flash_spare_bytes;
+	return qpic_nand_read_page(page, buffer, spare);
+}
+#endif
+/* SWISTOP */
+
 /**
  * qpic_nand_read() - read data
  * @start_page: number of page to begin reading from
@@ -2089,16 +2099,6 @@ flash_ecc_bch_enabled()
 	return (flash.ecc_width == NAND_WITH_4_BIT_ECC)? 0 : 1;
 }
 
-/* SWISTART */
-#ifdef SIERRA
-int qpic_nand_read_page_sierra(uint32_t page, unsigned char* buffer)
-{
-   unsigned char *spare = flash_spare_bytes;
-   return qpic_nand_read_page(page, buffer, spare);
-}
-#endif
-/* SWISTOP */
-
 int
 flash_write(struct ptentry *ptn,
 			unsigned write_extra_bytes,
@@ -2232,6 +2232,7 @@ flash_write(struct ptentry *ptn,
 }
 
 /* SWISTART */
+#ifdef SIERRA
 int
 flash_write_sierra(struct ptentry *ptn,
 			unsigned write_extra_bytes,
@@ -2246,8 +2247,6 @@ flash_write_sierra(struct ptentry *ptn,
 	uint32_t spare_byte_count = 0;
 	int r;
 
-/* SWISTART */
-#ifdef SIERRA
 	boot_img_hdr *hdr;
 	/* Make sure the binary of boot image is match the hardware NAND flash! */
 	if (!strcmp(ptn->name, "boot"))
@@ -2259,8 +2258,6 @@ flash_write_sierra(struct ptentry *ptn,
 			return -1;
 		}
 	}
-#endif
-/* SWISTOP */
 
 	spare_byte_count = ((flash.cw_size * flash.cws_per_page)- flash.page_size);
 	if(write_extra_bytes)
@@ -2368,6 +2365,126 @@ flash_write_sierra(struct ptentry *ptn,
 					page / flash.num_pages_per_blk);
 		}
 		page += flash.num_pages_per_blk;
+	}
+
+	return 0;
+}
+
+int
+flash_write_sierra_dual_tz_rpm(struct ptentry *ptn,
+			void *data,
+			unsigned bytes)
+{
+	uint32_t page = 0;
+	uint32_t lastpage = 0;
+	uint32_t *spare = (unsigned *)flash_spare_bytes;
+	unsigned char *image = NULL;
+	uint32_t wsize;
+	uint32_t spare_byte_count = 0;
+	int r;
+	uint8_t tz_rpm_logical_partition = 0;
+	unsigned write_length = 0;
+
+	spare_byte_count = ((flash.cw_size * flash.cws_per_page)- flash.page_size);
+	wsize = flash.page_size;
+	memset(spare, 0xff, (spare_byte_count / flash.cws_per_page));
+
+	tz_rpm_logical_partition = 1;
+	while(tz_rpm_logical_partition <= 2)
+	{
+		if(1 == tz_rpm_logical_partition)
+		{
+			page = ptn->start * flash.num_pages_per_blk;
+			lastpage = ptn->start * flash.num_pages_per_blk + (ptn->length * flash.num_pages_per_blk)/2;
+		}
+		else
+		{
+			page = ptn->start * flash.num_pages_per_blk + (ptn->length * flash.num_pages_per_blk)/2;
+			lastpage = (ptn->start + ptn->length) * flash.num_pages_per_blk;
+		}
+
+		image = data;
+		write_length = bytes;
+		while (write_length > 0)
+		{
+			if (page >= lastpage)
+			{
+				dprintf(CRITICAL, "flash_write_sierra_tz_rpm: out of space\n");
+				return -1;
+			}
+
+			if ((page & flash.num_pages_per_blk_mask) == 0)
+			{
+				if (qpic_nand_blk_erase(page))
+				{
+					dprintf(INFO,
+						"flash_write_sierra_tz_rpm: bad block @ %d\n",
+						page / flash.num_pages_per_blk);
+
+					page += flash.num_pages_per_blk;
+					continue;
+				}
+			}
+
+			if (write_length >= wsize)
+			{
+				memcpy(rdwr_buf, image, flash.page_size);
+			}
+			else
+			{
+				/* For Sierra  CUSTOM_IMG, we will fill it with 0xff when (bytes < wsize) */
+				memset(rdwr_buf, 0xFF, flash.page_size);
+				memcpy(rdwr_buf, image, write_length);
+				/* Loop should be ended at this time */
+				write_length = wsize;
+			}  
+
+			r = qpic_nand_write_page(page, NAND_CFG, rdwr_buf, spare);
+			if (r)
+			{
+				dprintf(INFO,
+						"flash_write_sierra_tz_rpm: write failure @ page %d (src %d)\n",
+						page,
+						image - (const unsigned char *)data);
+
+				image -= (page & flash.num_pages_per_blk_mask) * wsize;
+				write_length += (page & flash.num_pages_per_blk_mask) * wsize;
+				page &= ~flash.num_pages_per_blk_mask;
+				if (qpic_nand_blk_erase(page))
+				{
+					dprintf(INFO,
+							"flash_write_sierra_tz_rpm: erase failure @ page %d\n",
+							page);
+				}
+
+				qpic_nand_mark_badblock(page);
+
+				dprintf(INFO,
+						"flash_write_sierra_tz_rpm: restart write @ page %d (src %d)\n",
+						page, image - (const unsigned char *)data);
+
+				page += flash.num_pages_per_blk;
+				continue;
+			}
+			page++;
+			image += wsize;
+			write_length -= wsize;
+		}
+
+		/* erase any remaining pages in the partition */
+		page = (page + flash.num_pages_per_blk_mask) & (~flash.num_pages_per_blk_mask);
+
+		while (page < lastpage)
+		{
+			if (qpic_nand_blk_erase(page))
+			{
+				dprintf(INFO, "flash_write_sierra_tz_rpm: bad block @ %d\n",
+						page / flash.num_pages_per_blk);
+			}
+			page += flash.num_pages_per_blk;
+		}
+
+		tz_rpm_logical_partition++;
 	}
 
 	return 0;
@@ -2571,7 +2688,7 @@ int flash_write_sierra_file_img(struct ptentry *ptn,
 	dprintf(INFO, "flash_write_image: success\n");
 	return 0;
 }
-
+#endif
 /* SWISTOP */
 
 uint32_t nand_device_base()

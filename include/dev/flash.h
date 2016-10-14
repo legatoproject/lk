@@ -77,6 +77,9 @@ typedef unsigned int (*go_cwe_file_func_type)(unsigned char *buf, unsigned int l
 
 int flash_write_sierra(struct ptentry *ptn, unsigned write_extra_bytes, const void *data,
 		unsigned bytes);
+int flash_write_sierra_dual_tz_rpm(struct ptentry *ptn,
+			void *data,
+			unsigned bytes);
 int flash_write_sierra_file_img(struct ptentry *ptn,
 			unsigned write_extra_bytes,
 			const void *data,
