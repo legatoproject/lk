@@ -33,8 +33,13 @@
 /* GPIO that controls the button
  * for FASTBOOT.
  */
+/* SWISTART */
+#ifndef SIERRA
 #define FASTBOOT_KEY_GPIO_ID        92
-
+#else
+#define FASTBOOT_KEY_GPIO_ID        36
+#endif
+/* SWISTOP */
 /*
  * Returns fastboot button state.
  * Returns 0 if button is not pressed, 1 when pressed.
