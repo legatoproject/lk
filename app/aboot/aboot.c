@@ -79,6 +79,7 @@
 #include "sierra_dsudefs.h"
 #include "sierra_cweudefs.h"
 #include "sierra_ssdp.h"
+#include "sierra_lkversion.h"
 #endif
 /* SWISTOP */
 
@@ -161,6 +162,11 @@ static char ffbm_mode_string[FFBM_MODE_BUF_SIZE];
 static bool boot_into_ffbm;
 static char target_boot_params[64];
 static bool boot_reason_alarm;
+/* SWISTART */
+#ifdef SIERRA
+static const char *lkversion        = " lkversion=" LKVERSION;
+#endif /* SIERRA */
+/* SWISTOP */
 
 /* Assuming unauthorized kernel image by default */
 static int auth_kernel_img = 0;
@@ -290,6 +296,11 @@ unsigned char *update_cmdline(const char * cmdline)
 		have_target_boot_params = 1;
 		cmdline_len += strlen(target_boot_params);
 	}
+/* SWISTART */
+#ifdef SIERRA
+	cmdline_len += strlen(lkversion);
+#endif /* SIERRA */
+/* SWISTOP */
 
 	/* Determine correct androidboot.baseband to use */
 	switch(target_baseband())
@@ -362,6 +373,17 @@ unsigned char *update_cmdline(const char * cmdline)
 			src = cmdline;
 			while ((*dst++ = *src++));
 		}
+/* SWISTART */
+#ifdef SIERRA
+	{
+		int l = strlen(lkversion);
+		src = lkversion;
+		if (have_cmdline) --dst;
+		while ((*dst++ = *src++) && l--);
+	}
+#endif /* SIERRA */
+/* SWISTOP */
+
 		if (target_is_emmc_boot()) {
 			src = emmc_cmdline;
 			if (have_cmdline) --dst;
