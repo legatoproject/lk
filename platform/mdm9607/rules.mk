@@ -18,6 +18,11 @@ OBJS += \
        $(LOCAL_DIR)/gpio.o \
        $(LOCAL_DIR)/mdm9607-clock.o
 
+# SWISTART 
+OBJS += \
+    $(LOCAL_DIR)/spicommon.o
+# SWISTOP
+
 LINKER_SCRIPT += $(BUILDDIR)/system-onesegment.ld
 
 include platform/msm_shared/rules.mk
