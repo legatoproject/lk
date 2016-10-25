@@ -219,3 +219,30 @@ void clock_config_ce(uint8_t instance)
 
 	clock_ce_enable(instance);
 }
+
+/* SWISTART */
+#ifdef SIERRA
+void clock_config_spi(uint8_t id, unsigned long rate)
+{
+	int ret;
+	char clk_name[64];
+
+	snprintf(clk_name, sizeof(clk_name), "spi%u_iface_clk", id);
+	ret = clk_get_set_enable(clk_name, 0, 1);
+	if (ret)
+	{
+		dprintf(CRITICAL, "failed to set %s ret = %d\n", clk_name, ret);
+		ASSERT(0);
+	}
+
+	snprintf(clk_name, sizeof(clk_name), "spi%u_core_clk", id);
+	ret = clk_get_set_enable(clk_name, rate, 1);
+	if (ret)
+	{
+		dprintf(CRITICAL, "failed to set %s ret = %d\n", clk_name, ret);
+		ASSERT(0);
+	}
+}
+#endif
+/* SWISTOP */
+

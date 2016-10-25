@@ -38,4 +38,11 @@ void platform_clock_init(void);
 
 void clock_config_uart_dm(uint8_t id);
 void hsusb_clock_init(void);
+
+/* SWISTART */
+#ifdef SIERRA
+void clock_config_spi(uint8_t id, unsigned long rate);
+#endif
+/* SWISTOP */
+
 #endif
