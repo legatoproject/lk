@@ -41,6 +41,11 @@ OUTELF_STRIP := $(BUILDDIR)/lk_s.elf
 
 CONFIGHEADER := $(BUILDDIR)/config.h
 
+# SWISTART
+SWISSDPLIB := lib/libswi/libswissdp.a
+LIBS := $(SWISSDPLIB)
+# SWISTOP
+
 #Initialize the command-line flag ENABLE_TRUSTZONE. Value for flag passed in at command-line will take precedence
 ENABLE_TRUSTZONE := 0
 
@@ -66,6 +71,7 @@ endif
 
 # SWISTART
 CFLAGS += -DSIERRA
+CFLAGS += -DSSDP_OVER_SPI
 # SWISTOP
 
 # setup toolchain prefix
@@ -79,6 +85,9 @@ LDFLAGS :=
 
 CFLAGS += -ffunction-sections -fdata-sections -I app/aboot
 LDFLAGS += -gc-sections
+# SWISTART
+LDFLAGS += $(LIBS)
+# SWISTOP
 
 # top level rule
 all:: $(OUTBIN) $(OUTELF).lst $(OUTELF).debug.lst $(OUTELF).sym $(OUTELF).size $(OUTELF_STRIP) APPSBOOTHEADER
