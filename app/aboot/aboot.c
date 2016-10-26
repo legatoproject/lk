@@ -3374,9 +3374,29 @@ void cmd_flash_nand(const char *arg, void *data, unsigned sz)
 #ifdef SIERRA
 	enum blresultcode ret = BLRESULT_OK;
 
-	if (!strcmp(arg, "sierra"))
+	if (!strcmp(arg, "sierra")
+		|| !strcmp(arg, "sierra-dual-system"))
 	{
-		ret = blProcessFastbootImage((unsigned char *)data, sz);
+		if(is_dual_system_supported())
+		{
+			if(!strcmp(arg, "sierra-dual-system"))
+			{
+				write_dual_system = true;
+				second_ubi_images = data + sz;
+			}
+
+			ret = blProcessFastbootImage((unsigned char *)data, sz);
+
+			if(!strcmp(arg, "sierra-dual-system"))
+			{
+				write_dual_system = false;
+				second_ubi_images = NULL;
+			}
+		}
+		else
+		{
+			ret = blProcessFastbootImage((unsigned char *)data, sz);
+		}
 		switch (ret)
 		{
 			case  BLRESULT_OK:
