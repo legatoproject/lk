@@ -2371,9 +2371,10 @@ flash_write_sierra(struct ptentry *ptn,
 }
 
 int
-flash_write_sierra_dual_tz_rpm(struct ptentry *ptn,
+flash_write_sierra_tz_rpm(struct ptentry *ptn,
 			void *data,
-			unsigned bytes)
+			unsigned bytes,
+			uint8_t system_num)
 {
 	uint32_t page = 0;
 	uint32_t lastpage = 0;
@@ -2389,9 +2390,20 @@ flash_write_sierra_dual_tz_rpm(struct ptentry *ptn,
 	wsize = flash.page_size;
 	memset(spare, 0xff, (spare_byte_count / flash.cws_per_page));
 
-	tz_rpm_logical_partition = 1;
-	while(tz_rpm_logical_partition <= 2)
+	if((system_num <= BL_UPDATE_NONE) || (system_num > BL_UPDATE_DUAL_SYSTEM))
 	{
+		dprintf(CRITICAL, "flash_write_sierra_tz_rpm: wrong parameter update_which_system:%d\n", system_num);
+		return -1;
+	}
+
+	for(tz_rpm_logical_partition = 1; tz_rpm_logical_partition <= 2; tz_rpm_logical_partition++)
+	{
+		if(BL_UPDATE_SYSTEM2 == system_num)
+		{
+			/* Skip to update system1 */
+			continue;
+		}
+
 		if(1 == tz_rpm_logical_partition)
 		{
 			page = ptn->start * flash.num_pages_per_blk;
@@ -2484,7 +2496,11 @@ flash_write_sierra_dual_tz_rpm(struct ptentry *ptn,
 			page += flash.num_pages_per_blk;
 		}
 
-		tz_rpm_logical_partition++;
+		if(BL_UPDATE_SYSTEM1 == system_num)
+		{
+			/* Not update system2 any more */
+			break;
+		}
 	}
 
 	return 0;

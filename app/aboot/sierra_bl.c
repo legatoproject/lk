@@ -46,7 +46,7 @@ _local struct blCtrlBlk blc;
 
 bool to_update_mibib = FALSE; /* Indicates modem should warm reset to SBL, to update MIBIB. */
 
-bool write_dual_system = false; /* Indicates to write dual system or not. */
+enum bl_update_system_e update_which_system = BL_UPDATE_NONE; /* Indicates to write which system */
 
 uint8 *second_ubi_images = NULL; /* Point to second UBI images during writing dual system */
 
@@ -1723,11 +1723,13 @@ _local enum blresultcode blProgramFlash(
     else
     {
       /* raw image */
-      if((true == write_dual_system)
-         &&((0 == strcmp(ptn->name, BL_TZ_PARTI_NAME))
-         || (0 == strcmp(ptn->name, BL_RPM_PARTI_NAME))))
+      if((0 == strcmp(ptn->name, BL_TZ_PARTI_NAME))
+         || (0 == strcmp(ptn->name, BL_RPM_PARTI_NAME)))
       {
-        if (0 != flash_write_sierra_dual_tz_rpm(ptn, (void *)bufp, (unsigned)write_size)) 
+        if (0 != flash_write_sierra_tz_rpm(ptn, 
+                                           (void *)bufp, 
+                                           (unsigned)write_size,
+                                           (uint8_t)update_which_system)) 
         {
           dprintf(CRITICAL, "flash write dual TZ or RPM failure\n");
           return BLRESULT_FLASH_WRITE_ERROR;
@@ -1886,31 +1888,49 @@ enum blresultcode blProgramModemImage(struct cwe_header_s *hdr, uint8 *startbufp
   bufp = blSearchCWEImage(CWE_IMAGE_TYPE_DSP2, startbufp, hdr->image_sz);
   if (bufp != NULL)
   {
-    if(true == write_dual_system)
+    switch(update_which_system)
     {
-      /* Store second DSP2 image as flash_ubi_img() will modify the image with UBI format */
-      memcpy(second_ubi_images, bufp, temphdr.image_sz + sizeof(struct cwe_header_s));
+      case BL_UPDATE_DUAL_SYSTEM:
+        /* Store second DSP2 image as flash_ubi_img() will modify the image with UBI format */
+        memcpy(second_ubi_images, bufp, temphdr.image_sz + sizeof(struct cwe_header_s));
 
-      /* Program DSP2 image to modem2 partition */
-      blsetcustompartition(BL_MODEM2_PARTI_NAME);
-      result = blProgramImage(second_ubi_images, FLASH_PROG_DSP2_IMG, temphdr.image_sz);
-      if (result != BLRESULT_OK)
-      {
-        dprintf(CRITICAL, "blProgramModemImage CWE_IMAGE_TYPE_DSP2 to modem2 failed, ret:%d\n", result);
-        return result;
-      }
-    }
+        /* Program DSP2 image to modem2 partition */
+        blsetcustompartition(BL_MODEM2_PARTI_NAME);
+        result = blProgramImage(second_ubi_images, FLASH_PROG_DSP2_IMG, temphdr.image_sz);
+        if (result != BLRESULT_OK)
+        {
+          dprintf(CRITICAL, "blProgramModemImage CWE_IMAGE_TYPE_DSP2 to modem2 failed, ret:%d\n", result);
+          return result;
+        }
 
-    /* Program DSP2 image to modem partition*/
-    blsetcustompartition(BL_MODEM_PARTI_NAME);
-    result = blProgramImage(bufp, FLASH_PROG_DSP2_IMG, temphdr.image_sz);
-    if (result != BLRESULT_OK)
-    {
-      dprintf(CRITICAL, "blProgramModemImage CWE_IMAGE_TYPE_DSP2 to modem failed, ret:%d\n", result);
-      return result;
+      case BL_UPDATE_SYSTEM1:
+        /* Program DSP2 image to modem partition*/
+        blsetcustompartition(BL_MODEM_PARTI_NAME);
+        result = blProgramImage(bufp, FLASH_PROG_DSP2_IMG, temphdr.image_sz);
+        if (result != BLRESULT_OK)
+        {
+          dprintf(CRITICAL, "blProgramModemImage CWE_IMAGE_TYPE_DSP2 to modem failed, ret:%d\n", result);
+          return result;
+        }
+        break;
+
+      case BL_UPDATE_SYSTEM2:
+        /* Program DSP2 image to modem2 partition*/
+        blsetcustompartition(BL_MODEM2_PARTI_NAME);
+        result = blProgramImage(bufp, FLASH_PROG_DSP2_IMG, temphdr.image_sz);
+        if (result != BLRESULT_OK)
+        {
+          dprintf(CRITICAL, "blProgramModemImage CWE_IMAGE_TYPE_DSP2 to modem2 failed, ret:%d\n", result);
+          return result;
+        }
+        break;
+
+      default:
+        dprintf(CRITICAL, "blProgramModemImage, wrong parameter update_which_system:%d\n", update_which_system);
+        break;
     }
   }
-  
+
   return result;
 }
 
@@ -1967,26 +1987,43 @@ enum blresultcode blProgramApplImage(struct cwe_header_s *hdr, uint8 *startbufp)
   bufp = blSearchCWEImage(CWE_IMAGE_TYPE_SYST, startbufp, hdr->image_sz);
   if (bufp != NULL)
   {
-    if(true == write_dual_system)
+    switch(update_which_system)
     {
-      /* Store second SYSTEM image as flash_ubi_img() will modify the image with UBI format */
-      memcpy(second_ubi_images, bufp, temphdr.image_sz + sizeof(struct cwe_header_s));
+      case BL_UPDATE_DUAL_SYSTEM:
+        /* Store second SYSTEM image as flash_ubi_img() will modify the image with UBI format */
+        memcpy(second_ubi_images, bufp, temphdr.image_sz + sizeof(struct cwe_header_s));
 
-      blsetcustompartition(BL_LINUX_SYSTEM2_PARTI_NAME);
-      result = blProgramImage(second_ubi_images, FLASH_PROG_ROFS1_IMG, temphdr.image_sz);
-      if (result != BLRESULT_OK)
-      {
-        dprintf(CRITICAL, "blProgramApplImage CWE_IMAGE_TYPE_SYST to system2 failed, ret:%d\n", result);
-        return result;
-      }
-    }
+        blsetcustompartition(BL_LINUX_SYSTEM2_PARTI_NAME);
+        result = blProgramImage(second_ubi_images, FLASH_PROG_ROFS1_IMG, temphdr.image_sz);
+        if (result != BLRESULT_OK)
+        {
+          dprintf(CRITICAL, "blProgramApplImage CWE_IMAGE_TYPE_SYST to system2 failed, ret:%d\n", result);
+          return result;
+        }
 
-    blsetcustompartition(BL_LINUX_SYSTEM_PARTI_NAME);
-    result = blProgramImage(bufp, FLASH_PROG_ROFS1_IMG, temphdr.image_sz);
-    if (result != BLRESULT_OK)
-    {
-      dprintf(CRITICAL, "blProgramApplImage CWE_IMAGE_TYPE_SYST to system failed, ret:%d\n", result);
-      return result;
+      case BL_UPDATE_SYSTEM1:
+        blsetcustompartition(BL_LINUX_SYSTEM_PARTI_NAME);
+        result = blProgramImage(bufp, FLASH_PROG_ROFS1_IMG, temphdr.image_sz);
+        if (result != BLRESULT_OK)
+        {
+          dprintf(CRITICAL, "blProgramApplImage CWE_IMAGE_TYPE_SYST to system failed, ret:%d\n", result);
+          return result;
+        }
+        break;
+
+      case BL_UPDATE_SYSTEM2:
+        blsetcustompartition(BL_LINUX_SYSTEM2_PARTI_NAME);
+        result = blProgramImage(bufp, FLASH_PROG_ROFS1_IMG, temphdr.image_sz);
+        if (result != BLRESULT_OK)
+        {
+          dprintf(CRITICAL, "blProgramApplImage CWE_IMAGE_TYPE_SYST to system2 failed, ret:%d\n", result);
+          return result;
+        }
+        break;
+
+      default:
+        dprintf(CRITICAL, "blProgramApplImage, wrong parameter update_which_system:%d\n", update_which_system);
+        break;
     }
   }
 
@@ -1994,26 +2031,43 @@ enum blresultcode blProgramApplImage(struct cwe_header_s *hdr, uint8 *startbufp)
   bufp = blSearchCWEImage(CWE_IMAGE_TYPE_USER, startbufp, hdr->image_sz);
   if (bufp != NULL)
   {
-    if(true == write_dual_system)
+    switch(update_which_system)
     {
-      /* Store second LEFWKRO image as flash_ubi_img() will modify the image with UBI format */
-      memcpy(second_ubi_images, bufp, temphdr.image_sz + sizeof(struct cwe_header_s));
+      case BL_UPDATE_DUAL_SYSTEM:
+        /* Store second LEFWKRO image as flash_ubi_img() will modify the image with UBI format */
+        memcpy(second_ubi_images, bufp, temphdr.image_sz + sizeof(struct cwe_header_s));
 
-      blsetcustompartition(BL_LINUX_UDATA2_PARTI_NAME);
-      result = blProgramImage(second_ubi_images, FLASH_PROG_USDATA_IMG, temphdr.image_sz);
-      if (result != BLRESULT_OK)
-      {
-        dprintf(CRITICAL, "blProgramApplImage CWE_IMAGE_TYPE_USER to lefwkro2 failed, ret:%d\n", result);
-        return result;
-      }
-    }
+        blsetcustompartition(BL_LINUX_UDATA2_PARTI_NAME);
+        result = blProgramImage(second_ubi_images, FLASH_PROG_USDATA_IMG, temphdr.image_sz);
+        if (result != BLRESULT_OK)
+        {
+          dprintf(CRITICAL, "blProgramApplImage CWE_IMAGE_TYPE_USER to lefwkro2 failed, ret:%d\n", result);
+          return result;
+        }
 
-    blsetcustompartition(BL_LINUX_UDATA_PARTI_NAME);
-    result = blProgramImage(bufp, FLASH_PROG_USDATA_IMG, temphdr.image_sz);
-    if (result != BLRESULT_OK)
-    {
-      dprintf(CRITICAL, "blProgramApplImage CWE_IMAGE_TYPE_USER to lefwkro failed, ret:%d\n", result);
-      return result;
+      case BL_UPDATE_SYSTEM1:
+        blsetcustompartition(BL_LINUX_UDATA_PARTI_NAME);
+        result = blProgramImage(bufp, FLASH_PROG_USDATA_IMG, temphdr.image_sz);
+        if (result != BLRESULT_OK)
+        {
+          dprintf(CRITICAL, "blProgramApplImage CWE_IMAGE_TYPE_USER to lefwkro failed, ret:%d\n", result);
+          return result;
+        }
+        break;
+
+      case BL_UPDATE_SYSTEM2:
+        blsetcustompartition(BL_LINUX_UDATA2_PARTI_NAME);
+        result = blProgramImage(bufp, FLASH_PROG_USDATA_IMG, temphdr.image_sz);
+        if (result != BLRESULT_OK)
+        {
+          dprintf(CRITICAL, "blProgramApplImage CWE_IMAGE_TYPE_USER to lefwkro2 failed, ret:%d\n", result);
+          return result;
+        }
+        break;
+
+      default:
+        dprintf(CRITICAL, "blProgramApplImage, wrong parameter update_which_system:%d\n", update_which_system);
+        break;
     }
   }
 
@@ -2034,25 +2088,41 @@ enum blresultcode blProgramApplImage(struct cwe_header_s *hdr, uint8 *startbufp)
   bufp = blSearchCWEImage(CWE_IMAGE_TYPE_APPS, startbufp, hdr->image_sz);
   if (bufp != NULL)
   {
-    bufp2 = bufp;
-
-    blsetcustompartition(BL_LINUX_BOOT_PARTI_NAME);
-    result = blProgramImage(bufp, FLASH_PROG_CUSTOM_IMG, temphdr.image_sz);
-    if (result != BLRESULT_OK)
+    switch(update_which_system)
     {
-      dprintf(CRITICAL, "blProgramApplImage CWE_IMAGE_TYPE_APPS to boot failed, ret:%d\n", result);
-      return result;
-    }
+      case BL_UPDATE_DUAL_SYSTEM:
+        bufp2 = bufp;
+        blsetcustompartition(BL_LINUX_BOOT2_PARTI_NAME);
+        result = blProgramImage(bufp2, FLASH_PROG_CUSTOM_IMG, temphdr.image_sz);
+        if (result != BLRESULT_OK)
+        {
+          dprintf(CRITICAL, "blProgramApplImage CWE_IMAGE_TYPE_APPS to boot2 failed, ret:%d\n", result);
+          return result;
+        }
 
-    if(true == write_dual_system)
-    {
-      blsetcustompartition(BL_LINUX_BOOT2_PARTI_NAME);
-      result = blProgramImage(bufp2, FLASH_PROG_CUSTOM_IMG, temphdr.image_sz);
-      if (result != BLRESULT_OK)
-      {
-        dprintf(CRITICAL, "blProgramApplImage CWE_IMAGE_TYPE_APPS to boot2 failed, ret:%d\n", result);
-        return result;
-      }
+      case BL_UPDATE_SYSTEM1:
+        blsetcustompartition(BL_LINUX_BOOT_PARTI_NAME);
+        result = blProgramImage(bufp, FLASH_PROG_CUSTOM_IMG, temphdr.image_sz);
+        if (result != BLRESULT_OK)
+        {
+          dprintf(CRITICAL, "blProgramApplImage CWE_IMAGE_TYPE_APPS to boot failed, ret:%d\n", result);
+          return result;
+        }
+        break;
+
+      case BL_UPDATE_SYSTEM2:
+        blsetcustompartition(BL_LINUX_BOOT2_PARTI_NAME);
+        result = blProgramImage(bufp, FLASH_PROG_CUSTOM_IMG, temphdr.image_sz);
+        if (result != BLRESULT_OK)
+        {
+          dprintf(CRITICAL, "blProgramApplImage CWE_IMAGE_TYPE_APPS to boot2 failed, ret:%d\n", result);
+          return result;
+        }
+		break;
+
+      default:
+        dprintf(CRITICAL, "blProgramApplImage, wrong parameter update_which_system:%d\n", update_which_system);
+        break;
     }
   }
 
@@ -2174,27 +2244,44 @@ enum blresultcode blProgramBootImage(struct cwe_header_s *hdr, uint8 *startbufp)
   bufp = blSearchCWEImage(CWE_IMAGE_TYPE_APBL, startbufp, hdr->image_sz);
   if (bufp != NULL)
   {
-    bufp2 = bufp;
-
-    /* Program APBL image to aboot */
-    blsetcustompartition(BL_ABOOT_PARTI_NAME);
-    result = blProgramImage(bufp, FLASH_PROG_CUSTOM_IMG, temphdr.image_sz);
-    if (result != BLRESULT_OK)
+    switch(update_which_system)
     {
-      dprintf(CRITICAL, "blProgramBootImage CWE_IMAGE_TYPE_APBL to aboot failed, ret:%d\n", result);
-      return result;
-    }
+      case BL_UPDATE_DUAL_SYSTEM:
+        bufp2 = bufp;
+        /* Program APBL image to aboot2*/
+        blsetcustompartition(BL_ABOOT2_PARTI_NAME);
+        result = blProgramImage(bufp2, FLASH_PROG_CUSTOM_IMG, temphdr.image_sz);
+        if (result != BLRESULT_OK)
+        {
+          dprintf(CRITICAL, "blProgramBootImage CWE_IMAGE_TYPE_APBL to aboot2 failed, ret:%d\n", result);
+          return result;
+        }
 
-    if(true == write_dual_system)
-    {
-      /* Program APBL image to aboot2*/
-      blsetcustompartition(BL_ABOOT2_PARTI_NAME);
-      result = blProgramImage(bufp2, FLASH_PROG_CUSTOM_IMG, temphdr.image_sz);
-      if (result != BLRESULT_OK)
-      {
-        dprintf(CRITICAL, "blProgramBootImage CWE_IMAGE_TYPE_APBL to aboot2 failed, ret:%d\n", result);
-        return result;
-      }
+      case BL_UPDATE_SYSTEM1:
+        /* Program APBL image to aboot */
+        blsetcustompartition(BL_ABOOT_PARTI_NAME);
+        result = blProgramImage(bufp, FLASH_PROG_CUSTOM_IMG, temphdr.image_sz);
+        if (result != BLRESULT_OK)
+        {
+          dprintf(CRITICAL, "blProgramBootImage CWE_IMAGE_TYPE_APBL to aboot failed, ret:%d\n", result);
+          return result;
+        }
+        break;
+
+      case BL_UPDATE_SYSTEM2:
+        /* Program APBL image to aboot2*/
+        blsetcustompartition(BL_ABOOT2_PARTI_NAME);
+        result = blProgramImage(bufp, FLASH_PROG_CUSTOM_IMG, temphdr.image_sz);
+        if (result != BLRESULT_OK)
+        {
+          dprintf(CRITICAL, "blProgramBootImage CWE_IMAGE_TYPE_APBL to aboot2 failed, ret:%d\n", result);
+          return result;
+        }
+        break;
+
+      default:
+        dprintf(CRITICAL, "blProgramBootImage, wrong parameter update_which_system:%d\n", update_which_system);
+        break;
     }
   }
   return result;

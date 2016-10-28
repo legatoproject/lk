@@ -384,6 +384,25 @@ enum blmodulestate
 
 /************
  *
+ * Name:     bl_update_system_e
+ *
+ * Purpose:  Update system enum
+ *
+ * Members:  See below
+ *
+ * Notes:  None 
+ *
+ ************/
+enum bl_update_system_e
+{
+  BL_UPDATE_NONE,         /* Nothing */
+  BL_UPDATE_SYSTEM1,      /* Only update system1 */
+  BL_UPDATE_SYSTEM2,      /* Only update system2 */
+  BL_UPDATE_DUAL_SYSTEM,  /* Update both systems */
+};
+
+/************
+ *
  * Name:      blCtrlBlk
  *
  * Purpose:   This is the main control block for the BL package. It defines all
@@ -413,7 +432,7 @@ struct blCtrlBlk
 };
 
 extern bool to_update_mibib;
-extern bool write_dual_system;
+extern enum bl_update_system_e update_which_system;
 extern uint8 *second_ubi_images;
 
 extern unsigned char *sierra_smem_base_addr_get(void);

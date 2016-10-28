@@ -2799,21 +2799,27 @@ void cmd_flash_nand(const char *arg, void *data, unsigned sz)
 	enum blresultcode ret = BLRESULT_OK;
 
 	if (!strcmp(arg, "sierra")
+		|| !strcmp(arg, "sierra2")
 		|| !strcmp(arg, "sierra-dual-system"))
 	{
-		if(!strcmp(arg, "sierra-dual-system"))
+		if(!strcmp(arg, "sierra"))
 		{
-			write_dual_system = true;
+			update_which_system = BL_UPDATE_SYSTEM1;
+		}
+		else if(!strcmp(arg, "sierra2"))
+		{
+			update_which_system = BL_UPDATE_SYSTEM2;
+		}
+		else if(!strcmp(arg, "sierra-dual-system"))
+		{
+			update_which_system = BL_UPDATE_DUAL_SYSTEM;
 			second_ubi_images = data + sz;
 		}
 
 		ret = blProcessFastbootImage((unsigned char *)data, sz);
 
-		if(!strcmp(arg, "sierra-dual-system"))
-		{
-			write_dual_system = false;
-			second_ubi_images = NULL;
-		}
+		update_which_system = BL_UPDATE_NONE;
+		second_ubi_images = NULL;
 
 		switch (ret)
 		{
