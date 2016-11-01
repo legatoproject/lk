@@ -2873,6 +2873,12 @@ _global enum blresultcode blProcessFastbootImage(unsigned char *bufp, unsigned i
     return BLRESULT_CRC32_CHECK_ERROR;
   }
 
+  if (TRUE != cwe_version_validate(&cbp->blhd))
+  {
+    dprintf(CRITICAL, "BLRESULT_PKG_NOT_COMPATIBLE\n");
+    return BLRESULT_PKG_NOT_COMPATIBLE;
+  }
+
   /* Not used in this case, so set to 0 */
   cbp->blbytesleft = 0;
   
