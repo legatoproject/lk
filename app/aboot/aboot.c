@@ -169,6 +169,8 @@ static bool boot_reason_alarm;
 /* SWISTART */
 #ifdef SIERRA
 static const char *lkversion        = " lkversion=" LKVERSION;
+static uint64 bad_image_mask = DS_IMAGE_FLAG_NOT_SET;
+static bool boot_into_fastboot_swi = false;
 #endif /* SIERRA */
 /* SWISTOP */
 
@@ -1354,14 +1356,12 @@ int boot_linux_from_flash(void)
 	unsigned int dtb_size = 0;
 	unsigned char *best_match_dt_addr = NULL;
 #endif
-
 /* SWISTART */
 #ifdef SIERRA
-	bool kernel_is_bad = FALSE;
-	uint64 bad_image_mask = 0;
+	uint8_t ssid_linux_index = 0;
 #endif
 /* SWISTOP */
-	
+
 	if (target_is_emmc_boot()) {
 		hdr = (struct boot_img_hdr *)EMMC_BOOT_IMG_HEADER_ADDR;
 		if (memcmp(hdr->magic, BOOT_MAGIC, BOOT_MAGIC_SIZE)) {
@@ -1374,6 +1374,11 @@ int boot_linux_from_flash(void)
 	ptable = flash_get_ptable();
 	if (ptable == NULL) {
 		dprintf(CRITICAL, "ERROR: Partition table not found\n");
+/* SWISTART */
+#ifdef SIERRA
+		boot_into_fastboot_swi = true;
+#endif
+/* SWISTOP */
 		return -1;
 	}
 
@@ -1382,7 +1387,8 @@ int boot_linux_from_flash(void)
 /* SWISTART */
 #ifdef SIERRA
 		/* Get Kernel partition handler according to current boot system */
-		if(DS_SSID_SUB_SYSTEM_2 == sierra_ds_smem_get_ssid_linux_index())
+		ssid_linux_index = sierra_ds_smem_get_ssid_linux_index();
+		if(DS_SSID_SUB_SYSTEM_2 == ssid_linux_index)
 		{
 			dprintf(CRITICAL, "Load kernel from boot2 partition due to linux sub system 2\n");
 			ptn = ptable_find(ptable, "boot2");
@@ -1412,6 +1418,30 @@ int boot_linux_from_flash(void)
 	        }
 	}
 
+/* SWISTART */
+#ifdef SIERRA
+	if ((flash_read(ptn, offset, buf, page_size)) || (memcmp(hdr->magic, BOOT_MAGIC, BOOT_MAGIC_SIZE))){
+		/* Check another kernel image */
+		if(DS_SSID_SUB_SYSTEM_2 == ssid_linux_index)
+		{
+			ptn = ptable_find(ptable, "boot");
+		}
+		else
+		{
+			ptn = ptable_find(ptable, "boot2");
+		}
+
+		/* Regard it as emergency download mode if both kernel images not exist */
+		if ((flash_read(ptn, offset, buf, page_size)) || (memcmp(hdr->magic, BOOT_MAGIC, BOOT_MAGIC_SIZE))){
+			dprintf(CRITICAL, "ERROR: Invalid image header of both kernel images\n");
+			boot_into_fastboot_swi = true;
+			return -1;
+		}
+
+		dprintf(CRITICAL, "ERROR: Cannot read boot image header or invalid boot image header\n");
+		return -1;
+	}
+#else
 	if (flash_read(ptn, offset, buf, page_size)) {
 		dprintf(CRITICAL, "ERROR: Cannot read boot image header\n");
 		return -1;
@@ -1421,6 +1451,8 @@ int boot_linux_from_flash(void)
 		dprintf(CRITICAL, "ERROR: Invalid boot image header\n");
 		return -1;
 	}
+#endif
+/* SWISTOP */
 
 	if (hdr->page_size != page_size) {
 		dprintf(CRITICAL, "ERROR: Invalid boot image pagesize. Device pagesize: %d, Image pagesize: %d\n",page_size,hdr->page_size);
@@ -1664,23 +1696,12 @@ int boot_linux_from_flash(void)
 		{
 			if(!boot_swi_lk_auth_kernel(ptn,hdr))
 			{
-				dprintf(CRITICAL, "[lk_debug]ERROR: LK auth kernel failed\n");
-				kernel_is_bad = TRUE;
+				dprintf(CRITICAL, "ERROR: LK auth kernel failed\n");
+				return -1;
 			}
-		}
-		/* Get the result that program reliability authenticate kernel when secure boot disabled */
-		/* TBD until program reliability part finished */
-		if(kernel_is_bad)
-		{
-			sierra_ds_smem_write_bad_image_and_swap(bad_image_mask);
-
-			/* Swap system after bad kernel detected */
-			dprintf(INFO, "rebooting the device\n");
-			reboot_device(0);
 		}
 #endif
 /* SWISTOP */
-
 	}
 continue_boot:
 
@@ -3508,6 +3529,21 @@ normal_boot:
 	#endif
 			boot_linux_from_flash();
 		}
+
+/* SWISTART */
+#ifdef SIERRA
+		if(false == boot_into_fastboot_swi)
+		{
+			sierra_ds_smem_write_bad_image_and_swap(bad_image_mask);
+			/* Swap system after kernel image load failed or bad kernel detected*/
+			dprintf(CRITICAL, "ERROR: Could not do normal boot. Rebooting and swap system.\n");
+			reboot_device(0);
+		}
+		boot_into_fastboot_swi = false;
+		bad_image_mask = DS_IMAGE_FLAG_NOT_SET;
+#endif
+/* SWISTOP */
+
 		dprintf(CRITICAL, "ERROR: Could not do normal boot. Reverting "
 			"to fastboot mode.\n");
 	}
