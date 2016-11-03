@@ -2398,14 +2398,13 @@ flash_write_sierra_tz_rpm(struct ptentry *ptn,
 
 	for(tz_rpm_logical_partition = 1; tz_rpm_logical_partition <= 2; tz_rpm_logical_partition++)
 	{
-		if(BL_UPDATE_SYSTEM2 == system_num)
-		{
-			/* Skip to update system1 */
-			continue;
-		}
-
 		if(1 == tz_rpm_logical_partition)
 		{
+			if(BL_UPDATE_SYSTEM2 == system_num)
+			{
+				/* Skip to update system1 */
+				continue;
+			}
 			page = ptn->start * flash.num_pages_per_blk;
 			lastpage = ptn->start * flash.num_pages_per_blk + (ptn->length * flash.num_pages_per_blk)/2;
 		}
