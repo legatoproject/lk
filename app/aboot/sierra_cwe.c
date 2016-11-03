@@ -682,7 +682,7 @@ _global boolean cwe_version_subfield_get(
     }
 
     /* Format:
-     * <parent_sku>_<product_sku>_<partno>_<device>_<fw-ver>_<boot-blk>_<carrier>_<priver>_<pkgver>
+     * <product_sku>_<partno>_<device>_<fw-ver>_<boot-blk>_<carrier>_<priver>_<pkgver>_<parent_sku>
      */
     case CWE_IMAGE_TYPE_SPKG:
     case CWE_IMAGE_TYPE_NVUP:
@@ -831,7 +831,25 @@ _global boolean cwe_version_validate(struct cwe_header_s * hdp)
                                       sizeof(parent_sku_cwe)))
         {
           dprintf(CRITICAL, "Unable to read Parent SKU from %s\n", hdp->version);
-          break;
+          /* To keep compatibility to old spkg, we should ignore this error */
+        }
+        else
+        {
+          /* Test against Parent SKU, if present */
+          if (0 == strcmp(parent_sku_cwe, cross_sku->ParentSKU))
+          {
+            dprintf(CRITICAL, "Parent SKUs match\n");
+            retval = TRUE;
+            break;
+          }
+          
+          if ((0 == strcmp(parent_sku_cwe, CWE_VER_SKUID_INTERNAL)) ||
+              (0 == strcmp(parent_sku_cwe, CWE_VER_SKUID_CARRIER) ))
+          {
+            dprintf(CRITICAL, "Version Parent SKU carrier or internal\n");
+            retval = TRUE;
+            break;
+          }
         }
 
         if (!cwe_version_subfield_get(image_type, 
@@ -843,43 +861,29 @@ _global boolean cwe_version_validate(struct cwe_header_s * hdp)
           dprintf(CRITICAL, "Unable to read Product SKU from %s\n", hdp->version);
           break;
         }
+        else
+        {
+          /* Test against product SKU, if present */
+          if (0 == strcmp(product_sku_cwe, cross_sku->ProductSKU))
+          {
+            dprintf(CRITICAL, "Product SKUs match\n");
+            retval = TRUE;
+            break;
+          }
+
+          if ((0 == strcmp(product_sku_cwe, CWE_VER_SKUID_INTERNAL)) ||
+              (0 == strcmp(product_sku_cwe, CWE_VER_SKUID_CARRIER) ))
+          {
+            dprintf(CRITICAL, "Version Procuct SKU carrier or internal\n");
+            retval = TRUE;
+            break;
+          }
+        }
 
         if ((!strlen(cross_sku->ParentSKU)) && 
              (!strlen(cross_sku->ProductSKU)))
         {
           dprintf(CRITICAL, "No Parent SKU and Product SKU in EFS, accept cwe.\n");
-          retval = TRUE;
-          break;
-        }
-
-        /* Test against Parent SKU, if present */
-        if (0 == strcmp(parent_sku_cwe, cross_sku->ParentSKU))
-        {
-          dprintf(CRITICAL, "Parent SKUs match\n");
-          retval = TRUE;
-          break;
-        }
-
-        if ((0 == strcmp(parent_sku_cwe, CWE_VER_SKUID_INTERNAL)) ||
-            (0 == strcmp(parent_sku_cwe, CWE_VER_SKUID_CARRIER) ))
-        {
-          dprintf(CRITICAL, "Version Parent SKU carrier or internal\n");
-          retval = TRUE;
-          break;
-        }
-
-        /* Test against product SKU, if present */
-        if (0 == strcmp(product_sku_cwe, cross_sku->ProductSKU))
-        {
-          dprintf(CRITICAL, "Product SKUs match\n");
-          retval = TRUE;
-          break;
-        }
-
-        if ((0 == strcmp(product_sku_cwe, CWE_VER_SKUID_INTERNAL)) ||
-            (0 == strcmp(product_sku_cwe, CWE_VER_SKUID_CARRIER) ))
-        {
-          dprintf(CRITICAL, "Version Procuct SKU carrier or internal\n");
           retval = TRUE;
           break;
         }
