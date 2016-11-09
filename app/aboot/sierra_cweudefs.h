@@ -14,18 +14,12 @@
 #ifndef cweudefs_h
 #define cweudefs_h
 
+#include <sys/types.h>
 /* Constants and enumerated types */
 
 #define _global
 #define _local
 #define _package
-
-typedef unsigned char      uint8;   /* 8  bit integer unsigned  */
-typedef unsigned short     uint16;  /* 16 bit integer unsigned  */
-typedef unsigned long long uint64;  /* 64 bit integer unsigned  */
-typedef signed char        int8;    /* 8  bit integer signed    */
-typedef signed short       int16;   /* 16 bit integer signed    */
-typedef signed long long   int64;   /* 64 bit integer signed    */
 
 #if 0
 /* This section is for building for 64-bit Linux hosts */
