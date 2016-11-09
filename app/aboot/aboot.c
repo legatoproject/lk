@@ -99,6 +99,9 @@
 #include "sierra_bludefs.h"
 #include "sierra_dsudefs.h"
 #include "sierra_secudefs.h"
+
+/* Sense service pin to decide whether enter fastboot mode */
+#define NO_KEYPAD_DRIVER 1
 #endif
 /* SWISTOP */
 
@@ -4251,8 +4254,11 @@ void aboot_init(const struct app_descriptor *app)
 			boot_into_fastboot = true;
 	}
 	#if NO_KEYPAD_DRIVER
-	if (fastboot_trigger())
+    if (board_hardware_subtype() == SWI_AR_BOARD)
+    {
+	  if (fastboot_trigger())
 		boot_into_fastboot = true;
+    }
 	#endif
 
 #if USE_PON_REBOOT_REG
