@@ -281,6 +281,7 @@ extern boolean swipart_get_logical_partition_from_backup(
   uint32 *start_block,
   uint32 *end_block);
 extern bool is_dual_system_supported(void);
+extern bool sierra_is_bootquiet_disabled(void);
 
 enum blresultcode blprocessdldcontinue(uint8 *payloadp, uint32 tlen, uint32 *bytesleftp);
 enum blresultcode blprocessdldend(void);
