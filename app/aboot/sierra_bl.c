@@ -170,6 +170,47 @@ unsigned int sierra_smem_b2a_flags_get(void)
   return flags;
 }
 
+#ifdef SIERRA
+/************
+ *
+ * Name:     sierra_is_bootquiet_disabled
+ *
+ * Purpose:  get bootquiet enable/disable from SMEM
+ *
+ * Parms:    none
+ *
+ * Return:   true : bootquiet disable
+ *           false: bootquiet enable
+ *
+ * Abort:    none
+ *
+ * Notes:    none
+ *
+ ************/
+bool sierra_is_bootquiet_disabled(void)
+{
+  struct bccoworkmsg *msgp;
+  unsigned char *virtual_addr;
+  bool is_disable = false;
+
+  virtual_addr = sierra_smem_base_addr_get();
+  if (NULL != virtual_addr)
+  {
+    virtual_addr += BSMEM_COWORK_OFFSET;
+
+    msgp = (struct bccoworkmsg *)virtual_addr;
+
+    if (msgp->magic_beg == BS_SMEM_COWORK_MAGIC_BEG &&
+        msgp->magic_end == BS_SMEM_COWORK_MAGIC_END &&
+        msgp->crc32 == crcrc32((void *)msgp, BS_COWORK_CRC_SIZE, CRSTART_CRC32))
+    {
+      is_disable = msgp->bcbootquiet ? true : false;
+    }
+  }
+  return is_disable;
+}
+#endif
+
 /************
  *
  * Name:     sierra_smem_err_count_get
