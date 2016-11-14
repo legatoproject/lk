@@ -188,6 +188,9 @@ static const char *baseband_dsda2   = " androidboot.baseband=dsda2";
 static const char *baseband_sglte2  = " androidboot.baseband=sglte2";
 static const char *warmboot_cmdline = " qpnp-power-on.warm_boot=1";
 static const char *baseband_apq_nowgr   = " androidboot.baseband=baseband_apq_nowgr";
+#ifdef SIERRA
+static const char *lkquiet          = " quiet";
+#endif /* SIERRA */
 
 #if VERIFIED_BOOT
 #if !VBOOT_MOTA
@@ -479,6 +482,13 @@ unsigned char *update_cmdline(const char * cmdline)
 		cmdline_len += strlen(warmboot_cmdline);
 	}
 
+#ifdef SIERRA
+	if(TRUE != sierra_is_bootquiet_disabled())
+	{
+		cmdline_len += strlen(lkquiet);
+	}
+#endif
+
 #if TARGET_CMDLINE_SUPPORT
 	char *target_cmdline_buf = malloc(TARGET_MAX_CMDLNBUF);
 	int target_cmd_line_len;
@@ -590,6 +600,18 @@ unsigned char *update_cmdline(const char * cmdline)
 			if (have_cmdline) --dst;
 			while ((*dst++ = *src++));
 		}
+
+#ifdef SIERRA
+                if(TRUE != sierra_is_bootquiet_disabled())
+	        {
+		    src = lkquiet;
+		    if (NULL != have_cmdline)
+		    {
+		        --dst;
+		    }
+		    while ((*dst++ = *src++) != '\0');
+                }
+#endif
 
 		switch(target_baseband())
 		{
