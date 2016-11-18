@@ -44,6 +44,8 @@ CONFIGHEADER := $(BUILDDIR)/config.h
 # SWISTART
 SWISSDPLIB := lib/libswi/libswissdp.a
 LIBS := $(SWISSDPLIB)
+SECBOOTLIB := lib/libswi/libsecboot.a
+LIBS += $(SECBOOTLIB)
 # SWISTOP
 
 #Initialize the command-line flag ENABLE_TRUSTZONE. Value for flag passed in at command-line will take precedence
