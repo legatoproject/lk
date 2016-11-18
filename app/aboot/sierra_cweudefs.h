@@ -93,6 +93,7 @@ typedef  unsigned char      boolean;     /* Boolean value type. */
 #define CWE_VER_SUBFIELD_CARRIER_M      0x00000020
 #define CWE_VER_SUBFIELD_PRIVER_M       0x00000040
 #define CWE_VER_SUBFIELD_PKGVER_M       0x00000080
+#define CWE_VER_SUBFIELD_PARENT_SKUID_M 0x00000100
 
 #define CWE_SIGNATURE_APP               0x00000001
 
@@ -103,6 +104,11 @@ typedef  unsigned char      boolean;     /* Boolean value type. */
 #define CWE_TRAILER_SIGNATURE_SIZE      4
 /* "SBL1" in uint32 format for ARM */
 #define CWE_IMAGE_TYPE_SBL1_UINT32      0x314C4253          
+
+/* Special SKU ID strings for SPKG and NVUP files */
+#define CWE_VER_SKUID_INTERNAL          "INTERNAL"
+#define CWE_VER_SKUID_CARRIER           "9999999"
+
 
 /************
  *
@@ -202,5 +208,6 @@ boolean cwe_image_validate(
   enum cwe_image_type_e image_type,
   uint32                prod_type,
   boolean               validate_crc);
+boolean cwe_version_validate(struct cwe_header_s * hdp);
 
 #endif /* cweudefs_h */
