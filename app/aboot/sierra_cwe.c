@@ -21,6 +21,7 @@
 
 #include <sys/types.h>
 #include "sierra_cweudefs.h"
+#include "mach/sierra_smem.h"
 
 /*
  *  externs
@@ -585,4 +586,322 @@ _global boolean cwe_image_validate(
   return TRUE;
 }
 
+/************
+ *
+ * Name:     cwe_version_subfield_get
+ *
+ * Purpose:  Retrieve any sub-field of bcVersion string
+ *
+ * Parms:    (IN)  imagetype   - format of bcVersion string, selects parsing method
+ *           (IN)  field_mask  - bit mask, indicates which sub-fields are requested
+ *           (IN)  version_str - string to be parsed
+ *           (OUT) buf         - destination buffer for sub-field string
+ *           (IN)  buf_sz      - size of destination buffer
+ *
+ * Return:   TRUE if a valid sub-field string is obtained
+ *           FALSE otherwise
+ *
+ * Abort:    None
+ *
+ * Notes:    Sub-field string returned in destination buffer is always null-terminated.
+ *           If caller's buffer is too small for the request, FALSE is returned
+ *           and buffer is unmodified.
+ *
+ ************/
+_global boolean cwe_version_subfield_get(
+  enum cwe_image_type_e  imagetype,
+  uint32_t               field_mask,
+  uint8                 *version_str,
+  char                  *buf,
+  uint32_t               buf_sz)
+{
+  char version[CWE_VER_STR_SZ + 1];
+  char tempstr[CWE_VER_STR_SZ + 1];
+  char *tokp, *versionp;
+  uint32_t subfieldstrlen, verstrlen, i;
+
+  if (version_str == NULL || buf == NULL)
+  {
+    dprintf(CRITICAL, "Invalid parameters passed.");
+    return FALSE;
+  }
+
+  memset(version, '\0', sizeof(version));
+  memset(tempstr, '\0', sizeof(tempstr));
+
+  /* determine version_str length and copy to version */
+  for (verstrlen = 0; verstrlen < CWE_VER_STR_SZ && *version_str;
+       version[verstrlen++] = *version_str++);
+  versionp = version;
+
+  /* Ability to parse, and parsing method, depend on the image type
+   */
+  switch (imagetype)
+  {
+    /* Format: 
+     * SWI9X40C_05.04.02.00 r18549 carmd-fwbuild1 2013/10/04 17:33:50 
+     */
+    case CWE_IMAGE_TYPE_SBL1:
+    case CWE_IMAGE_TYPE_SBL2:
+    case CWE_IMAGE_TYPE_DSP1:
+    case CWE_IMAGE_TYPE_DSP2:
+    case CWE_IMAGE_TYPE_DSP3:
+    case CWE_IMAGE_TYPE_QRPM:
+    case CWE_IMAGE_TYPE_BOOT:
+    case CWE_IMAGE_TYPE_APPL:
+    case CWE_IMAGE_TYPE_APPS:
+    case CWE_IMAGE_TYPE_APBL:
+    case CWE_IMAGE_TYPE_FOTO:
+    case CWE_IMAGE_TYPE_MODM:
+    case CWE_IMAGE_TYPE_SYST:
+    case CWE_IMAGE_TYPE_USER:
+    case CWE_IMAGE_TYPE_HDAT:
+    case CWE_IMAGE_TYPE_QMBA:
+    case CWE_IMAGE_TYPE_TZON:
+    case CWE_IMAGE_TYPE_QSDI:
+    {
+      /* Pre-processing required for this format:
+       * shift field_mask by 2 since SKUID and PARTNO are not present, 
+       * and replace first space with '_' for proper tokenization 
+       */
+      if (field_mask & ~(CWE_VER_SUBFIELD_DEVICE_M | CWE_VER_SUBFIELD_FWVER_M))
+      {
+        dprintf(CRITICAL, "Requested sub-fields not present in FW build string.");
+        return FALSE;
+      }
+      field_mask >>= 2;
+      for (i = 0; i < verstrlen; ++i)
+      {
+        if (version[i] == ' ')
+        {
+          version[i] = '_';
+          break;
+        }
+      }
+      break;
+    }
+
+    /* Format:
+     * <product_sku>_<partno>_<device>_<fw-ver>_<boot-blk>_<carrier>_<priver>_<pkgver>_<parent_sku>
+     */
+    case CWE_IMAGE_TYPE_SPKG:
+    case CWE_IMAGE_TYPE_NVUP:
+    /* May also be file path */
+    case CWE_IMAGE_TYPE_FILE:
+      break;
+
+    /* Invalid types for this function: */
+
+    /* version format e.g. CORE_4K */
+    case CWE_IMAGE_TYPE_QPAR:
+
+    /* version contains file path */
+    case CWE_IMAGE_TYPE_ARCH:
+
+    /* No version information or obsolete type 
+     * case CWE_IMAGE_TYPE_NVBF:
+     * case CWE_IMAGE_TYPE_NVBO:
+     * case CWE_IMAGE_TYPE_NVBU:
+     * case CWE_IMAGE_TYPE_NVBC:
+     * case CWE_IMAGE_TYPE_OSBL:
+     * case CWE_IMAGE_TYPE_AMSS:
+     * case CWE_IMAGE_TYPE_EXEC:
+     * case CWE_IMAGE_TYPE_SWOC:
+     * case CWE_IMAGE_TYPE_SPLA:
+     */
+    default:
+      return FALSE;
+  }
+
+
+  while (field_mask)
+  {
+    tokp = strtok(versionp, CWE_VERSION_STR_DELIM);
+    if (tokp == NULL)
+    {
+      dprintf(CRITICAL, "Delimiter '_' missing from version string");
+      return FALSE;
+    }
+
+    if (field_mask & 0x01)
+    {
+      (void)strncat(tempstr, tokp, strlen(tokp));
+      /* check if there are still sub-fields that need processing */
+      if (field_mask >> 1)
+      {
+        (void)strncat(tempstr, CWE_VERSION_STR_DELIM, sizeof(CWE_VERSION_STR_DELIM));
+      }
+    }
+
+    field_mask >>= 1;
+    versionp = NULL;
+  }
+  subfieldstrlen = strlen(tempstr);
+
+  /* caller's buffer should accomodate null character */
+  if (buf_sz < subfieldstrlen + 1)
+  {
+    dprintf(CRITICAL, "Destination buffer is too small for request.");
+    return FALSE;
+  }
+
+  /* if 'length' parameter is larger than the length of the source string, */
+  /* behaviour of strncpy should ensure null termination - hence the +1 */
+  (void)strncpy(buf, tempstr, subfieldstrlen + 1);
+
+  return TRUE;
+}
+
+/************
+ *
+ * Name:     cwe_version_validate
+ *
+ * Purpose:  To verify that subfields of the version field of a cwe 
+ *           header are correct for this target
+ *
+ * Parms:    (IN) hdp - pointer to cwe header
+ *
+ * Return:   TRUE  - version supported
+ *           FALSE - version not supported
+ *
+ * Abort:    None
+ *
+ * Notes:    
+ *
+ ************/
+_global boolean cwe_version_validate(struct cwe_header_s * hdp)
+{
+  boolean retval = FALSE;
+  char parent_sku_cwe[NV_SWI_PRODUCT_SKU_SIZE];
+  char product_sku_cwe[NV_SWI_PRODUCT_SKU_SIZE];
+  struct cross_sku_smem_s *cross_sku = NULL;
+  unsigned char *virtual_addr = NULL;
+  uint32 crc32 = 0;
+  enum cwe_image_type_e image_type;
+
+  if (cwe_image_type_validate(hdp->image_type, &image_type))
+  {
+    switch (image_type)
+    {
+      /* These types can be matched by SKU, or special label */
+      case CWE_IMAGE_TYPE_SPKG:
+      case CWE_IMAGE_TYPE_NVUP:
+      case CWE_IMAGE_TYPE_FILE:
+      {
+        virtual_addr = sierra_smem_base_addr_get();
+        if (NULL != virtual_addr)
+        {
+          /* CR_SKU region address */
+          cross_sku = (struct cross_sku_smem_s *)(virtual_addr + BSMEM_CR_SKU_OFFSET);
+
+          if ((cross_sku->magic_beg == CROSS_SKU_SMEM_MAGIC_BEG) &&
+              (cross_sku->magic_end == CROSS_SKU_SMEM_MAGIC_END))
+          {
+            crc32 = crcrc32((uint8 *)cross_sku, (sizeof(struct cross_sku_smem_s) - sizeof(uint32_t)), (uint32)CRSTART_CRC32);
+            if (cross_sku->crc32 == crc32)
+            {
+              /* Got SKU region, go further check */
+              dprintf(CRITICAL, "Parent SKU:%s, Product SKU:%s\n", cross_sku->ParentSKU, cross_sku->ProductSKU);
+            }
+            else
+            {
+              dprintf(CRITICAL, "Failed to check SKU, bad crc\n");
+              retval = FALSE;
+              break;
+            }
+          }
+          else
+          {
+            dprintf(CRITICAL, "Failed to check SKU, bad magic\n");
+            retval = FALSE;
+            break;
+          }
+        }
+        else
+        {
+          dprintf(CRITICAL, "Failed to check SKU, bad sm\n");
+          retval = FALSE;
+          break;
+        }
+
+        if (!cwe_version_subfield_get(image_type, 
+                                      CWE_VER_SUBFIELD_PARENT_SKUID_M,
+                                      hdp->version,
+                                      parent_sku_cwe,
+                                      sizeof(parent_sku_cwe)))
+        {
+          dprintf(CRITICAL, "Unable to read Parent SKU from %s\n", hdp->version);
+          /* To keep compatibility to old spkg, we should ignore this error */
+        }
+        else
+        {
+          /* Test against Parent SKU, if present */
+          if (0 == strcmp(parent_sku_cwe, cross_sku->ParentSKU))
+          {
+            dprintf(CRITICAL, "Parent SKUs match\n");
+            retval = TRUE;
+            break;
+          }
+          
+          if ((0 == strcmp(parent_sku_cwe, CWE_VER_SKUID_INTERNAL)) ||
+              (0 == strcmp(parent_sku_cwe, CWE_VER_SKUID_CARRIER) ))
+          {
+            dprintf(CRITICAL, "Version Parent SKU carrier or internal\n");
+            retval = TRUE;
+            break;
+          }
+        }
+
+        if (!cwe_version_subfield_get(image_type, 
+                                      CWE_VER_SUBFIELD_SKUID_M,
+                                      hdp->version,
+                                      product_sku_cwe,
+                                      sizeof(product_sku_cwe)))
+        {
+          dprintf(CRITICAL, "Unable to read Product SKU from %s\n", hdp->version);
+          break;
+        }
+        else
+        {
+          /* Test against product SKU, if present */
+          if (0 == strcmp(product_sku_cwe, cross_sku->ProductSKU))
+          {
+            dprintf(CRITICAL, "Product SKUs match\n");
+            retval = TRUE;
+            break;
+          }
+
+          if ((0 == strcmp(product_sku_cwe, CWE_VER_SKUID_INTERNAL)) ||
+              (0 == strcmp(product_sku_cwe, CWE_VER_SKUID_CARRIER) ))
+          {
+            dprintf(CRITICAL, "Version Procuct SKU carrier or internal\n");
+            retval = TRUE;
+            break;
+          }
+        }
+
+        if ((!strlen(cross_sku->ParentSKU)) && 
+             (!strlen(cross_sku->ProductSKU)))
+        {
+          dprintf(CRITICAL, "No Parent SKU and Product SKU in EFS, accept cwe.\n");
+          retval = TRUE;
+          break;
+        }
+
+        dprintf(CRITICAL, "SKUs do not match\n");
+        break;
+      }
+
+      default:
+        retval = TRUE;
+        break;
+    }  
+  }
+  else
+  {
+    dprintf(CRITICAL, "Failed to read image type\n");
+  }
+
+  return retval;
+}
 
