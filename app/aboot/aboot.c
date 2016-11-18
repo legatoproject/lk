@@ -3499,6 +3499,10 @@ void cmd_flash_nand(const char *arg, void *data, unsigned sz)
 			fastboot_fail("SIERRA CWE_HEADER_ERROR. exit");
 			sierra_check_mibib_state_clear();
 			return;
+			case BLRESULT_PKG_NOT_COMPATIBLE:
+			fastboot_fail("SIERRA PKG NOT COMPATIBLE. exit");
+			sierra_check_mibib_state_clear();
+			return;
 			default:
 			fastboot_fail("SIERRA IMG FLASH WRITE ERROR. exit");
 			sierra_check_mibib_state_clear();
