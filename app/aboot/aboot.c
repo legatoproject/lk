@@ -1797,6 +1797,27 @@ int boot_linux_from_flash(void)
 	}
 	else
 	{
+/* SWISTART */
+#ifdef SIERRA
+		/* Authenticate Kernel image before load it to RAM address space */
+		if(!boot_swi_lk_auth_kernel(ptn,hdr))
+		{
+			dprintf(CRITICAL, "ERROR: LK auth kernel failed\n");
+			/*If secure boot enabled, auth kernel image.*/
+			/* Get the result that program reliability authenticate kernel when secure boot disabled */
+			/* TBD until program reliability part finished */
+			if(is_dual_system_supported())
+			{
+				sierra_ds_smem_write_bad_image_and_swap(bad_image_mask);
+			}
+			/* Swap system after bad kernel detected */
+			dprintf(INFO, "rebooting the device\n");
+			reboot_device(0);
+		}
+		dprintf(INFO, "LK auth kernel done.\n");
+#endif
+/* SWISTOP */
+
 		dprintf(INFO, "Loading (%s) image (%d): start\n",
 				(!boot_into_recovery ? "boot" : "recovery"), kernel_actual + ramdisk_actual);
 
@@ -1905,32 +1926,6 @@ int boot_linux_from_flash(void)
 			best_match_dt_addr = (unsigned char *)table + dt_entry.offset;
 			dtb_size = dt_entry.size;
 			memmove((void *)hdr->tags_addr, (char *)best_match_dt_addr, dtb_size);
-
-/* SWISTART */
-#ifdef SIERRA
-		/*If secure boot enabled, auth kernel image.*/
-		if(sierra_smem_get_auth_en())
-		{
-			if(!boot_swi_lk_auth_kernel(ptn,hdr))
-			{
-				dprintf(CRITICAL, "ERROR: LK auth kernel failed\n");
-				kernel_is_bad = TRUE;
-			}
-		}
-			/* Get the result that program reliability authenticate kernel when secure boot disabled */
-			/* TBD until program reliability part finished */
-			dprintf(INFO, "L%d_%s():kernel_is_bad=%d\n", __LINE__, __func__, kernel_is_bad);
-			if(kernel_is_bad)
-			{
-				sierra_ds_smem_write_bad_image_and_swap(bad_image_mask);
-
-				/* Swap system after bad kernel detected */
-				dprintf(INFO, "rebooting the device\n");
-				reboot_device(0);
-			}
-
-#endif
-/* SWISTOP */
 		}
 #endif
 

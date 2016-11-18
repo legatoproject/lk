@@ -215,7 +215,11 @@ void target_init(void)
 	update_ptable_names();
 	flash_set_ptable(&flash_ptable);
 
+  /* SWISTART */
+#ifndef SIERRA  /* SWI set up params to enable HW crypte engine */
 	if (target_use_signed_kernel())
+#endif
+/* SWISTOP */
 		target_crypto_init_params();
 }
 
