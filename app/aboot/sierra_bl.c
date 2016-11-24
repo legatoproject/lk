@@ -2550,11 +2550,10 @@ bool is_dual_system_supported(void)
     {
         /* Can't find "modem2", we think it is WP.*/
         product_flag = 0;
-        dprintf(CRITICAL, "flash_write_sierra_file_img: ptable_find can't find: %s\n", BL_MODEM2_PARTI_NAME);
+        dprintf(CRITICAL, "is_dual_system_supported: ptable_find can't find: %s\n", BL_MODEM2_PARTI_NAME);
     }
     else
     {
-        dprintf(CRITICAL, "flash_write_sierra_file_img: ptable_find find: %s\n", BL_MODEM2_PARTI_NAME);
         product_flag = product_name;
     }
 
