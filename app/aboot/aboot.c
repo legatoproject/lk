@@ -3284,7 +3284,7 @@ int sierra_smem_boothold_mode_get(void)
 			a2bflags_in = a2bmsgp->in.flags;
 			dprintf(ALWAYS, "sierra_smem_boothold_mode_get: a2bflags_in=%llu\n",
 				a2bflags_in);
-			if(a2bflags_in == BC_MSG_A2B_BOOT_HOLD)
+			if(a2bflags_in & BC_MSG_A2B_BOOT_HOLD)
 				return true;
 			else
 				return false;
