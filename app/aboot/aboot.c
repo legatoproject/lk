@@ -1758,8 +1758,10 @@ int boot_linux_from_flash(void)
 		if(!boot_swi_lk_auth_kernel(ptn,hdr))
 		{
 			dprintf(CRITICAL, "ERROR: LK auth kernel failed\n");
+
+			/* halt and fall back to download mode */
+			return -1;
 		}
-		dprintf(INFO, "LK auth kernel done.\n");
 #endif
 /* SWISTOP */
 		offset = page_size;

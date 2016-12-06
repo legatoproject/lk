@@ -16,6 +16,7 @@
 #include <lib/ptable.h>
 #include <dev/flash.h>
 #include <debug.h>
+#include <board.h>
 
 #include <crypto_hash.h>
 
@@ -46,6 +47,40 @@ boolean sierra_sec_get_auth_en(void)
 {
   return *(uint32*)HWIO_QFPROM_CORR_OEM_SEC_BOOT_ROW0_LSB_ADDR
       &HWIO_SECURE_BOOTn_AUTH_EN_BMSK;
+}
+
+/************
+ *
+ * Name:     blsec_oem_auth_en_get
+ *
+ * Purpose:  check if OEM image auth is enabled
+ *
+ * Parms:    NONE
+ *
+ * Return:   TRUE if OEM image auth enabled
+ *           FALSE otherwise
+ *
+ * Abort:    none
+ *
+ * Notes:    kernel is part of OEM images, only auth kernel
+ *           if OEM image authentication is turned on
+ *
+ ************/
+static boolean sierra_oem_auth_en(void)
+{
+  if (board_hardware_subtype() == SWI_WP_BOARD)
+  {
+    /* check OEM auth related settings to decide if OEM image auth is enabled */
+    /* We will add logic to check OEM root and auth setting later
+     * For now authentication of OEM images are disabled
+     */
+    return FALSE;
+  }
+  else
+  {
+    /* kernel and other OEM image auth is always enabled */
+    return TRUE;
+  }
 }
 
 /************
@@ -139,12 +174,15 @@ boolean boot_swi_lk_auth_kernel(struct ptentry *ptn,boot_img_hdr *hdr)
     dprintf(CRITICAL, "boot_swi_lk_auth_kernel: wrong input params.\n");
     return FALSE;
   }
-  if(!sierra_sec_get_auth_en())
+
+  if(!sierra_sec_get_auth_en() ||
+     !sierra_oem_auth_en())
   {
     /*TBD: verify kernel hash even secboot not enabled */
     dprintf(CRITICAL, "secboot not enabled, return TRUE.\n");
     return TRUE;
   }
+
   page_size = flash_page_size();
   page_mask = page_size - 1;
 
