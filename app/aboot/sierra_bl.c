@@ -566,7 +566,23 @@ bool sierra_smem_mibib_set_flag(uint32 update_flag)
  ************/
 bool sierra_if_enter_fastboot(void)
 {
-  return (sierra_smem_err_count_get() > BLERRTHRESHOLD_FASTBOOT) ? true : false;
+  bool fastboot_mode = false;
+
+  if(is_dual_system_supported())
+  {
+    if((sierra_smem_b2a_flags_get() & BC_MSG_B2A_DLOAD_MODE) &&
+       (sierra_smem_err_count_get() > BLERRTHRESHOLD_FASTBOOT))
+    {
+      fastboot_mode = true;
+      sierra_smem_err_count_set(0);
+    }
+
+    return fastboot_mode;
+  }
+  else
+  {
+    return (sierra_smem_err_count_get() > BLERRTHRESHOLD_FASTBOOT) ? true : false;
+  }
 }
 
 /************
