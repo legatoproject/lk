@@ -1386,6 +1386,12 @@ flash_num_blocks(void)
 }
 
 unsigned
+flash_num_pages_per_blk(void)
+{
+	return flash.num_pages_per_blk;
+}
+
+unsigned
 flash_spare_size(void)
 {
     return flash.spare_size;
@@ -1419,6 +1425,48 @@ nand_result_t qpic_nand_write_page_sierra(uint32_t page, unsigned char* buffer)
 	memset(spare, 0xff, (spare_byte_count / flash.cws_per_page));
 
 	return qpic_nand_write_page(page, NAND_CFG, buffer, spare);
+}
+
+nand_result_t qpic_nand_write_page_spare_sierra(uint32_t page,
+	unsigned char* buffer,
+	unsigned write_extra_bytes)
+{
+	uint32_t *spare = (unsigned *)flash_spare_bytes;
+	uint32_t spare_byte_count = 0;
+	nand_result_t nand_ret;
+	const unsigned char *image = buffer;
+
+	spare_byte_count = ((flash.cw_size * flash.cws_per_page)- flash.page_size);
+	memset(spare, 0xff, (spare_byte_count / flash.cws_per_page));
+
+	memcpy(rdwr_buf, image, flash.page_size);
+
+	if (write_extra_bytes)
+	{
+		memcpy(rdwr_buf + flash.page_size, image + flash.page_size, spare_byte_count);
+		nand_ret = qpic_nand_write_page(page,
+										NAND_CFG,
+										rdwr_buf,
+										rdwr_buf + flash.page_size);
+	}
+	else
+	{
+		nand_ret = qpic_nand_write_page(page, NAND_CFG, rdwr_buf, spare);
+	}
+
+	if (nand_ret != NANDC_RESULT_SUCCESS)
+	{
+		dprintf(CRITICAL, "write page failed: %ud", page);
+		if (page % flash_num_pages_per_blk() == 0)
+		{
+			if (NANDC_RESULT_SUCCESS != qpic_nand_mark_badblock(page))
+			{
+				dprintf(CRITICAL, "could not mark block %d bad", page/flash_num_pages_per_blk());
+			}
+		}
+	}
+
+	return nand_ret;
 }
 
 #endif

@@ -1630,6 +1630,18 @@ _local enum blresultcode blProgramFlash(
     write_size -= (CWE_HEADER_SZ + auth_hdr_size);
   }
 
+  if(image_type == FLASH_PROG_SBL1_IMG)
+  {
+    /* SBL image need special processing for boot redundancy */
+    if(flash_write_addr != 0 || bytesleft != 0)
+    {
+      /* complete image only */
+      return BLRESULT_IMGSIZE_OUT_OF_RANGE;
+    }
+    
+    return blredundancy_sbl_program(bufp, write_size);
+  }
+
   ptable = flash_get_ptable();
   if (ptable == NULL) {
     dprintf(CRITICAL, "sierra_bl: flash_get_ptable failed\n");
