@@ -136,7 +136,10 @@ enum cwe_image_type_e
   CWE_IMAGE_TYPE_ARCH,                          /* Archive                   */
   CWE_IMAGE_TYPE_UAPP,                          /* USER APP Image               */
   CWE_IMAGE_TYPE_LRAM,                          /* Linux RAM image */
-  CWE_IMAGE_TYPE_MAX  = CWE_IMAGE_TYPE_LRAM,    /* End of list               */
+  CWE_IMAGE_TYPE_CUS0,                          /* User image image 0, for coustomer0 partition*/
+  CWE_IMAGE_TYPE_CUS1,                          /* User image image 1, for coustomer1 partition*/
+  CWE_IMAGE_TYPE_CUS2,                          /* User image image 2, for coustomer2 partition*/
+  CWE_IMAGE_TYPE_MAX  = CWE_IMAGE_TYPE_CUS2,    /* End of list               */
   CWE_IMAGE_TYPE_COUNT,                         /* Number of entries in list */
   CWE_IMAGE_TYPE_ANY = 0xFE,                    /* any image type            */
   CWE_IMAGE_TYPE_INVALID = 0xFF,                /* invalid image type        */

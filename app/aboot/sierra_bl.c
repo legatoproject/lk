@@ -24,6 +24,7 @@
 
 #include "mach/sierra_smem.h"
 #include "sierra_bludefs.h"
+#include "sierra_dsudefs.h"
 #include "scm.h"
 #include <target.h>
 
@@ -87,6 +88,7 @@ uint8 bl_yaffs2_header[] =
 #define BL_SQH_MAGIC      "hsqs"
 #define BL_SQH_MAGIC_SIZE 0x04
 
+struct ds_flag_s bl_dsflag_s;
 
 
 /* 
@@ -1620,7 +1622,7 @@ _local enum blresultcode blProgramFlash(
   if(image_type == FLASH_PROG_SBL1_IMG)
   {
     /* SBL image need special processing for boot redundancy */
-    if(flash_write_addr !=0 || bytesleft != 0)
+    if(flash_write_addr != 0 || bytesleft != 0)
     {
       /* complete image only */
       return BLRESULT_IMGSIZE_OUT_OF_RANGE;
@@ -1878,18 +1880,28 @@ enum blresultcode blProgramModemImage(struct cwe_header_s *hdr, uint8 *startbufp
         result = blProgramImage(second_ubi_images, FLASH_PROG_DSP2_IMG, temphdr.image_sz);
         if (result != BLRESULT_OK)
         {
+          bl_dsflag_s.bad_image |= (DS_IMAGE_MODEM_2);
           dprintf(CRITICAL, "blProgramModemImage CWE_IMAGE_TYPE_DSP2 to modem2 failed, ret:%d\n", result);
           return result;
         }
-
+        else
+        {
+          bl_dsflag_s.bad_image &= (~DS_IMAGE_MODEM_2);
+        }
+        
       case BL_UPDATE_SYSTEM1:
         /* Program DSP2 image to modem partition*/
         blsetcustompartition(BL_MODEM_PARTI_NAME);
         result = blProgramImage(bufp, FLASH_PROG_DSP2_IMG, temphdr.image_sz);
         if (result != BLRESULT_OK)
         {
+          bl_dsflag_s.bad_image |= (DS_IMAGE_MODEM_1);
           dprintf(CRITICAL, "blProgramModemImage CWE_IMAGE_TYPE_DSP2 to modem failed, ret:%d\n", result);
           return result;
+        }
+        else
+        {
+          bl_dsflag_s.bad_image &= (~DS_IMAGE_MODEM_1);
         }
         break;
 
@@ -1899,8 +1911,13 @@ enum blresultcode blProgramModemImage(struct cwe_header_s *hdr, uint8 *startbufp
         result = blProgramImage(bufp, FLASH_PROG_DSP2_IMG, temphdr.image_sz);
         if (result != BLRESULT_OK)
         {
+          bl_dsflag_s.bad_image |= (DS_IMAGE_MODEM_2);
           dprintf(CRITICAL, "blProgramModemImage CWE_IMAGE_TYPE_DSP2 to modem2 failed, ret:%d\n", result);
           return result;
+        }
+        else
+        {
+          bl_dsflag_s.bad_image &= (~DS_IMAGE_MODEM_2);
         }
         break;
 
@@ -1976,8 +1993,13 @@ enum blresultcode blProgramApplImage(struct cwe_header_s *hdr, uint8 *startbufp)
         result = blProgramImage(second_ubi_images, FLASH_PROG_ROFS1_IMG, temphdr.image_sz);
         if (result != BLRESULT_OK)
         {
+          bl_dsflag_s.bad_image |= (DS_IMAGE_SYSTEM_2);
           dprintf(CRITICAL, "blProgramApplImage CWE_IMAGE_TYPE_SYST to system2 failed, ret:%d\n", result);
           return result;
+        }
+        else
+        {
+          bl_dsflag_s.bad_image &= (~DS_IMAGE_SYSTEM_2);
         }
 
       case BL_UPDATE_SYSTEM1:
@@ -1985,8 +2007,13 @@ enum blresultcode blProgramApplImage(struct cwe_header_s *hdr, uint8 *startbufp)
         result = blProgramImage(bufp, FLASH_PROG_ROFS1_IMG, temphdr.image_sz);
         if (result != BLRESULT_OK)
         {
+          bl_dsflag_s.bad_image |= (DS_IMAGE_SYSTEM_1);
           dprintf(CRITICAL, "blProgramApplImage CWE_IMAGE_TYPE_SYST to system failed, ret:%d\n", result);
           return result;
+        }
+        else
+        {
+          bl_dsflag_s.bad_image &= (~DS_IMAGE_SYSTEM_1);
         }
         break;
 
@@ -1995,8 +2022,13 @@ enum blresultcode blProgramApplImage(struct cwe_header_s *hdr, uint8 *startbufp)
         result = blProgramImage(bufp, FLASH_PROG_ROFS1_IMG, temphdr.image_sz);
         if (result != BLRESULT_OK)
         {
+          bl_dsflag_s.bad_image |= (DS_IMAGE_SYSTEM_2);
           dprintf(CRITICAL, "blProgramApplImage CWE_IMAGE_TYPE_SYST to system2 failed, ret:%d\n", result);
           return result;
+        }
+        else
+        {
+          bl_dsflag_s.bad_image &= (~DS_IMAGE_SYSTEM_2);
         }
         break;
 
@@ -2020,17 +2052,27 @@ enum blresultcode blProgramApplImage(struct cwe_header_s *hdr, uint8 *startbufp)
         result = blProgramImage(second_ubi_images, FLASH_PROG_USDATA_IMG, temphdr.image_sz);
         if (result != BLRESULT_OK)
         {
+          bl_dsflag_s.bad_image |= (DS_IMAGE_USERDATA_2);
           dprintf(CRITICAL, "blProgramApplImage CWE_IMAGE_TYPE_USER to lefwkro2 failed, ret:%d\n", result);
           return result;
         }
-
+        else
+        {
+          bl_dsflag_s.bad_image &= (~DS_IMAGE_USERDATA_2);
+        }
+        
       case BL_UPDATE_SYSTEM1:
         blsetcustompartition(BL_LINUX_UDATA_PARTI_NAME);
         result = blProgramImage(bufp, FLASH_PROG_USDATA_IMG, temphdr.image_sz);
         if (result != BLRESULT_OK)
         {
+          bl_dsflag_s.bad_image |= (DS_IMAGE_USERDATA_1);
           dprintf(CRITICAL, "blProgramApplImage CWE_IMAGE_TYPE_USER to lefwkro failed, ret:%d\n", result);
           return result;
+        }
+        else
+        {
+          bl_dsflag_s.bad_image &= (~DS_IMAGE_USERDATA_1);
         }
         break;
 
@@ -2039,8 +2081,13 @@ enum blresultcode blProgramApplImage(struct cwe_header_s *hdr, uint8 *startbufp)
         result = blProgramImage(bufp, FLASH_PROG_USDATA_IMG, temphdr.image_sz);
         if (result != BLRESULT_OK)
         {
+          bl_dsflag_s.bad_image |= (DS_IMAGE_USERDATA_2);
           dprintf(CRITICAL, "blProgramApplImage CWE_IMAGE_TYPE_USER to lefwkro2 failed, ret:%d\n", result);
           return result;
+        }
+        else
+        {
+          bl_dsflag_s.bad_image &= (~DS_IMAGE_USERDATA_2);
         }
         break;
 
@@ -2075,8 +2122,13 @@ enum blresultcode blProgramApplImage(struct cwe_header_s *hdr, uint8 *startbufp)
         result = blProgramImage(bufp2, FLASH_PROG_CUSTOM_IMG, temphdr.image_sz);
         if (result != BLRESULT_OK)
         {
+          bl_dsflag_s.bad_image |= (DS_IMAGE_BOOT_2);
           dprintf(CRITICAL, "blProgramApplImage CWE_IMAGE_TYPE_APPS to boot2 failed, ret:%d\n", result);
           return result;
+        }
+        else
+        {
+          bl_dsflag_s.bad_image &= (~DS_IMAGE_BOOT_2);
         }
 
       case BL_UPDATE_SYSTEM1:
@@ -2084,8 +2136,13 @@ enum blresultcode blProgramApplImage(struct cwe_header_s *hdr, uint8 *startbufp)
         result = blProgramImage(bufp, FLASH_PROG_CUSTOM_IMG, temphdr.image_sz);
         if (result != BLRESULT_OK)
         {
+          bl_dsflag_s.bad_image |= (DS_IMAGE_BOOT_1);
           dprintf(CRITICAL, "blProgramApplImage CWE_IMAGE_TYPE_APPS to boot failed, ret:%d\n", result);
           return result;
+        }
+        else
+        {
+          bl_dsflag_s.bad_image &= (~DS_IMAGE_BOOT_1);
         }
         break;
 
@@ -2094,14 +2151,73 @@ enum blresultcode blProgramApplImage(struct cwe_header_s *hdr, uint8 *startbufp)
         result = blProgramImage(bufp, FLASH_PROG_CUSTOM_IMG, temphdr.image_sz);
         if (result != BLRESULT_OK)
         {
+          bl_dsflag_s.bad_image |= (DS_IMAGE_BOOT_2);
           dprintf(CRITICAL, "blProgramApplImage CWE_IMAGE_TYPE_APPS to boot2 failed, ret:%d\n", result);
           return result;
         }
-		break;
+        else
+        {
+          bl_dsflag_s.bad_image &= (~DS_IMAGE_BOOT_2);
+        }
+        break;
 
       default:
         dprintf(CRITICAL, "blProgramApplImage, wrong parameter update_which_system:%d\n", update_which_system);
         break;
+    }
+  }
+
+  /* program Linux CUS0(CUSTOMER0) image */
+  bufp = blSearchCWEImage(CWE_IMAGE_TYPE_CUS0, startbufp, hdr->image_sz);
+  if (bufp != NULL)
+  {
+    blsetcustompartition(BL_CUSTOMER0_PARTI_NAME);
+    result = blProgramImage(bufp, FLASH_PROG_USAPP_IMG, temphdr.image_sz);
+    if (result != BLRESULT_OK)
+    {
+      bl_dsflag_s.bad_image |= (DS_IMAGE_CUSTOMERAPP_1);
+      dprintf(CRITICAL, "blProgramApplImage CWE_IMAGE_TYPE_CUS0 to customer0 failed, ret:%d\n", result);
+      return result;
+    }
+    else
+    {
+      bl_dsflag_s.bad_image &= (~DS_IMAGE_CUSTOMERAPP_1);
+    }
+  }
+
+  /* program Linux CUS0(CUSTOMER1) image */
+  bufp = blSearchCWEImage(CWE_IMAGE_TYPE_CUS1, startbufp, hdr->image_sz);
+  if (bufp != NULL)
+  {
+    blsetcustompartition(BL_CUSTOMER1_PARTI_NAME);
+    result = blProgramImage(bufp, FLASH_PROG_USAPP_IMG, temphdr.image_sz);
+    if (result != BLRESULT_OK)
+    {
+      bl_dsflag_s.bad_image |= (DS_IMAGE_CUSTOMERAPP_2);
+      dprintf(CRITICAL, "blProgramApplImage CWE_IMAGE_TYPE_CUS1 to customer1 failed, ret:%d\n", result);
+      return result;
+    }
+    else
+    {
+      bl_dsflag_s.bad_image &= (~DS_IMAGE_CUSTOMERAPP_2);
+    }
+  }
+
+  /* program Linux CUS0(CUSTOMER2) image */
+  bufp = blSearchCWEImage(CWE_IMAGE_TYPE_CUS2, startbufp, hdr->image_sz);
+  if (bufp != NULL)
+  {
+    blsetcustompartition(BL_CUSTOMER2_PARTI_NAME);
+    result = blProgramImage(bufp, FLASH_PROG_USAPP_IMG, temphdr.image_sz);
+    if (result != BLRESULT_OK)
+    {
+      bl_dsflag_s.bad_image |= (DS_IMAGE_CUSTOMERAPP_3);
+      dprintf(CRITICAL, "blProgramApplImage CWE_IMAGE_TYPE_CUS2 to customer2 failed, ret:%d\n", result);
+      return result;
+    }
+    else
+    {
+      bl_dsflag_s.bad_image &= (~DS_IMAGE_CUSTOMERAPP_3);
     }
   }
 
@@ -2187,8 +2303,13 @@ enum blresultcode blProgramBootImage(struct cwe_header_s *hdr, uint8 *startbufp)
     result = blProgramImage(bufp, FLASH_PROG_SBL1_IMG, temphdr.image_sz);
     if (result != BLRESULT_OK)
     {
+      bl_dsflag_s.bad_image |= (DS_IMAGE_SBL);
       dprintf(CRITICAL, "blProgramBootImage CWE_IMAGE_TYPE_SBL1 failed, ret:%d\n", result);
       return result;
+    }
+    else
+    {
+      bl_dsflag_s.bad_image &= (~DS_IMAGE_SBL);
     }
   }
 
@@ -2200,8 +2321,45 @@ enum blresultcode blProgramBootImage(struct cwe_header_s *hdr, uint8 *startbufp)
     result = blProgramImage(bufp, FLASH_PROG_CUSTOM_IMG, temphdr.image_sz);
     if (result != BLRESULT_OK)
     {
+      switch(update_which_system)
+      {
+        case BL_UPDATE_DUAL_SYSTEM:
+          bl_dsflag_s.bad_image |= (DS_IMAGE_TZ_2);
+
+        case BL_UPDATE_SYSTEM1:
+          bl_dsflag_s.bad_image |= (DS_IMAGE_TZ_1);
+          break;
+
+        case BL_UPDATE_SYSTEM2:
+          bl_dsflag_s.bad_image |= (DS_IMAGE_TZ_2);
+          break;
+
+        default:
+          dprintf(CRITICAL, "blProgramBootImage, wrong parameter update_which_system:%d\n", update_which_system);
+          break;
+      }
       dprintf(CRITICAL, "blProgramBootImage CWE_IMAGE_TYPE_TZON failed, ret:%d\n", result);
       return result;
+    }
+    else
+    {
+      switch(update_which_system)
+      {
+        case BL_UPDATE_DUAL_SYSTEM:
+          bl_dsflag_s.bad_image &= (~DS_IMAGE_TZ_2);
+
+        case BL_UPDATE_SYSTEM1:
+          bl_dsflag_s.bad_image &= (~DS_IMAGE_TZ_1);
+          break;
+
+        case BL_UPDATE_SYSTEM2:
+          bl_dsflag_s.bad_image &= (~DS_IMAGE_TZ_2);
+          break;
+
+        default:
+          dprintf(CRITICAL, "blProgramBootImage, wrong parameter update_which_system:%d\n", update_which_system);
+          break;
+      }
     }
   }
 
@@ -2214,8 +2372,45 @@ enum blresultcode blProgramBootImage(struct cwe_header_s *hdr, uint8 *startbufp)
     result = blProgramImage(bufp, FLASH_PROG_CUSTOM_IMG, temphdr.image_sz);
     if (result != BLRESULT_OK)
     {
+      switch(update_which_system)
+      {
+        case BL_UPDATE_DUAL_SYSTEM:
+          bl_dsflag_s.bad_image |= (DS_IMAGE_RPM_2);
+
+        case BL_UPDATE_SYSTEM1:
+          bl_dsflag_s.bad_image |= (DS_IMAGE_RPM_1);
+          break;
+
+        case BL_UPDATE_SYSTEM2:
+          bl_dsflag_s.bad_image |= (DS_IMAGE_RPM_2);
+          break;
+
+        default:
+          dprintf(CRITICAL, "blProgramBootImage, wrong parameter update_which_system:%d\n", update_which_system);
+          break;
+      }
       dprintf(CRITICAL, "blProgramBootImage CWE_IMAGE_TYPE_QRPM failed, ret:%d\n", result);
       return result;
+    }
+    else
+    {
+      switch(update_which_system)
+      {
+        case BL_UPDATE_DUAL_SYSTEM:
+          bl_dsflag_s.bad_image &= (~DS_IMAGE_RPM_2);
+
+        case BL_UPDATE_SYSTEM1:
+          bl_dsflag_s.bad_image &= (~DS_IMAGE_RPM_1);
+          break;
+
+        case BL_UPDATE_SYSTEM2:
+          bl_dsflag_s.bad_image &= (~DS_IMAGE_RPM_2);
+          break;
+
+        default:
+          dprintf(CRITICAL, "blProgramBootImage, wrong parameter update_which_system:%d\n", update_which_system);
+          break;
+      }
     }
   }
 
@@ -2232,18 +2427,28 @@ enum blresultcode blProgramBootImage(struct cwe_header_s *hdr, uint8 *startbufp)
         result = blProgramImage(bufp2, FLASH_PROG_CUSTOM_IMG, temphdr.image_sz);
         if (result != BLRESULT_OK)
         {
+          bl_dsflag_s.bad_image |= (DS_IMAGE_ABOOT_2);
           dprintf(CRITICAL, "blProgramBootImage CWE_IMAGE_TYPE_APBL to aboot2 failed, ret:%d\n", result);
           return result;
         }
-
+        else
+        {
+          bl_dsflag_s.bad_image &= (~DS_IMAGE_ABOOT_2);
+        }
+        
       case BL_UPDATE_SYSTEM1:
         /* Program APBL image to aboot */
         blsetcustompartition(BL_ABOOT_PARTI_NAME);
         result = blProgramImage(bufp, FLASH_PROG_CUSTOM_IMG, temphdr.image_sz);
         if (result != BLRESULT_OK)
         {
+          bl_dsflag_s.bad_image |= (DS_IMAGE_ABOOT_1);
           dprintf(CRITICAL, "blProgramBootImage CWE_IMAGE_TYPE_APBL to aboot failed, ret:%d\n", result);
           return result;
+        }
+        else
+        {
+          bl_dsflag_s.bad_image &= (~DS_IMAGE_ABOOT_1);
         }
         break;
 
@@ -2253,8 +2458,13 @@ enum blresultcode blProgramBootImage(struct cwe_header_s *hdr, uint8 *startbufp)
         result = blProgramImage(bufp, FLASH_PROG_CUSTOM_IMG, temphdr.image_sz);
         if (result != BLRESULT_OK)
         {
+          bl_dsflag_s.bad_image |= (DS_IMAGE_ABOOT_2);
           dprintf(CRITICAL, "blProgramBootImage CWE_IMAGE_TYPE_APBL to aboot2 failed, ret:%d\n", result);
           return result;
+        }
+        else
+        {
+          bl_dsflag_s.bad_image &= (~DS_IMAGE_ABOOT_2);
         }
         break;
 
@@ -2350,6 +2560,8 @@ _global enum blresultcode blProgramCWEImage(
     return BLRESULT_CWE_HEADER_ERROR;
   }
 
+  sierra_ds_get_full_data(&bl_dsflag_s);
+
   /* Set the buffer pointer to the first CWE sub-header */
   startbufp = dloadbufp + sizeof(struct cwe_header_s);
 
@@ -2443,7 +2655,7 @@ _global enum blresultcode blProgramCWEImage(
         {
           /* 1.1 then copy whole BOOT image to  SCRATCH_REGION2:0x88000000 */
           memmove((void *)BL_BOOT_IMG_STORED_BY_LK, (void *)bufp, sizeof(struct cwe_header_s) + spkg_sub_img_header.image_sz);
-          
+
           /* 1.2 MIBIB smart update, should go to sbl now */
           return BLRESULT_OK;
         }
@@ -2504,6 +2716,11 @@ _global enum blresultcode blProgramCWEImage(
 
     blsetcustompartition(NULL);
 
+    /* We consider program done, so we should update bad image flag */
+    /* To make it easy, we make it out of sync if any FW image update */
+    bl_dsflag_s.out_of_sync = DS_OUT_OF_SYNC;
+    sierra_ds_update_ssdata(&bl_dsflag_s, NULL);
+
     return BLRESULT_OK;
 
   } while (0);
@@ -2524,6 +2741,11 @@ _global enum blresultcode blProgramCWEImage(
   {
   }
 
+  /* We consider program done, so we should update bad image flag */
+  /* To make it easy, we make it out of sync if any FW image update */
+  bl_dsflag_s.out_of_sync = DS_OUT_OF_SYNC;
+  sierra_ds_update_ssdata(&bl_dsflag_s, NULL);
+  
   return result;
 
 }
@@ -2625,25 +2847,9 @@ _global uint32 blProgramCWERecoveryImage(
     /*                    -------------------
      * APPL image format: | APPL CWE header |
      * (Linux)            -------------------
-     *                    | SYST CWE hdr    |
+     *                    | LRAM CWE hdr    |
      *                    -------------------
-     *                    | SYST image      |  (Linux rootfs)
-     *                    -------------------
-     *                    | USER CWE hdr    |
-     *                    -------------------
-     *                    | USER image      |  (Linux usrfs)
-     *                    -------------------
-     *                    | APPS CWE hdr    |
-     *                    -------------------
-     *                    | APPS image      |  (Linux kernel)
-     *                    -------------------
-     *                    | USDATA CWE hdr    |
-     *                    -------------------
-     *                    | USDATA image      |  (userdata)
-     *                    -------------------
-     *                    | UAPP CWE hdr    |
-     *                    -------------------
-     *                    | UAPP image      |  (userapp)   
+     *                    | LRAM image      |   
      *                    -------------------
      *  (all the images can be optional)
      */

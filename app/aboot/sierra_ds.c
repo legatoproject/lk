@@ -1224,6 +1224,72 @@ struct ds_flag_s *ds_flag)
 
 /************
  *
+ * Name: sierra_ds_set_new_data
+ *
+ * Purpose: Write DS data to DSSD partition
+ *
+ * Parms: ds_flag - dual system flag pointer
+ *
+ * Return: TRUE - request successfully
+ *             FALSE - otherwise
+ *
+ * Abort: None
+ *
+ * Notes: Different to sierra_ds_set_full_data(): 
+ *           - This function will update ssdata fully by ds_flag.
+ *           - Caller should make sure all of data is correct in ds_flag.
+ *
+ ************/
+void sierra_ds_set_new_data(
+struct ds_flag_s *ds_flag)
+{
+  struct ds_shared_data_s ds_data_destination;
+  bool result = FALSE;
+
+  ASSERT(ds_flag);
+
+  /* Clear destination ds data structure */
+  memset((void *)&ds_data_destination, 0, sizeof(struct ds_shared_data_s));
+
+  /* Deal with the flags according to different cases */
+  /* 1. SSID modem index */
+  ds_data_destination.ssid_modem_idx = ds_flag->ssid_modem_idx;
+
+  /* 2. SSID LK index */
+  ds_data_destination.ssid_lk_idx = ds_flag->ssid_lk_idx;
+
+  /* 3. SSID Linux index */
+  ds_data_destination.ssid_linux_idx = ds_flag->ssid_linux_idx;
+
+  /* 4. dual system swap reason */
+  ds_data_destination.swap_reason = ds_flag->swap_reason;
+
+  /* 5. SW update state */
+  ds_data_destination.sw_update_state = ds_flag->sw_update_state;
+
+  /* 6. Out of sync flag */
+  ds_data_destination.out_of_sync = ds_flag->out_of_sync;
+
+  /* 7. EFS corruption in SW update */
+  ds_data_destination.efs_corruption_in_sw_update = ds_flag->efs_corruption_in_sw_update;
+
+  /* 8. EDB in SW update */
+  ds_data_destination.edb_in_sw_update = ds_flag->edb_in_sw_update;
+
+  /* 9. Bad image flag	*/
+  ds_data_destination.bad_image = ds_flag->bad_image;
+
+  ds_data_destination.magic_beg = DS_MAGIC_NUMBER;
+  ds_data_destination.magic_end = DS_MAGIC_NUMBER;
+  ds_data_destination.crc32 = crcrc32((void *)(&ds_data_destination), (sizeof(struct ds_shared_data_s) - sizeof(uint32)), CRSTART_CRC32);
+
+  sierra_ds_dssd_partition_write(&ds_data_destination,&result);
+
+  return;
+}
+
+/************
+ *
  * Name: sierra_ds_check_if_out_of_sync
  *
  * Purpose: Check if dual system is out of sync
@@ -1257,6 +1323,46 @@ bool sierra_ds_check_if_out_of_sync(
   {
 #ifdef SIERRA_DUAL_SYSTEM_TEST
     dprintf(CRITICAL, "Dual system is sync\n");
+#endif /* SIERRA_DUAL_SYSTEM_TEST */
+
+    return FALSE;
+  }
+}
+
+/************
+ *
+ * Name: sierra_ds_check_is_recovery_phase1
+ *
+ * Purpose: Check if it is recovery_phase1
+ *
+ * Parms: None
+ *
+ * Return: TRUE - it is recovery phase1
+ *             FALSE - not recovery phase1
+ *
+ * Abort: None
+ *
+ * Notes: None
+ *
+ ************/
+bool sierra_ds_check_is_recovery_phase1(void)
+{
+  struct ds_flag_s ds_flag;
+
+  sierra_ds_get_full_data(&ds_flag);
+
+  if(DS_SW_UPDATE_STATE_RECOVERY_PHASE_1 == ds_flag.sw_update_state)
+  {
+#ifdef SIERRA_DUAL_SYSTEM_TEST
+    dprintf(CRITICAL, "It is RECOVERY_PHASE_1\n");
+#endif /* SIERRA_DUAL_SYSTEM_TEST */
+
+    return TRUE;
+  }
+  else
+  {
+#ifdef SIERRA_DUAL_SYSTEM_TEST
+    dprintf(CRITICAL, "It isn't RECOVERY_PHASE_1\n");
 #endif /* SIERRA_DUAL_SYSTEM_TEST */
 
     return FALSE;
@@ -1702,4 +1808,205 @@ void sierra_ds_test(
   return;
 }
 #endif /* SIERRA_DUAL_SYSTEM_TEST */
+
+/************
+ *
+ * Name:     sierra_ds_update_ssdata
+ *
+ * Purpose:  Update ds_flag to ssdata, sync it to SM
+ *
+ * Parms:   in - ds_flag
+ *          out - swapreset
+ * Return:   TRUE when Done
+ *           FALSE when Failed
+ *              
+ * Abort:    None
+ *
+ * Notes:   
+ *     
+ *
+ *
+ ************/
+void sierra_ds_update_ssdata(struct ds_flag_s *ds_flag, bool *swapreset)
+{
+  struct ds_smem_message_s * ds_smem_bufp = NULL;
+  uint32 sw_update_state = DS_SW_UPDATE_STATE_NORMAL; 
+
+  if (ds_flag)
+  {
+    /* sync it to SM */
+    ds_smem_bufp = sierra_ds_smem_get_address();
+    if(NULL == ds_smem_bufp)
+    {
+      dprintf(CRITICAL, "sierra_ds_update_ssdata(): Can't get DS SMEM region\n");
+      /* SM excetpion, so we should consider a "swapreset", to recover the exception */
+      if (swapreset)
+      {
+        *swapreset = TRUE;
+      }
+    }
+    else
+    {
+      if ((ds_smem_bufp->ssid_modem_idx != ds_flag->ssid_modem_idx) ||
+          (ds_smem_bufp->ssid_lk_idx != ds_flag->ssid_lk_idx) ||
+          (ds_smem_bufp->ssid_linux_idx != ds_flag->ssid_linux_idx))
+      {
+        if (swapreset)
+        {
+          *swapreset = TRUE;
+        }
+      }
+      else
+      {
+        if (swapreset)
+        {
+          *swapreset = FALSE;
+        }
+      }
+
+      ds_smem_bufp->magic_beg = DS_MAGIC_NUMBER;
+      ds_smem_bufp->ssid_modem_idx = ds_flag->ssid_modem_idx;
+      ds_smem_bufp->ssid_lk_idx = ds_flag->ssid_lk_idx;
+      ds_smem_bufp->ssid_linux_idx = ds_flag->ssid_linux_idx;
+      ds_smem_bufp->swap_reason = ds_flag->swap_reason;
+      ds_smem_bufp->is_changed = DS_BOOT_UP_CHANGED;
+      ds_smem_bufp->bad_image = ds_flag->bad_image;
+      ds_smem_bufp->crc32 = crcrc32((uint8 *)ds_smem_bufp, sizeof(struct ds_smem_message_s) - sizeof(uint32), CRSTART_CRC32);
+      ds_smem_bufp->magic_end = DS_MAGIC_NUMBER;
+    }
+
+    /* Try to recover sw_update_state to normal */
+    if (ds_flag->ssid_modem_idx == DS_SSID_SUB_SYSTEM_1)
+    {
+      if (!(ds_flag->bad_image & DS_IMAGE_TZ_1) && 
+            !(ds_flag->bad_image & DS_IMAGE_RPM_1) && 
+            !(ds_flag->bad_image & DS_IMAGE_MODEM_1))
+      {
+        sw_update_state = DS_SW_UPDATE_STATE_NORMAL;
+      }
+      else
+      {
+        sw_update_state = ds_flag->sw_update_state;
+      }
+    }
+    else
+    {
+      if (!(ds_flag->bad_image & DS_IMAGE_TZ_2) && 
+            !(ds_flag->bad_image & DS_IMAGE_RPM_2) && 
+            !(ds_flag->bad_image & DS_IMAGE_MODEM_2))
+      {
+        sw_update_state = DS_SW_UPDATE_STATE_NORMAL;
+      }
+      else
+      {
+        sw_update_state = ds_flag->sw_update_state;
+      }
+    }
+
+    if (ds_flag->ssid_lk_idx == DS_SSID_SUB_SYSTEM_1)
+    {
+      if (!(ds_flag->bad_image & DS_IMAGE_ABOOT_1))
+      {
+        sw_update_state = DS_SW_UPDATE_STATE_NORMAL;
+      }
+      else
+      {
+        sw_update_state = ds_flag->sw_update_state;
+      }
+    }
+    else
+    {
+      if (!(ds_flag->bad_image & DS_IMAGE_ABOOT_2))
+      {
+        sw_update_state = DS_SW_UPDATE_STATE_NORMAL;
+      }
+      else
+      {
+        sw_update_state = ds_flag->sw_update_state;
+      }
+    }
+
+    if (ds_flag->ssid_linux_idx == DS_SSID_SUB_SYSTEM_1)
+    {
+      if (!(ds_flag->bad_image & DS_IMAGE_BOOT_1) && 
+            !(ds_flag->bad_image & DS_IMAGE_SYSTEM_1) && 
+            !(ds_flag->bad_image & DS_IMAGE_USERDATA_1))
+      {
+        sw_update_state = DS_SW_UPDATE_STATE_NORMAL;
+      }
+      else
+      {
+        sw_update_state = ds_flag->sw_update_state;
+      }
+    }
+    else
+    {
+      if (!(ds_flag->bad_image & DS_IMAGE_BOOT_2) && 
+            !(ds_flag->bad_image & DS_IMAGE_SYSTEM_2) && 
+            !(ds_flag->bad_image & DS_IMAGE_USERDATA_2))
+      {
+        sw_update_state = DS_SW_UPDATE_STATE_NORMAL;
+      }
+      else
+      {
+        sw_update_state = ds_flag->sw_update_state;
+      }
+    }
+
+    ds_flag->sw_update_state = sw_update_state;
+    
+    /* Update ds_flag to ssdata */
+    sierra_ds_set_new_data(ds_flag);
+    
+    return;
+  }
+  else
+  {
+    return;
+  }
+}
+
+/************
+ *
+ * Name:     sierra_ds_set_ssid
+ *
+ * Purpose:  Set ssid in LK
+ *
+ * Parms:   in - ssid_modem_idx
+ *          in - ssid_lk_idx
+ *          in - ssid_linux_idx
+ *          out - swapreset
+ *
+ * Return:   TRUE when Done
+ *               FALSE when Failed
+ *              
+ * Abort:    None
+ *
+ * Notes:   
+ *     
+ *
+ *
+ ************/
+void sierra_ds_set_ssid(uint8 ssid_modem_idx, uint8 ssid_lk_idx, uint8 ssid_linux_idx, bool *swapreset)
+{
+  struct ds_flag_s ds_flag;
+
+  if (((ssid_modem_idx < DS_SSID_SUB_SYSTEM_1) || (ssid_modem_idx > DS_SSID_SUB_SYSTEM_2)) ||
+  ((ssid_lk_idx < DS_SSID_SUB_SYSTEM_1) || (ssid_lk_idx > DS_SSID_SUB_SYSTEM_2)) ||
+  ((ssid_linux_idx < DS_SSID_SUB_SYSTEM_1) || (ssid_linux_idx > DS_SSID_SUB_SYSTEM_2)))
+  {
+    /* Bad SSIDs */
+    *swapreset = FALSE;
+    return;
+  }
+  else
+  {
+    sierra_ds_get_full_data(&ds_flag);
+    ds_flag.ssid_modem_idx = ssid_modem_idx;
+    ds_flag.ssid_lk_idx = ssid_lk_idx;
+    ds_flag.ssid_linux_idx = ssid_linux_idx;
+    sierra_ds_update_ssdata(&ds_flag, swapreset);
+    return;
+  }
+}
 

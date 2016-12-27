@@ -92,6 +92,9 @@ typedef enum {
 #define BL_MODEM2_PARTI_NAME "modem2"
 #define BL_RPM_PARTI_NAME "rpm"
 #define BL_BACKUP_PARTI_NAME "backup"
+#define BL_CUSTOMER0_PARTI_NAME "customer0"
+#define BL_CUSTOMER1_PARTI_NAME "customer1"
+#define BL_CUSTOMER2_PARTI_NAME "customer2"
 
 #define BL_PRODUCT_ID                  0x39583430       /* "9X40" */
 #define BL_HW_COMPAT_MASK   0x000000FFU
