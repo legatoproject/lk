@@ -121,6 +121,8 @@ struct ds_shared_data_s
 };
 
 extern bool sierra_ds_check_if_out_of_sync(void);
+extern bool sierra_ds_check_is_recovery_phase1(void);
+extern bool sierra_ds_check_is_recovery_phase2(void);
 extern bool sierra_ds_write_flags_in_lk(
   uint32 sw_update_state,
   uint32 out_of_sync,
@@ -131,6 +133,9 @@ extern void sierra_ds_smem_write_bad_image_and_swap(uint64 bad_image_mask);
 extern void sierra_ds_test(const char *arg);
 #endif /* SIERRA_DUAL_SYSTEM_TEST */
 
-#endif /* SIERRA_DS_H */
+extern bool sierra_ds_get_full_data(struct ds_flag_s *ds_flag);
+extern bool  sierra_ds_set_ssid(uint8 ssid_modem_idx, uint8 ssid_lk_idx, uint8 ssid_linux_idx, bool *swapreset);
+extern void sierra_ds_update_ssdata(struct ds_flag_s *ds_flag, bool *swapreset);
 
+#endif /* SIERRA_DS_H */
 

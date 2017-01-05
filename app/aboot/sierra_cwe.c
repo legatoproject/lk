@@ -139,6 +139,10 @@ _local const char cwe_image_str[CWE_IMAGE_TYPE_COUNT][sizeof(uint32)] = {
   {'Q', 'S', 'D', 'I'},
   {'A', 'R', 'C', 'H'},
   {'U', 'A', 'P', 'P'},
+  {'L', 'R', 'A', 'M'},
+  {'C', 'U', 'S', '0'},
+  {'C', 'U', 'S', '1'},
+  {'C', 'U', 'S', '2'},
 };
 
 /* 

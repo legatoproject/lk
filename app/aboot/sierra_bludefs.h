@@ -93,7 +93,9 @@ typedef enum {
 #define BL_MODEM2_PARTI_NAME "modem2"
 #define BL_RPM_PARTI_NAME "rpm"
 #define BL_BACKUP_PARTI_NAME "backup"
-
+#define BL_CUSTOMER0_PARTI_NAME "customer0"
+#define BL_CUSTOMER1_PARTI_NAME "customer1"
+#define BL_CUSTOMER2_PARTI_NAME "customer2"
 
 #define BL_PRODUCT_ID                  0x39583238       /* "9X28" */
 #define BL_HW_COMPAT_MASK   0x000000FFU
@@ -235,6 +237,25 @@ enum bluistateE
 
 /************
  *
+ * Name:     bl_update_system_e
+ *
+ * Purpose:  Update system enum
+ *
+ * Members:  See below
+ *
+ * Notes:  None 
+ *
+ ************/
+enum bl_update_system_e
+{
+  BL_UPDATE_NONE,         /* Nothing */
+  BL_UPDATE_SYSTEM1,      /* Only update system1 */
+  BL_UPDATE_SYSTEM2,      /* Only update system2 */
+  BL_UPDATE_DUAL_SYSTEM,  /* Update both systems */
+};
+
+/************
+ *
  * Name:      blCtrlBlk
  *
  * Purpose:   This is the main control block for the BL package. It defines all
@@ -263,12 +284,11 @@ struct blCtrlBlk
   uint8 dload_reason;              /* reason for going to bootloader */
 };
 
-
 extern bool to_update_mibib;
-extern bool write_dual_system;
+extern enum bl_update_system_e update_which_system;
 extern uint8 *second_ubi_images;
-extern unsigned char *sierra_smem_base_addr_get(void);
 
+extern unsigned char *sierra_smem_base_addr_get(void);
 extern int sierra_smem_boothold_mode_set();
 extern bool sierra_is_fastboot_disabled(void);
 extern bool sierra_if_enter_fastboot(void);
@@ -282,7 +302,6 @@ extern boolean swipart_get_logical_partition_from_backup(
   uint32 *end_block);
 extern bool is_dual_system_supported(void);
 extern bool sierra_is_bootquiet_disabled(void);
-
 enum blresultcode blprocessdldcontinue(uint8 *payloadp, uint32 tlen, uint32 *bytesleftp);
 enum blresultcode blprocessdldend(void);
 enum blresultcode blprocessdldstart(uint8 *cwehdrp, uint32 tlen);
