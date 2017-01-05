@@ -2914,27 +2914,35 @@ void cmd_flash_nand(const char *arg, void *data, unsigned sz)
 	enum blresultcode ret = BLRESULT_OK;
 
 	if (!strcmp(arg, "sierra")
+		|| !strcmp(arg, "sierra2")
 		|| !strcmp(arg, "sierra-dual-system"))
 	{
 		if(is_dual_system_supported())
 		{
-			if(!strcmp(arg, "sierra-dual-system"))
+			if(!strcmp(arg, "sierra"))
 			{
-				write_dual_system = true;
+				update_which_system = BL_UPDATE_SYSTEM1;
+			}
+			else if(!strcmp(arg, "sierra2"))
+			{
+				update_which_system = BL_UPDATE_SYSTEM2;
+			}
+			else if(!strcmp(arg, "sierra-dual-system"))
+			{
+				update_which_system = BL_UPDATE_DUAL_SYSTEM;
 				second_ubi_images = data + sz;
 			}
 
 			ret = blProcessFastbootImage((unsigned char *)data, sz);
 
-			if(!strcmp(arg, "sierra-dual-system"))
-			{
-				write_dual_system = false;
-				second_ubi_images = NULL;
-			}
+			update_which_system = BL_UPDATE_NONE;
+			second_ubi_images = NULL;
 		}
 		else
 		{
+			update_which_system = BL_UPDATE_SYSTEM1;
 			ret = blProcessFastbootImage((unsigned char *)data, sz);
+			update_which_system = BL_UPDATE_NONE;
 		}
 		switch (ret)
 		{
@@ -2989,6 +2997,7 @@ void cmd_flash_nand(const char *arg, void *data, unsigned sz)
 
 		sierra_check_mibib_state_clear();
 	}
+/* SWISTART */
 #ifdef SIERRA_DUAL_SYSTEM_TEST
 	else if(!strcmp(arg, "swi_ds_read")
 			|| !strcmp(arg, "swi_dssd_write")
@@ -2998,6 +3007,7 @@ void cmd_flash_nand(const char *arg, void *data, unsigned sz)
 		sierra_ds_test(arg);
 	}
 #endif /* SIERRA_DUAL_SYSTEM_TEST */
+/* SWISTOP */
 	else
 	{
 #endif
@@ -3217,6 +3227,85 @@ void cmd_oem_devinfo(const char *arg, void *data, unsigned sz)
 	fastboot_okay("");
 }
 
+/* SWISTART */
+#ifdef SIERRA
+void cmd_swi_set_ssid(const char *arg, void *data, unsigned sz)
+{
+	int ssidset = 0, ssid_modem_idx = 0, ssid_lk_idx, ssid_linux_idx;
+
+	/* arg[0] should always be ' ', so skip it */
+	ssidset = atoi(&arg[1]);
+
+	ssid_modem_idx = ssidset / 100;
+	ssid_lk_idx = ssidset / 10;
+	ssid_lk_idx = ssid_lk_idx % 10;
+	ssid_linux_idx = ssidset % 10;
+
+	if (((ssid_modem_idx < DS_SSID_SUB_SYSTEM_1) || (ssid_modem_idx > DS_SSID_SUB_SYSTEM_2)) ||
+			((ssid_lk_idx < DS_SSID_SUB_SYSTEM_1) || (ssid_lk_idx > DS_SSID_SUB_SYSTEM_2)) ||
+			((ssid_linux_idx < DS_SSID_SUB_SYSTEM_1) || (ssid_linux_idx > DS_SSID_SUB_SYSTEM_2)))
+	{
+		dprintf(CRITICAL, "bad ssids:%d.\n", ssidset);
+		fastboot_info("usage:fastboot oem swi-set-ssid <modem_id><lk_id><linux_id>");
+		fastboot_info("modem_id, lk_id, lk_id should be in set {1,2}");
+		fastboot_info("e.g:fastboot oem swi-set-ssid 111");
+		fastboot_info("e.g:fastboot oem swi-set-ssid 222");
+		fastboot_fail("bad ssid");
+	}
+	else
+	{
+		if (sierra_ds_set_ssid((uint8)ssid_modem_idx, (uint8)ssid_lk_idx, (uint8)ssid_linux_idx, NULL))
+		{
+			fastboot_info("Set SSID done. Please reboot system");
+			fastboot_okay("");
+		}
+		else
+		{
+			fastboot_info("Failed to change ssid.");
+			fastboot_info("To check current ssid: ");
+			fastboot_fail("Please try:fastboot oem swi-get-ssdata");
+		}
+	}
+	
+	return;
+}
+
+void cmd_swi_get_ssdata(const char *arg, void *data, unsigned sz)
+{
+	struct ds_flag_s ds_flag = {0};
+	char response[64];
+	
+	if (sierra_ds_get_full_data(&ds_flag))
+	{
+		/* Display all flags */
+		sprintf(response, "ssid_modem_idx: %u", ds_flag.ssid_modem_idx);
+		fastboot_info(response);
+		sprintf(response, "ssid_lk_idx: %u", ds_flag.ssid_lk_idx);
+		fastboot_info(response);
+		sprintf(response, "ssid_linux_idx: %u", ds_flag.ssid_linux_idx);
+		fastboot_info(response);
+		sprintf(response, "swap_reason: %u", ds_flag.swap_reason);
+		fastboot_info(response);
+		sprintf(response, "sw_update_state: %u", ds_flag.sw_update_state);
+		fastboot_info(response);
+		sprintf(response, "out_of_sync: 0x%x", ds_flag.out_of_sync);
+		fastboot_info(response);
+		sprintf(response, "efs_corruption_in_sw_update: 0x%x", ds_flag.efs_corruption_in_sw_update);
+		fastboot_info(response);
+		sprintf(response, "edb_in_sw_update: 0x%x", ds_flag.edb_in_sw_update);
+		fastboot_info(response);
+		sprintf(response, "bad_image: 0x%08X%08X", 
+				(uint32)(ds_flag.bad_image >> 32), (uint32)ds_flag.bad_image);
+		fastboot_info(response);
+		fastboot_okay("");
+	}
+	else
+	{
+		fastboot_fail("Failed get ssdata.");
+	}
+}
+#endif /* SIERRA */
+/* SWISTOP */
 void cmd_preflash(const char *arg, void *data, unsigned sz)
 {
 	fastboot_okay("");
@@ -3496,6 +3585,12 @@ void aboot_fastboot_register_commands(void)
 #if UNITTEST_FW_SUPPORT
 											{"oem run-tests", cmd_oem_runtests},
 #endif
+/* SWISTART */
+#ifdef SIERRA
+											{"oem swi-set-ssid", cmd_swi_set_ssid},
+											{"oem swi-get-ssdata", cmd_swi_get_ssdata},
+#endif /* SIERRA */
+/* SWISTOP */
 #endif
 										  };
 
@@ -3640,6 +3735,13 @@ void aboot_init(const struct app_descriptor *app)
 
 /* SWISTART */
 #ifdef SIERRA
+
+	if (sierra_ds_check_is_recovery_phase1())
+	{
+		dprintf(CRITICAL, "recovery_phase1, go to fastboot mode\n");
+		boot_into_fastboot = true;
+	}
+
 	if (sierra_if_enter_fastboot())
 	{
 		boot_into_fastboot = true;
