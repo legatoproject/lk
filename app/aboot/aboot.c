@@ -3011,7 +3011,6 @@ void cmd_oem_devinfo(const char *arg, void *data, unsigned sz)
 void cmd_swi_set_ssid(const char *arg, void *data, unsigned sz)
 {
 	int ssidset = 0, ssid_modem_idx = 0, ssid_lk_idx, ssid_linux_idx;
-	bool swapreset;
 
 	/* arg[0] should always be ' ', so skip it */
 	ssidset = atoi(&arg[1]);
@@ -3025,7 +3024,7 @@ void cmd_swi_set_ssid(const char *arg, void *data, unsigned sz)
 			((ssid_lk_idx < DS_SSID_SUB_SYSTEM_1) || (ssid_lk_idx > DS_SSID_SUB_SYSTEM_2)) ||
 			((ssid_linux_idx < DS_SSID_SUB_SYSTEM_1) || (ssid_linux_idx > DS_SSID_SUB_SYSTEM_2)))
 	{
-	  dprintf(CRITICAL, "bad ssids:%d.\n", ssidset);
+		dprintf(CRITICAL, "bad ssids:%d.\n", ssidset);
 		fastboot_info("usage:fastboot oem swi-set-ssid <modem_id><lk_id><linux_id>");
 		fastboot_info("modem_id, lk_id, lk_id should be in set {1,2}");
 		fastboot_info("e.g:fastboot oem swi-set-ssid 111");
@@ -3034,14 +3033,10 @@ void cmd_swi_set_ssid(const char *arg, void *data, unsigned sz)
 	}
 	else
 	{
-		sierra_ds_set_ssid((uint8)ssid_modem_idx, (uint8)ssid_lk_idx, (uint8)ssid_linux_idx, &swapreset);
-		if (swapreset)
+		if (sierra_ds_set_ssid((uint8)ssid_modem_idx, (uint8)ssid_lk_idx, (uint8)ssid_linux_idx, NULL))
 		{
-			dprintf(INFO, "Rebooting the device since try to change SSID.\n");
-			fastboot_info("ssid changeing.");
-			fastboot_info("It will reboot and stay in fastboot again.");
+			fastboot_info("Set SSID done. Please reboot system");
 			fastboot_okay("");
-			reboot_device(FASTBOOT_MODE);
 		}
 		else
 		{

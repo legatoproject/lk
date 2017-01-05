@@ -1830,7 +1830,7 @@ void sierra_ds_test(
 void sierra_ds_update_ssdata(struct ds_flag_s *ds_flag, bool *swapreset)
 {
   struct ds_smem_message_s * ds_smem_bufp = NULL;
-  uint32 sw_update_state = DS_SW_UPDATE_STATE_NORMAL; 
+  bool sw_update_state_to_normal = TRUE; 
 
   if (ds_flag)
   {
@@ -1871,8 +1871,8 @@ void sierra_ds_update_ssdata(struct ds_flag_s *ds_flag, bool *swapreset)
       ds_smem_bufp->swap_reason = ds_flag->swap_reason;
       ds_smem_bufp->is_changed = DS_BOOT_UP_CHANGED;
       ds_smem_bufp->bad_image = ds_flag->bad_image;
-      ds_smem_bufp->crc32 = crcrc32((uint8 *)ds_smem_bufp, sizeof(struct ds_smem_message_s) - sizeof(uint32), CRSTART_CRC32);
       ds_smem_bufp->magic_end = DS_MAGIC_NUMBER;
+      ds_smem_bufp->crc32 = crcrc32((uint8 *)ds_smem_bufp, sizeof(struct ds_smem_message_s) - sizeof(uint32), CRSTART_CRC32);
     }
 
     /* Try to recover sw_update_state to normal */
@@ -1882,11 +1882,11 @@ void sierra_ds_update_ssdata(struct ds_flag_s *ds_flag, bool *swapreset)
             !(ds_flag->bad_image & DS_IMAGE_RPM_1) && 
             !(ds_flag->bad_image & DS_IMAGE_MODEM_1))
       {
-        sw_update_state = DS_SW_UPDATE_STATE_NORMAL;
+        /* Do nothing */
       }
       else
       {
-        sw_update_state = ds_flag->sw_update_state;
+        sw_update_state_to_normal = FALSE;
       }
     }
     else
@@ -1895,11 +1895,11 @@ void sierra_ds_update_ssdata(struct ds_flag_s *ds_flag, bool *swapreset)
             !(ds_flag->bad_image & DS_IMAGE_RPM_2) && 
             !(ds_flag->bad_image & DS_IMAGE_MODEM_2))
       {
-        sw_update_state = DS_SW_UPDATE_STATE_NORMAL;
+        /* Do nothing */
       }
       else
       {
-        sw_update_state = ds_flag->sw_update_state;
+        sw_update_state_to_normal = FALSE;
       }
     }
 
@@ -1907,22 +1907,22 @@ void sierra_ds_update_ssdata(struct ds_flag_s *ds_flag, bool *swapreset)
     {
       if (!(ds_flag->bad_image & DS_IMAGE_ABOOT_1))
       {
-        sw_update_state = DS_SW_UPDATE_STATE_NORMAL;
+        /* Do nothing */
       }
       else
       {
-        sw_update_state = ds_flag->sw_update_state;
+        sw_update_state_to_normal = FALSE;
       }
     }
     else
     {
       if (!(ds_flag->bad_image & DS_IMAGE_ABOOT_2))
       {
-        sw_update_state = DS_SW_UPDATE_STATE_NORMAL;
+        /* Do nothing */
       }
       else
       {
-        sw_update_state = ds_flag->sw_update_state;
+        sw_update_state_to_normal = FALSE;
       }
     }
 
@@ -1932,11 +1932,11 @@ void sierra_ds_update_ssdata(struct ds_flag_s *ds_flag, bool *swapreset)
             !(ds_flag->bad_image & DS_IMAGE_SYSTEM_1) && 
             !(ds_flag->bad_image & DS_IMAGE_USERDATA_1))
       {
-        sw_update_state = DS_SW_UPDATE_STATE_NORMAL;
+        /* Do nothing */
       }
       else
       {
-        sw_update_state = ds_flag->sw_update_state;
+        sw_update_state_to_normal = FALSE;
       }
     }
     else
@@ -1945,15 +1945,18 @@ void sierra_ds_update_ssdata(struct ds_flag_s *ds_flag, bool *swapreset)
             !(ds_flag->bad_image & DS_IMAGE_SYSTEM_2) && 
             !(ds_flag->bad_image & DS_IMAGE_USERDATA_2))
       {
-        sw_update_state = DS_SW_UPDATE_STATE_NORMAL;
+        /* Do nothing */
       }
       else
       {
-        sw_update_state = ds_flag->sw_update_state;
+        sw_update_state_to_normal = FALSE;
       }
     }
 
-    ds_flag->sw_update_state = sw_update_state;
+    if (sw_update_state_to_normal)
+    {
+      ds_flag->sw_update_state = DS_SW_UPDATE_STATE_NORMAL;
+    }
     
     /* Update ds_flag to ssdata */
     sierra_ds_set_new_data(ds_flag);
@@ -1987,7 +1990,7 @@ void sierra_ds_update_ssdata(struct ds_flag_s *ds_flag, bool *swapreset)
  *
  *
  ************/
-void sierra_ds_set_ssid(uint8 ssid_modem_idx, uint8 ssid_lk_idx, uint8 ssid_linux_idx, bool *swapreset)
+bool sierra_ds_set_ssid(uint8 ssid_modem_idx, uint8 ssid_lk_idx, uint8 ssid_linux_idx, bool *swapreset)
 {
   struct ds_flag_s ds_flag;
 
@@ -1996,8 +1999,12 @@ void sierra_ds_set_ssid(uint8 ssid_modem_idx, uint8 ssid_lk_idx, uint8 ssid_linu
   ((ssid_linux_idx < DS_SSID_SUB_SYSTEM_1) || (ssid_linux_idx > DS_SSID_SUB_SYSTEM_2)))
   {
     /* Bad SSIDs */
-    *swapreset = FALSE;
-    return;
+    if (swapreset)
+    {
+      *swapreset = FALSE;
+    }
+    
+    return FALSE;
   }
   else
   {
@@ -2006,7 +2013,7 @@ void sierra_ds_set_ssid(uint8 ssid_modem_idx, uint8 ssid_lk_idx, uint8 ssid_linu
     ds_flag.ssid_lk_idx = ssid_lk_idx;
     ds_flag.ssid_linux_idx = ssid_linux_idx;
     sierra_ds_update_ssdata(&ds_flag, swapreset);
-    return;
+    return TRUE;
   }
 }
 
