@@ -10,8 +10,12 @@ BASE_ADDR                           := 0x80000000
 SCRATCH_ADDR                        := 0x80000000
 SCRATCH_REGION1                     := 0x81800000 # This needs to align with nonhlos start address
 SCRATCH_REGION1_SIZE                := 0x06400000 # 100MB
-SCRATCH_REGION2                     := 0x88000000
-SCRATCH_REGION2_SIZE                := 0x08000000 # 128MB
+# SWISTART
+#SCRATCH_REGION2                     := 0x88000000
+#SCRATCH_REGION2_SIZE                := 0x08000000 # 128MB
+SCRATCH_REGION2                     := 0x88D00000
+SCRATCH_REGION2_SIZE                := 0x07300000 # 115MB
+# SWISTOP
 KERNEL_REGION                       := 0x80000000
 KERNEL_REGION_SIZE                  := 0x01800000 # 24MB
 
