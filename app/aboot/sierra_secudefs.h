@@ -137,7 +137,9 @@ extern boolean image_authenticate(secboot_image_info_type* secboot_info_ptr, sec
  *
  * Parms:    ptn  --- struct ptentry for kernel iamge
  *
- *           hdr  --- Kernel image header.
+ *           image_addr  --- Kernel image start address in RAM.
+ *
+ *           imagesize  ---- Kernel image size
  *
  * Return:   TRUE if auth succeed.
  *           FALSE if auth failed.
@@ -147,6 +149,24 @@ extern boolean image_authenticate(secboot_image_info_type* secboot_info_ptr, sec
  * Notes:    none
  *
  ************/
-extern boolean boot_swi_lk_auth_kernel(struct ptentry *ptn,boot_img_hdr *hdr);
+extern boolean boot_swi_lk_verify_kernel(struct ptentry *ptn,unsigned char *image_addr,unsigned imagesize);
+/************
+ *
+ * Name:     sierra_lk_enable_kernel_verify
+ *
+ * Purpose:  check whether need to verify image
+ *
+ * Parms:    NONE
+ *
+ * Return:   TRUE  - need to verify image
+ *           FALSE - otherwise.
+ *
+ * Abort:    None
+ *
+ * Notes:    verify image include check image hash and
+ *           authenticate image signature if secure boot enabled.
+ *
+ ************/
+extern boolean sierra_lk_enable_kernel_verify(void);
 #endif
 

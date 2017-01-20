@@ -1408,7 +1408,13 @@ int boot_linux_from_flash(void)
 #endif
 
 	/* Authenticate Kernel */
+/* SWISTART */
+#ifdef SIERRA
+	if(sierra_lk_enable_kernel_verify() && (!device.is_unlocked))
+#else
 	if(target_use_signed_kernel() && (!device.is_unlocked))
+#endif
+/* SWISTOP */
 	{
 		image_addr = (unsigned char *)target_get_scratch_address();
 		offset = 0;
@@ -1450,6 +1456,15 @@ int boot_linux_from_flash(void)
 		bs_set_timestamp(BS_KERNEL_LOAD_DONE);
 
 		offset = imagesize_actual;
+
+/* SWISTART */
+#ifdef SIERRA
+		if(!boot_swi_lk_verify_kernel(ptn,image_addr,imagesize_actual))
+		{
+			dprintf(CRITICAL, "ERROR: LK verify kernel image failed\n");
+			return -1;
+		}
+#else
 		/* Read signature */
 		if (flash_read(ptn, offset, (void *)(image_addr + offset), page_size))
 		{
@@ -1458,6 +1473,8 @@ int boot_linux_from_flash(void)
 		}
 
 		verify_signed_bootimg((uint32_t)image_addr, imagesize_actual);
+#endif
+/* SWISTOP */
 
 		/* Move kernel and ramdisk to correct address */
 		memmove((void*) hdr->kernel_addr, (char *)(image_addr + page_size), hdr->kernel_size);
@@ -1503,17 +1520,6 @@ int boot_linux_from_flash(void)
 	}
 	else
 	{
-		/* SWISTART */
-#ifdef SIERRA
-		/* Authenticate Kernel image before load it to RAM address space */
-		if(!boot_swi_lk_auth_kernel(ptn,hdr))
-		{
-			dprintf(CRITICAL, "ERROR: LK auth kernel failed\n");
-			return -1;
-		}
-#endif
-		/* SWISTOP */
-
 		offset = page_size;
 
 		kernel_actual = ROUND_TO_PAGE(hdr->kernel_size, page_mask);
