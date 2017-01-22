@@ -78,6 +78,7 @@ endif
 # SWISTART
 CFLAGS += -DSIERRA
 CFLAGS += -DSSDP_OVER_SPI
+CFLAGS += -DENABLE_HASH_CHECK
 # SWISTOP
 
 # setup toolchain prefix
