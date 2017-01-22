@@ -142,22 +142,43 @@ extern boolean image_authenticate(secboot_image_info_type* secboot_info_ptr, sec
 
 /************
  *
- * Name:     boot_swi_lk_auth_kernel
+ * Name:     boot_swi_lk_verify_kernel
  *
- * Purpose:  get image data and call image_authenticate to auth kernel image.
+ * Purpose:  verify image hash and authenticate signature if secure boot enabled.
  *
  * Parms:    ptn  --- struct ptentry for kernel iamge
  *
- *           hdr  --- Kernel image header.
+ *           image_addr  --- Kernel image start address in RAM.
+ *
+ *           imagesize  ---- Kernel image size
  *
  * Return:   TRUE if auth succeed.
  *           FALSE if auth failed.
  *
  * Abort:    none
  *
- * Notes:    none
+ * Notes:    For secure boot disabled device, just check image hash(if ENABLE_HASH_CHECK defined);
+ *           For seucre boot enabled device, authenticate signature and check image hash.
  *
  ************/
-extern boolean boot_swi_lk_auth_kernel(struct ptentry *ptn,boot_img_hdr *hdr);
+extern boolean boot_swi_lk_verify_kernel(struct ptentry *ptn,unsigned char *image_addr,unsigned imagesize);
+/************
+ *
+ * Name:     sierra_lk_enable_kernel_verify
+ *
+ * Purpose:  check whether need to verify image
+ *
+ * Parms:    NONE
+ *
+ * Return:   TRUE  - need to verify image
+ *           FALSE - otherwise.
+ *
+ * Abort:    None
+ *
+ * Notes:    verify image include check image hash and
+ *           authenticate image signature if secure boot enabled.
+ *
+ ************/
+extern boolean sierra_lk_enable_kernel_verify(void);
 #endif
 
