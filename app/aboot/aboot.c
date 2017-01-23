@@ -97,7 +97,6 @@
 #ifdef SIERRA
 #include "mach/sierra_smem.h"
 #include "sierra_bludefs.h"
-#include "sierra_dsudefs.h"
 #include "sierra_secudefs.h"
 
 /* Sense service pin to decide whether enter fastboot mode */
@@ -188,9 +187,11 @@ static const char *baseband_dsda2   = " androidboot.baseband=dsda2";
 static const char *baseband_sglte2  = " androidboot.baseband=sglte2";
 static const char *warmboot_cmdline = " qpnp-power-on.warm_boot=1";
 static const char *baseband_apq_nowgr   = " androidboot.baseband=baseband_apq_nowgr";
+/* SWISTART */
 #ifdef SIERRA
 static const char *lkquiet          = " quiet";
 #endif /* SIERRA */
+/* SWISTOP */
 
 #if VERIFIED_BOOT
 #if !VBOOT_MOTA
@@ -1555,14 +1556,6 @@ int boot_linux_from_flash(void)
 	unsigned char *best_match_dt_addr = NULL;
 #endif
 
-/* SWISTART */
-#ifdef SIERRA
-	bool kernel_is_bad = FALSE;
-	uint64 bad_image_mask = 0;
-#endif
-
-/* SWISTOP */
-
 	if (target_is_emmc_boot()) {
 		hdr = (struct boot_img_hdr *)EMMC_BOOT_IMG_HEADER_ADDR;
 		if (memcmp(hdr->magic, BOOT_MAGIC, BOOT_MAGIC_SIZE)) {
@@ -1580,32 +1573,7 @@ int boot_linux_from_flash(void)
 
 	if(!boot_into_recovery)
 	{
-/* SWISTART */
-#ifdef SIERRA
-		/* Get Kernel partition handler according to current boot system */
-		if(is_dual_system_supported())
-		{
-			if(DS_SSID_SUB_SYSTEM_2 == sierra_ds_smem_get_ssid_linux_index())
-			{
-				dprintf(CRITICAL, "Load kernel from boot2 partition due to linux sub system 2\n");
-				ptn = ptable_find(ptable, "boot2");
-				bad_image_mask = DS_IMAGE_BOOT_2;
-			}
-			else
-			{
-				dprintf(CRITICAL, "Load kernel from boot partition due to linux sub system 1\n");
-				ptn = ptable_find(ptable, "boot");
-				bad_image_mask = DS_IMAGE_BOOT_1;
-			}
-		}
-		else
-		{
-			ptn = ptable_find(ptable, "boot");
-		}
-#else
-		ptn = ptable_find(ptable, "boot");
-#endif
-/* SWISTOP */
+	        ptn = ptable_find(ptable, "boot");
 
 	        if (ptn == NULL) {
 		        dprintf(CRITICAL, "ERROR: No boot partition found\n");
@@ -1790,16 +1758,6 @@ int boot_linux_from_flash(void)
 		if(!boot_swi_lk_auth_kernel(ptn,hdr))
 		{
 			dprintf(CRITICAL, "ERROR: LK auth kernel failed\n");
-			/*If secure boot enabled, auth kernel image.*/
-			/* Get the result that program reliability authenticate kernel when secure boot disabled */
-			/* TBD until program reliability part finished */
-			if(is_dual_system_supported())
-			{
-				sierra_ds_smem_write_bad_image_and_swap(bad_image_mask);
-			}
-			/* Swap system after bad kernel detected */
-			dprintf(INFO, "rebooting the device\n");
-			reboot_device(0);
 		}
 		dprintf(INFO, "LK auth kernel done.\n");
 #endif
@@ -2770,15 +2728,6 @@ void cmd_erase_mmc(const char *arg, void *data, unsigned sz)
 
 void cmd_erase(const char *arg, void *data, unsigned sz)
 {
-/* SWISTART */
-#ifdef SIERRA
-	/* clear error reset count */
-	sierra_smem_err_count_set(0);
-	/* set reset type to BS_BCMSG_RTYPE_SW_UPDATE_IN_LK */
-	sierra_smem_reset_type_set(BS_BCMSG_RTYPE_SW_UPDATE_IN_LK);
-#endif
-/* SWISTOP */
-
 #if VERIFIED_BOOT
 	if (target_build_variant_user())
 	{
@@ -3390,99 +3339,7 @@ void cmd_flash_nand(const char *arg, void *data, unsigned sz)
 	struct ptable *ptable;
 	unsigned extra = 0;
 	uint64_t partition_size = 0;
-/* SWISTART */
-#ifdef SIERRA
-	enum blresultcode ret = BLRESULT_OK;
 
-	if (!strcmp(arg, "sierra")
-		|| !strcmp(arg, "sierra-dual-system"))
-	{
-		if(is_dual_system_supported())
-		{
-			if(!strcmp(arg, "sierra-dual-system"))
-			{
-				write_dual_system = true;
-				second_ubi_images = data + sz;
-			}
-
-			ret = blProcessFastbootImage((unsigned char *)data, sz);
-
-			if(!strcmp(arg, "sierra-dual-system"))
-			{
-				write_dual_system = false;
-				second_ubi_images = NULL;
-			}
-		}
-		else
-		{
-			ret = blProcessFastbootImage((unsigned char *)data, sz);
-		}
-		switch (ret)
-		{
-			case  BLRESULT_OK:
-			break;
-			case BLRESULT_AUTHENTICATION_ERROR:
-			fastboot_fail("SIERRA AUTHENTICATION_ERROR. exit");
-			sierra_check_mibib_state_clear();
-			return;
-			case BLRESULT_FLASH_WRITE_ERROR:
-			fastboot_fail("SIERRA FLASH_WRITE_ERROR. exit");
-			sierra_check_mibib_state_clear();
-			return;
-			case BLRESULT_PRODUCT_TYPE_INVALID:
-			fastboot_fail("SIERRA PRODUCT_TYPE_INVALID. exit");
-			sierra_check_mibib_state_clear();
-			return;
-			case BLRESULT_DECOMPRESSION_ERROR:
-			fastboot_fail("SIERRA DECOMPRESSION_ERROR. exit");
-			sierra_check_mibib_state_clear();
-			return;
-			case BLRESULT_FLASH_READ_ERROR:
-			fastboot_fail("SIERRA FLASH_READ_ERROR. exit");
-			sierra_check_mibib_state_clear();
-			return;
-			case BLRESULT_CRC32_CHECK_ERROR:
-			fastboot_fail("SIERRA CRC32_CHECK_ERROR. exit");
-			sierra_check_mibib_state_clear();
-			return;
-			case BLRESULT_CWE_HEADER_ERROR:
-			fastboot_fail("SIERRA CWE_HEADER_ERROR. exit");
-			sierra_check_mibib_state_clear();
-			return;
-			case BLRESULT_PKG_NOT_COMPATIBLE:
-			fastboot_fail("SIERRA PKG NOT COMPATIBLE. exit");
-			sierra_check_mibib_state_clear();
-			return;
-			default:
-			fastboot_fail("SIERRA IMG FLASH WRITE ERROR. exit");
-			sierra_check_mibib_state_clear();
-			return;
-		}
-
-		if(to_update_mibib)
-		{
-			to_update_mibib = FALSE;
-			dprintf(INFO, "Rebooting the device to finish MIBIB update in SBL.\n");
-			fastboot_info("System reboot to finish MIBIB update.");
-			fastboot_okay("");
-			reboot_device(FASTBOOT_MODE);
-		}
-
-		sierra_check_mibib_state_clear();
-	}
-#ifdef SIERRA_DUAL_SYSTEM_TEST
-	else if(!strcmp(arg, "swi_ds_read")
-			|| !strcmp(arg, "swi_dssd_write")
-			|| !strcmp(arg, "swi_dssd_init")
-			|| !strcmp(arg, "swi_ds_smem_write"))
-	{
-		sierra_ds_test(arg);
-	}
-#endif /* SIERRA_DUAL_SYSTEM_TEST */
-	else
-	{
-#endif
-/* SWISTOP */
 	ptable = flash_get_ptable();
 	if (ptable == NULL) {
 		fastboot_fail("partition table doesn't exist");
@@ -3537,25 +3394,11 @@ void cmd_flash_nand(const char *arg, void *data, unsigned sz)
 		}
 	}
 	dprintf(INFO, "partition '%s' updated\n", ptn->name);
-/* SWISTART */
-#ifdef SIERRA
-	}
-#endif
-/* SWISTOP */
 	fastboot_okay("");
 }
 
 void cmd_flash(const char *arg, void *data, unsigned sz)
 {
-/* SWISTART */
-#ifdef SIERRA
-	/* clear error reset count */
-	sierra_smem_err_count_set(0);
-	/* set reset type to BS_BCMSG_RTYPE_SW_UPDATE_IN_LK */
-	sierra_smem_reset_type_set(BS_BCMSG_RTYPE_SW_UPDATE_IN_LK);
-#endif
-/* SWISTOP */
-
 	if(target_is_emmc_boot())
 		cmd_flash_mmc(arg, data, sz);
 	else
@@ -4177,11 +4020,15 @@ void aboot_init(const struct app_descriptor *app)
 			boot_into_fastboot = true;
 	}
 	#if NO_KEYPAD_DRIVER
-    if (board_hardware_subtype() == SWI_AR_BOARD)
-    {
-	  if (fastboot_trigger())
+/* SWISTART */
+#ifndef SIERRA
+	if (fastboot_trigger())
+#else /* SIERRA */
+	/* only AR board support the hardwary to force into fastboot mode */
+	if ((board_hardware_subtype() == SWI_AR_BOARD) && fastboot_trigger())
+#endif /* SIERRA */
+/* SWISTOP */
 		boot_into_fastboot = true;
-    }
 	#endif
 
 #if USE_PON_REBOOT_REG
@@ -4224,15 +4071,6 @@ void aboot_init(const struct app_descriptor *app)
 	}
 #endif
 #endif
-
-/* SWISTART */
-#ifdef SIERRA
-	if (sierra_if_enter_fastboot())
-	{
-		boot_into_fastboot = true;
-	}
-#endif
-/* SWISTOP */
 
 normal_boot:
 	if (!boot_into_fastboot)
