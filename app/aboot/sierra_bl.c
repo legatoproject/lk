@@ -190,7 +190,7 @@ unsigned int sierra_smem_b2a_flags_get(void)
  ************/
 bool sierra_is_bootquiet_disabled(void)
 {
-  struct bccoworkmsg *msgp;
+  struct bscoworkmsg *msgp;
   unsigned char *virtual_addr;
   bool is_disable = false;
 
@@ -199,13 +199,13 @@ bool sierra_is_bootquiet_disabled(void)
   {
     virtual_addr += BSMEM_COWORK_OFFSET;
 
-    msgp = (struct bccoworkmsg *)virtual_addr;
+    msgp = (struct bscoworkmsg *)virtual_addr;
 
     if (msgp->magic_beg == BS_SMEM_COWORK_MAGIC_BEG &&
         msgp->magic_end == BS_SMEM_COWORK_MAGIC_END &&
         msgp->crc32 == crcrc32((void *)msgp, BS_COWORK_CRC_SIZE, CRSTART_CRC32))
     {
-      is_disable = msgp->bcbootquiet ? true : false;
+      is_disable = msgp->bsbootquiet ? true : false;
     }
   }
   return is_disable;
