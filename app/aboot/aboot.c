@@ -98,6 +98,9 @@
 #include "mach/sierra_smem.h"
 #include "sierra_bludefs.h"
 #include "sierra_dsudefs.h"
+#include <reg.h>
+#include <arch/arm/mmu.h>
+#include <crc32.h>
 #include "sierra_secudefs.h"
 
 /* Sense service pin to decide whether enter fastboot mode */
@@ -4320,6 +4323,45 @@ void aboot_fastboot_register_commands(void)
 #endif
 }
 
+/* SWISTART */
+/* Check the flag set by at!boothold to enter fastboot */
+int sierra_smem_boothold_mode_get(void)
+{
+	struct bc_smem_message_s *a2bmsgp;
+	uint64_t a2bflags_in = 0;
+	unsigned char *virtual_addr;
+
+	virtual_addr = sierra_smem_base_addr_get();
+	if (virtual_addr) {
+		/*  APPL mailbox */
+		virtual_addr += BSMEM_MSG_APPL_MAILBOX_OFFSET;
+	}
+	else {
+		return false;
+	}
+
+	a2bmsgp = (struct bc_smem_message_s *)virtual_addr;
+
+	if (a2bmsgp->magic_beg == BC_SMEM_MSG_MAGIC_BEG &&
+		a2bmsgp->magic_end == BC_SMEM_MSG_MAGIC_END &&
+		(a2bmsgp->version < BC_SMEM_MSG_CRC32_VERSION_MIN ||
+		a2bmsgp->crc32 == crc32(~0, (void *)a2bmsgp, BC_MSG_CRC_SZ))) {
+			a2bflags_in = a2bmsgp->in.flags;
+			dprintf(ALWAYS, "sierra_smem_boothold_mode_get: a2bflags_in=%llu\n",
+				a2bflags_in);
+			if(a2bflags_in & BC_MSG_A2B_BOOT_HOLD)
+				return true;
+			else
+				return false;
+	}
+	else {
+		dprintf(ALWAYS, "bc_smem_message_s error! boothold func fail!\n");
+	}
+
+	return false;
+}
+/* SWISTOP */
+
 void aboot_init(const struct app_descriptor *app)
 {
 	unsigned reboot_mode = 0;
@@ -4458,6 +4500,11 @@ void aboot_init(const struct app_descriptor *app)
 	if (sierra_ds_check_is_recovery_phase1())
 	{
 		dprintf(CRITICAL, "recovery_phase1, go to fastboot mode\n");
+		boot_into_fastboot = true;
+	}
+
+	if (sierra_smem_boothold_mode_get())
+	{
 		boot_into_fastboot = true;
 	}
 
