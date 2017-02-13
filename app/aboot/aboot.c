@@ -4365,6 +4365,11 @@ int sierra_smem_boothold_mode_get(void)
 void aboot_init(const struct app_descriptor *app)
 {
 	unsigned reboot_mode = 0;
+/* SWISTART */
+#ifdef SIERRA
+	unsigned int reset_type;
+#endif /* SIERRA */
+/* SWISTOP */
 
 	/* Initialise wdog to catch early lk crashes */
 #if WDOG_SUPPORT
@@ -4446,11 +4451,30 @@ void aboot_init(const struct app_descriptor *app)
 			boot_into_fastboot = true;
 	}
 	#if NO_KEYPAD_DRIVER
-    if (board_hardware_subtype() == SWI_AR_BOARD)
-    {
-	  if (fastboot_trigger())
+
+/* SWISTART */
+#ifndef SIERRA
+	if (fastboot_trigger())
 		boot_into_fastboot = true;
-    }
+#else /* SIERRA */
+	if (board_hardware_subtype() == SWI_AR_BOARD1 ||
+			board_hardware_subtype() == SWI_AR_BOARD2 ||
+			board_hardware_subtype() == SWI_AR_BOARD3 ||
+			board_hardware_subtype() == SWI_AR_BOARD4)
+	{
+		reset_type = sierra_smem_reset_type_get();
+		dprintf(CRITICAL, "Reset type=%d\n", reset_type);
+
+		if (fastboot_trigger() &&
+				((sierra_smem_bcfuntions_get() & BSFUNCTIONS_SERVICEPINDISABLE) == 0) &&
+				(reset_type == BS_BCMSG_RTYPE_POWER_CYCLE || reset_type == BS_BCMSG_RTYPE_HARDWARE))
+		{
+			boot_into_fastboot = true;
+		}
+	}
+#endif /* SIERRA */
+/* SWISTOP */
+
 	#endif
 
 #if USE_PON_REBOOT_REG

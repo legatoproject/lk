@@ -38,7 +38,11 @@
 
 /* SWISTART */
 #ifdef SIERRA
-#define SWI_AR_BOARD 0x80
+#define SWI_AR_BOARD1 0x80 /*Codec, no MFT*/
+#define SWI_AR_BOARD2 0x82 /*No Codec, no MFT*/
+#define SWI_AR_BOARD3 0x90 /*Codec, MFT*/
+#define SWI_AR_BOARD4 0x92 /*No Codec, MFT*/
+
 #define SWI_WP_BOARD 0x81
 #endif
 /* SWISTOP */
