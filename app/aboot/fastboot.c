@@ -68,11 +68,21 @@ static void fastboot_notify(struct udc_gadget *gadget, unsigned event);
 static struct udc_endpoint *fastboot_endpoints[2];
 
 static struct udc_device surf_udc_device = {
+/* SWISTART */
+#ifdef SIERRA
+	.vendor_id = 0x1199,
+	.product_id = 0x9112,
+	.version_id = 0x0100, 
+	.manufacturer = "Sierra Wireless, Incorporated", 
+	.product = "AR758x", 
+#else
 	.vendor_id    = 0x18d1,
 	.product_id   = 0xD00D,
 	.version_id   = 0x0100,
 	.manufacturer = "Google",
 	.product      = "Android",
+#endif
+/* SWISTOP */
 };
 
 static struct udc_gadget fastboot_gadget = {
