@@ -2905,4 +2905,83 @@ bool is_dual_system_supported(void)
     }
 }
 
+/************
+ *
+ * Name:     sierra_smem_reset_type_get
+ *
+ * Purpose:  get reset type from SMEM
+ *
+ * Parms:    none
+ *
+ * Return:   reset type enum
+ *
+ * Abort:    none
+ *
+ * Notes:    none
+ *
+ ************/
+unsigned int sierra_smem_reset_type_get(void)
+{
+  struct bc_smem_message_s *b2amsgp;
+  unsigned char *virtual_addr;
+  unsigned int reset_type = 0;
 
+  virtual_addr = sierra_smem_base_addr_get();
+  if (virtual_addr)
+  {
+    /*  APPL mailbox */
+    virtual_addr += BSMEM_MSG_APPL_MAILBOX_OFFSET;
+
+    b2amsgp = (struct bc_smem_message_s *)virtual_addr;
+
+    if (b2amsgp->magic_beg == BC_SMEM_MSG_MAGIC_BEG &&
+        b2amsgp->magic_end == BC_SMEM_MSG_MAGIC_END &&
+        (b2amsgp->version < BC_SMEM_MSG_CRC32_VERSION_MIN ||
+         b2amsgp->crc32 == crc32(~0, (void *)b2amsgp, BC_MSG_CRC_SZ)))
+    {
+      reset_type = b2amsgp->in.reset_type;
+    }
+  }
+
+  return reset_type;
+}
+
+/************
+ *
+ * Name:     sierra_smem_bcfuntions_get
+ *
+ * Purpose:  get bcfunctions from SMEM
+ *
+ * Parms:    none
+ *
+ * Return:   bcfunction
+ *
+ * Abort:    none
+ *
+ * Notes:    none
+ *
+ ************/
+unsigned int sierra_smem_bcfuntions_get(void)
+{
+  struct bccoworkmsg *mp;
+  unsigned char *virtual_addr;
+  unsigned int bitmask = 0;
+
+  virtual_addr = sierra_smem_base_addr_get();
+  if (virtual_addr)
+  {
+    virtual_addr += BSMEM_COWORK_OFFSET;
+    mp = (struct bccoworkmsg *)virtual_addr;
+
+    if (mp->magic_beg == BS_SMEM_COWORK_MAGIC_BEG &&
+        mp->magic_end == BS_SMEM_COWORK_MAGIC_END &&
+        mp->crc32 == crc32(~0, (void *)mp, BS_COWORK_CRC_SIZE))
+    {
+      bitmask = mp->bcfunctions;
+    }
+  }
+
+  dprintf(CRITICAL, "sierra_smem_bcfuntions_get: bcfunctions=0x%x\n", bitmask);
+
+  return bitmask;
+}

@@ -132,6 +132,30 @@ typedef enum {
 /* protocol header sizes */
 #define BLHEADERSZ        4     /* header is 4 bytes long (length x 2, cmd ID & code) */
 
+/*
+  Reset type defination start
+  Please note that the values between BS_BCMSG_RTYPE_MIN and BS_BCMSG_RTYPE_MAX must be successive,
+  and sync up the new definations to bsudefs.h/sierra_smem.h/atbc.c together.
+*/
+#define BS_BCMSG_RTYPE_INVALID                 ((uint32_t)(-1))
+#define BS_BCMSG_RTYPE_MIN                     ((uint32_t)(1))
+#define BS_BCMSG_RTYPE_POWER_CYCLE             BS_BCMSG_RTYPE_MIN        /* Normal power up, power cycle */
+#define BS_BCMSG_RTYPE_MP_SOFTWARE             ((uint32_t)(2))           /* Software reset in MPSS*/
+#define BS_BCMSG_RTYPE_LINUX_SOFTWARE          ((uint32_t)(3))           /* Software reset in Linux */
+#define BS_BCMSG_RTYPE_HARDWARE                ((uint32_t)(4))           /* Hardware reset */
+#define BS_BCMSG_RTYPE_MP_CRASH                ((uint32_t)(5))           /* MPSS crash */
+#define BS_BCMSG_RTYPE_LINUX_CRASH             ((uint32_t)(6))           /* Linux crash */
+#define BS_BCMSG_RTYPE_SW_UPDATE_IN_SBL        ((uint32_t)(7))           /* SW update in SBL */
+#define BS_BCMSG_RTYPE_SW_UPDATE_IN_LK         ((uint32_t)(8))           /* SW update in LK */
+#define BS_BCMSG_RTYPE_SW_UPDATE_IN_LINUX      ((uint32_t)(9))           /* SW update in Linux */
+#define BS_BCMSG_RTYPE_UNKNOWN                 ((uint32_t)(10))          /* Unknown reset */
+#define BS_BCMSG_RTYPE_MAX                     BS_BCMSG_RTYPE_UNKNOWN
+
+#define BS_BCMSG_RTYPE_IS_SET                  ((uint32_t)(0x00534554))  /* SET */
+#define BS_BCMSG_RTYPE_IS_CLEAR                ((uint32_t)(0x00434C52))  /* CLR */
+/*
+  Reset type defination end
+*/
 
 /************
  *
@@ -314,5 +338,7 @@ void sierra_check_mibib_state_clear(void);
 enum blresultcode blredundancy_sbl_program(
   uint8 * bufp,
   unsigned int write_size);
+
+extern unsigned int sierra_smem_reset_type_get(void);
 
 #endif /* bludefs_h */
