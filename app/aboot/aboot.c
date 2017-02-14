@@ -98,6 +98,7 @@
 #include "mach/sierra_smem.h"
 #include "sierra_bludefs.h"
 #include "sierra_dsudefs.h"
+#include "sierra_lkversion.h"
 #include <reg.h>
 #include <arch/arm/mmu.h>
 #include <crc32.h>
@@ -237,6 +238,7 @@ static uint32_t dt_size = 0;
 
 /* SWISTART */
 #ifdef SIERRA
+static const char *lkversion        = " lkversion=" LKVERSION;
 static uint64 bad_image_mask = DS_IMAGE_FLAG_NOT_SET;
 static bool boot_into_fastboot_swi = false;
 #endif /* SIERRA */
@@ -431,6 +433,11 @@ unsigned char *update_cmdline(const char * cmdline)
 		have_target_boot_params = 1;
 		cmdline_len += strlen(target_boot_params);
 	}
+/* SWISTART */
+#ifdef SIERRA
+	cmdline_len += strlen(lkversion);
+#endif /* SIERRA */
+/* SWISTOP */
 
 	/* Determine correct androidboot.baseband to use */
 	switch(target_baseband())
@@ -522,6 +529,17 @@ unsigned char *update_cmdline(const char * cmdline)
 			src = cmdline;
 			while ((*dst++ = *src++));
 		}
+/* SWISTART */
+#ifdef SIERRA
+	{
+		int l = strlen(lkversion);
+		src = lkversion;
+		if (have_cmdline) --dst;
+		while ((*dst++ = *src++) && l--);
+	}
+#endif /* SIERRA */
+/* SWISTOP */
+
 		if (target_is_emmc_boot()) {
 			src = emmc_cmdline;
 			if (have_cmdline) --dst;
