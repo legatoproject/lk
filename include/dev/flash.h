@@ -84,8 +84,7 @@ int flash_write_sierra_tz_rpm(struct ptentry *ptn,
 int flash_write_sierra_file_img(struct ptentry *ptn,
 			unsigned write_extra_bytes,
 			const void *data,
-			unsigned bytes,
-			go_cwe_file_func_type gocwe);
+			unsigned bytes);
 /* SWISTOP */
 
 static inline int flash_read(struct ptentry *ptn, unsigned offset, void *data,

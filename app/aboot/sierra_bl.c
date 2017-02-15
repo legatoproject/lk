@@ -1460,25 +1460,23 @@ _local uint8 *blSearchCWEImage(
  * Notes:    none
  *
  ************/
-unsigned int blGoCweFile(unsigned char *buf, unsigned int len)
+_global boolean blGoCweFile(unsigned char *buf, unsigned int len)
 {
-  unsigned int ret;
   if((len < CWE_HEADER_SZ) || (!cwe_header_load(buf, &temphdr)))
   {
-    return 0;
+    return FALSE;
   }
 
   if (TRUE != cwe_image_validate(&temphdr, 
                                                           buf + sizeof(struct cwe_header_s), 
-                                                          CWE_IMAGE_TYPE_ANY, 
+                                                          CWE_IMAGE_TYPE_FILE, 
                                                           0, 
                                                           FALSE))
   {
-    return 0;
+    return FALSE;
   }
 
-  ret = temphdr.image_sz + CWE_HEADER_SZ;
-  return ret;
+  return TRUE;
 }
 
 /************
@@ -1542,7 +1540,7 @@ _local enum blresultcode blProgramFileImgToFlash(
   if (write_size > 0)
   {
     dprintf(CRITICAL, "writing size:%d\n", write_size);
-    if (flash_write_sierra_file_img(ptn, extra, (const void *)bufp, (unsigned)write_size, blGoCweFile)) {
+    if (flash_write_sierra_file_img(ptn, extra, (const void *)bufp, (unsigned)write_size)) {
       dprintf(CRITICAL, "flash write failure\n");
       return BLRESULT_FLASH_WRITE_ERROR;
     }

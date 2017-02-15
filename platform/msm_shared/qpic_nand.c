@@ -1912,6 +1912,155 @@ int qpic_nand_read_page_sierra(uint32_t page, unsigned char* buffer)
 	unsigned char *spare = flash_spare_bytes;
 	return qpic_nand_read_page(page, buffer, spare);
 }
+
+boolean page_is_erased_sierra(void)
+{
+	uint32_t erase_sts, erase_flag;
+
+	/*Refer to Qualcomm case 02764100 and 02803468*/
+	erase_flag = NAND_ERASED_CW | BIT(NAND_ERASED_CW_DETECT_STATUS_PAGE_ALL_ERASED);
+	erase_sts = qpic_nand_read_reg(NAND_ERASED_CW_DETECT_STATUS, 0);
+
+	if ((erase_sts & erase_flag) == erase_flag)
+	{
+		return TRUE;
+	}
+	else
+	{
+		return FALSE;
+	}
+}
+
+boolean block_is_erased_sierra(
+	uint32 block_no)
+{
+	uint32 page_no, start_page;
+	start_page = block_no * flash.num_pages_per_blk;
+	for(page_no = 0; page_no < flash.num_pages_per_blk; page_no++)
+	{
+		memset(rdwr_buf, 0, flash.page_size);
+		if(0 != qpic_nand_read_page_sierra(start_page + page_no, rdwr_buf))
+		{
+			/* Page read failed */
+			dprintf(CRITICAL, "block_is_erased_sierra(): page read fail on page %d\n", start_page + page_no);
+			return FALSE;
+		}
+
+		if (page_is_erased_sierra() != TRUE)
+		{
+			return FALSE;
+		}
+	}
+
+	dprintf(CRITICAL, "block_no %d is_erased\n", block_no);
+	return TRUE;
+}
+
+boolean file_img_search_sierra(unsigned int startblock,
+	unsigned int endblock,
+	unsigned int *cweblockno)
+{
+	uint32 block_no, page_no;
+	boolean retval = FALSE;
+
+	for (block_no = startblock; block_no <= endblock; block_no++)
+	{
+		/* Check if the block is bad block */
+		page_no = block_no * flash.num_pages_per_blk;
+		if(qpic_nand_block_isbad(page_no))
+		{
+			dprintf(CRITICAL, "file_img_search_sierra(): found bad block %d\n", block_no);
+			continue;
+		}
+
+		/* Read the first page of the block */
+		memset(rdwr_buf, 0, flash.page_size);
+		if(0 != qpic_nand_read_page_sierra(page_no, rdwr_buf))
+		{
+			/* Page read failed */
+			dprintf(CRITICAL, "file_img_search_sierra(): page read fail on page %d\n", page_no);
+			continue;
+		}
+
+		/* If the page is erased, it cannot be a valid CWE header */
+		if (page_is_erased_sierra())
+		{
+			continue;
+		}
+
+		/* Validate image */
+		if (blGoCweFile(rdwr_buf,flash.page_size) != TRUE)
+		{
+			dprintf(CRITICAL, "file_img_search_sierra(): image validate fail\n");
+			continue;
+		}
+
+		/* got it, return */
+		dprintf(CRITICAL, "found CWE header at block %d\n", block_no);
+		*cweblockno = block_no;
+		retval = TRUE;
+		break;
+	}
+
+	return retval;
+}
+
+boolean free_space_find_sierra(unsigned int startblock,
+	unsigned int endblock,
+	unsigned int pages_to_write,
+	unsigned int *newblockno)
+{
+	uint32 block_no, blocksneeded, freeblocks, freeblockstart;
+	uint32 page_no;
+	boolean retval = FALSE;
+
+	blocksneeded = (pages_to_write + flash.num_pages_per_blk - 1) / flash.num_pages_per_blk;
+
+	freeblocks = 0;
+	freeblockstart = 0;
+
+	for (block_no = startblock; block_no <= endblock; block_no++)
+	{
+		/* Check if the block is bad block */
+		page_no = block_no * flash.num_pages_per_blk;
+		if (qpic_nand_block_isbad(page_no))
+		{
+			dprintf(CRITICAL, "free_space_find_sierra(): found bad block %d\n", block_no);
+			continue;
+		}
+
+		if (block_is_erased_sierra(block_no))
+		{
+			dprintf(CRITICAL, "erased block %d\n", block_no);
+			if (freeblocks++ == 0)
+			{
+				freeblockstart = block_no;
+			}
+			if (freeblocks == blocksneeded)
+			{
+				break;
+			}
+			continue;
+		}
+
+		/* block is not free */
+		freeblocks = 0;
+	}/* end for ... */
+
+	if (freeblocks == blocksneeded)
+	{
+		dprintf(CRITICAL, "found free block, from %d, no %d\n", freeblockstart, freeblocks);
+		*newblockno = freeblockstart;
+		retval =  TRUE;
+	}
+	else
+	{
+		dprintf(CRITICAL, "didn't find %d free blocks", blocksneeded);
+		retval = FALSE;
+	}
+
+	return retval;
+}
 #endif
 /* SWISTOP */
 
@@ -2551,8 +2700,7 @@ flash_write_sierra_tz_rpm(struct ptentry *ptn,
 int flash_write_sierra_file_img(struct ptentry *ptn,
 			unsigned write_extra_bytes,
 			const void *data,
-			unsigned bytes,
-			go_cwe_file_func_type gocwe)
+			unsigned bytes)
 {
 	uint32_t page = 0;
 	uint32_t lastpage = 0;
@@ -2561,9 +2709,10 @@ int flash_write_sierra_file_img(struct ptentry *ptn,
 	uint32_t wsize;
 	uint32_t spare_byte_count = 0;
 	int r;
-	uint32_t i = 0, ttl_page;
-	unsigned int go_len, free_page_count = 0, go_page, pages_to_write;
+	unsigned int free_page_count = 0, pages_to_write;
 	uint32 start_block, end_block;
+	uint32 cwe_block_no, start_block_no, end_block_no, new_block_no, start_search_block_no;
+	uint32 startpage, freepageno, index;
 
 	if (FALSE == swipart_get_logical_partition_from_backup(flash.block_size,  
 															LOGICAL_PARTITION_DEDB,
@@ -2574,77 +2723,99 @@ int flash_write_sierra_file_img(struct ptentry *ptn,
 		return -1;
 	}
 
+	start_block_no = start_block + ptn->start;
+	end_block_no = end_block + ptn->start;
 	page = (start_block + ptn->start) * flash.num_pages_per_blk;
 	lastpage = (end_block + ptn->start) * flash.num_pages_per_blk;
 	dprintf(CRITICAL, "flash_write_sierra_file_img(), page:%u, lastpage:%u\n", page, lastpage);
 
-	ttl_page = lastpage - page;
-	pages_to_write = ((bytes/flash.page_size) +1);
-	/* find a space first */
-	while (i < ttl_page)
-	{
-		if (0 == flash_read(ptn, i * flash.page_size, rdwr_buf, flash.page_size))
-		{
-			go_len = gocwe(rdwr_buf, flash.page_size);
-		}
-		else
-		{
-			/* failed to read this page, so go  */
-			dprintf(CRITICAL, "read failed\n");
-			
-			/* go to next block */
-			i++;
-			/* refer to mdm9x15, we store each NVUP file start from a block, it will be more stable */
-			/* go to a new block */
-			if ((i%flash.num_pages_per_blk) != 0)
-			{
-				i = ((i/flash.num_pages_per_blk) + 1) * flash.num_pages_per_blk;
-			}
-			free_page_count = 0;
-			continue;
-		} 
+	pages_to_write = (bytes + flash.page_size - 1)/flash.page_size;
+	start_search_block_no = start_block_no;
+	cwe_block_no = start_block_no;
+	new_block_no = start_block_no;
 
-		if (go_len == 0)
+	freepageno = 0;
+
+	if (pages_to_write < flash.num_pages_per_blk)
+	{
+		/* Search for existing FILE free pages */
+		while (file_img_search_sierra(start_search_block_no, end_block_no, &cwe_block_no))
 		{
-			/* This page is free, so we got one page space */
-			i++;
-			free_page_count++;
-			if (free_page_count >= pages_to_write)
+			/* check if cwe_block_no has enough free (erased) pages */
+			startpage = cwe_block_no * flash.num_pages_per_blk;
+			freepageno = 0;
+			free_page_count = 0;
+
+			/* skip first page since it is already filled an existing FILE CWE */
+			for (index = 1; index < flash.num_pages_per_blk; index++)
 			{
-				/* got enouth space, break, we can write image to page[i - free_page_count] */
+				memset(rdwr_buf, 0, flash.page_size);
+				if (0 != qpic_nand_read_page_sierra(startpage + index, rdwr_buf))
+				{
+					/* Page read failed */
+					dprintf(CRITICAL, "flash_write_sierra_file_img(): page read fail on page %d\n", startpage + index);
+					freepageno = 0;
+					break;
+				}
+
+				if (page_is_erased_sierra())
+				{
+					if (freepageno == 0)
+					{
+						if (flash.num_pages_per_blk - index < pages_to_write)
+						{
+							/* not possible, break */
+							dprintf(CRITICAL, "not possible, break\n");
+							break;
+						}
+						freepageno = index;
+					}
+
+					if (++free_page_count >= pages_to_write)
+					{
+						/* found enough free pages */
+						dprintf(CRITICAL, "Found free pages at %d for image size %d\n",
+							freepageno, bytes);
+						break;
+					}
+				}
+				else if (freepageno > 0)
+				{
+					dprintf(CRITICAL, "unexpected used page at %d\n", startpage + index);
+					freepageno = 0;
+					break;
+				}
+			} /* end for */
+
+			if (freepageno > 0)
+			{
+				/* found, exit while loop */
 				break;
 			}
-		} 
-		else
-		{
-			/* Those page was used. Go */
-			go_page = go_len/flash.page_size;
-			if ((go_page * flash.page_size) < go_len)
-			{
-				go_page++;
-			}
-			i += go_page;
-			
-			/* refer to mdm9x15, we store each NVUP file start from a block, it will be more stable */
-			/* go to a new block */
-			if ((i%flash.num_pages_per_blk) != 0)
-			{
-				i = ((i/flash.num_pages_per_blk) + 1) * flash.num_pages_per_blk;
-			}
-			free_page_count = 0;
-				
+
+			/* Update start_block_no to be the next unsearched block */
+			start_search_block_no = cwe_block_no + 1;
 		}
 	}
 
-	if (free_page_count >= pages_to_write)
+	if (freepageno > 0)
 	{
-		page += (i - free_page_count);
+		/* write to free pages in existing block */
+		page = cwe_block_no * flash.num_pages_per_blk + freepageno;
 	}
 	else
 	{
-		dprintf(CRITICAL, "flash_write_sierra_file_img(), we don't have enouth pages to write image\n");
-		return  -1;
+		/* find free space and add a new FILE blcok */
+		if (free_space_find_sierra(start_block_no, end_block_no,
+			pages_to_write, &new_block_no) != TRUE)
+		{
+			dprintf(CRITICAL, "Cannot write image, data too large: pagestowrite %d", pages_to_write);
+			return -1;
+		}
+		page = new_block_no * flash.num_pages_per_blk;
 	}
+
+	dprintf(CRITICAL, "page %d\n",page);
 
 	spare_byte_count = ((flash.cw_size * flash.cws_per_page)- flash.page_size);
 	if(write_extra_bytes)
