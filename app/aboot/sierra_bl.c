@@ -2953,7 +2953,7 @@ unsigned int sierra_smem_reset_type_get(void)
  *
  * Parms:    none
  *
- * Return:   bcfunction
+ * Return:   bsfunction
  *
  * Abort:    none
  *
@@ -2962,7 +2962,7 @@ unsigned int sierra_smem_reset_type_get(void)
  ************/
 unsigned int sierra_smem_bcfuntions_get(void)
 {
-  struct bccoworkmsg *mp;
+  struct bscoworkmsg *mp;
   unsigned char *virtual_addr;
   unsigned int bitmask = 0;
 
@@ -2970,13 +2970,13 @@ unsigned int sierra_smem_bcfuntions_get(void)
   if (virtual_addr)
   {
     virtual_addr += BSMEM_COWORK_OFFSET;
-    mp = (struct bccoworkmsg *)virtual_addr;
+    mp = (struct bscoworkmsg *)virtual_addr;
 
     if (mp->magic_beg == BS_SMEM_COWORK_MAGIC_BEG &&
         mp->magic_end == BS_SMEM_COWORK_MAGIC_END &&
         mp->crc32 == crc32(~0, (void *)mp, BS_COWORK_CRC_SIZE))
     {
-      bitmask = mp->bcfunctions;
+      bitmask = mp->bsfunctions;
     }
   }
 
