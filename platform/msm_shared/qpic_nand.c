@@ -75,8 +75,8 @@ static struct flash_id supported_flash[] = {
 #ifndef SIERRA
 	{0x1590AA2C, 0x06,     0xFFFFFFFF, 0x0,      0x10000000,    0,  2048,   0x00020000,        0xE0,   0},
 #else /* SIERRA */
-	/* Micron MT29F2G08ABBGA3W, should be oob 64 byte, 8 bit ECC */
-	{0x1590AA2C, 0x06,     0xFFFFFFFF, 0x0,      0x10000000,    0,  2048,   0x00020000,        0x40,   1},
+	/* Micron MT29F2G08ABBGA3W, should be oob 80 byte, 8 bit ECC */
+	{0x1590AA2C, 0x06,     0xFFFFFFFF, 0x0,      0x10000000,    0,  2048,   0x00020000,        0x50,   1},
 #endif /* SIERRA */
 /* SWISTOP */
 	{0x2690AC2C, 0x54,     0xFFFFFFFF, 0x0,      0x20000000,    0,  4096,   0x00040000,        0xE0,   1},
