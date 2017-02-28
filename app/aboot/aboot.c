@@ -166,6 +166,8 @@ static const char *lkquiet          = " quiet";
 
 static unsigned page_size = 0;
 static unsigned page_mask = 0;
+static unsigned mmc_blocksize = 0;
+static unsigned mmc_blocksize_mask = 0;
 static char ffbm_mode_string[FFBM_MODE_BUF_SIZE];
 static bool boot_into_ffbm;
 static char target_boot_params[64];
@@ -733,7 +735,7 @@ void boot_linux(void *kernel, unsigned *tags,
  * start: Start of the memory region
  * size: Size of the memory region
  */
-int check_aboot_addr_range_overlap(uint32_t start, uint32_t size)
+int check_aboot_addr_range_overlap(uintptr_t start, uint32_t size)
 {
 	/* Check for boundary conditions. */
 	if ((UINT_MAX - start) < size)
@@ -1058,7 +1060,7 @@ int boot_linux_from_mmc(void)
 		dprintf(INFO, "Loading boot image (%d): start\n", imagesize_actual);
 		bs_set_timestamp(BS_KERNEL_LOAD_START);
 
-		if (check_aboot_addr_range_overlap((uint32_t)image_addr, imagesize_actual))
+		if (check_aboot_addr_range_overlap((uintptr_t)image_addr, imagesize_actual))
 		{
 			dprintf(CRITICAL, "Boot image buffer address overlaps with aboot addresses.\n");
 			return -1;
@@ -1076,7 +1078,7 @@ int boot_linux_from_mmc(void)
 
 		offset = imagesize_actual;
 
-		if (check_aboot_addr_range_overlap((uint32_t)image_addr + offset, page_size))
+		if (check_aboot_addr_range_overlap((uintptr_t)image_addr + offset, page_size))
 		{
 			dprintf(CRITICAL, "Signature read buffer address overlaps with aboot addresses.\n");
 			return -1;
@@ -1154,7 +1156,7 @@ int boot_linux_from_mmc(void)
 		imagesize_actual = (page_size + kernel_actual + ramdisk_actual);
 
 #endif
-		if (check_aboot_addr_range_overlap((uint32_t) image_addr, imagesize_actual))
+		if (check_aboot_addr_range_overlap((uintptr_t) image_addr, imagesize_actual))
 		{
 			dprintf(CRITICAL, "Boot image buffer address overlaps with aboot addresses.\n");
 			return -1;
@@ -2380,7 +2382,7 @@ void cmd_flash_mmc_img(const char *arg, void *data, unsigned sz)
 			}
 
 			size = partition_get_size(index);
-			if (ROUND_TO_PAGE(sz,511) > size) {
+			if (ROUND_TO_PAGE(sz, mmc_blocksize_mask) > size) {
 				fastboot_fail("size too large");
 				return;
 			}
@@ -3421,6 +3423,8 @@ void aboot_init(const struct app_descriptor *app)
 	{
 		page_size = mmc_page_size();
 		page_mask = page_size - 1;
+		mmc_blocksize = mmc_get_device_blocksize();
+		mmc_blocksize_mask = mmc_blocksize - 1;
 	}
 	else
 	{
