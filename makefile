@@ -18,6 +18,8 @@ do-nothing := 1
 $(MAKECMDGOALS) _all: make-make
 make-make:
 	@PROJECT=$(project-name) $(MAKE) $(filter-out $(project-name), $(MAKECMDGOALS))
+	@PROJECT=$(project-name) $(MAKE) clean
+	@PROJECT=$(project-name) $(MAKE) $(filter-out $(project-name), $(MAKECMDGOALS)) ROOTFS_RW=true
 endif
 endif
 
@@ -42,6 +44,13 @@ OUTELF_STRIP := $(BUILDDIR)/lk_s.elf
 CONFIGHEADER := $(BUILDDIR)/config.h
 
 # SWISTART
+ifeq ($(ROOTFS_RW),true)
+OUTBIN := $(BUILDDIR)/lk_rw.bin
+OUTELF := $(BUILDDIR)/lk_rw
+OUTELF_STRIP := $(BUILDDIR)/lk_s_rw.elf
+CONFIGHEADER := $(BUILDDIR)/config_rw.h
+endif
+
 SWISSDPLIB := lib/libswi/libswissdp.a
 LIBS := $(SWISSDPLIB)
 SECBOOTLIB := lib/libswi/libsecboot.a
@@ -75,6 +84,9 @@ endif
 CFLAGS += -DSIERRA
 CFLAGS += -DSSDP_OVER_SPI
 CFLAGS += -DENABLE_HASH_CHECK
+ifeq ($(ROOTFS_RW),true)
+CFLAGS += -DFUDGE_ROOTFS
+endif
 # SWISTOP
 
 # setup toolchain prefix

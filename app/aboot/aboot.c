@@ -178,6 +178,9 @@ static const char *baseband_sglte2  = " androidboot.baseband=sglte2";
 static const char *warmboot_cmdline = " qpnp-power-on.warm_boot=1";
 #ifdef SIERRA
 static const char *lkquiet          = " quiet";
+#ifdef FUDGE_ROOTFS
+static const char *rootfs_rw        = " fudge_ro_rootfs=true";
+#endif /* FUDGE_ROOTFS */
 #endif /* SIERRA */
 
 static unsigned page_size = 0;
@@ -409,6 +412,9 @@ unsigned char *update_cmdline(const char * cmdline)
          {
 	     cmdline_len += strlen(lkquiet);
 	 }
+#ifdef FUDGE_ROOTFS
+	 cmdline_len += strlen(rootfs_rw);
+#endif
 #endif
 
 	 if (cmdline_len > 0) {
@@ -510,6 +516,14 @@ unsigned char *update_cmdline(const char * cmdline)
 		    }
 		    while ((*dst++ = *src++) != '\0');
                 }
+#ifdef FUDGE_ROOTFS
+		src = rootfs_rw;
+		if (NULL != have_cmdline)
+		{
+		    --dst;
+		}
+		while ((*dst++ = *src++) != '\0');
+#endif
 #endif
 
 		switch(target_baseband())
