@@ -2196,58 +2196,208 @@ enum blresultcode blProgramApplImage(struct cwe_header_s *hdr, uint8 *startbufp)
     }
   }
 
-  /* program Linux CUS0(CUSTOMER0) image */
-  bufp = blSearchCWEImage(CWE_IMAGE_TYPE_CUS0, startbufp, hdr->image_sz);
-  if (bufp != NULL)
+  /*program customer image*/
+  switch(update_which_system)
   {
-    blsetcustompartition(BL_CUSTOMER0_PARTI_NAME);
-    result = blProgramImage(bufp, FLASH_PROG_USAPP_IMG, temphdr.image_sz);
-    if (result != BLRESULT_OK)
-    {
-      bl_dsflag_s.bad_image |= (DS_IMAGE_CUSTOMERAPP_1);
-      dprintf(CRITICAL, "blProgramApplImage CWE_IMAGE_TYPE_CUS0 to customer0 failed, ret:%d\n", result);
-      return result;
-    }
-    else
-    {
-      bl_dsflag_s.bad_image &= (~DS_IMAGE_CUSTOMERAPP_1);
-    }
-  }
+    case BL_UPDATE_DUAL_SYSTEM:
+      /* program Linux image */
+      bufp = blSearchCWEImage(CWE_IMAGE_TYPE_CUS0, startbufp, hdr->image_sz);
+      if (bufp != NULL)
+      {
+        /* program Linux CUS0(CUSTOMER0) image */
+        blsetcustompartition(BL_CUSTOMER0_PARTI_NAME);
+        result = blProgramImage(bufp, FLASH_PROG_USAPP_IMG, temphdr.image_sz);
+        if (result != BLRESULT_OK)
+        {
+          bl_dsflag_s.bad_image |= (DS_IMAGE_CUSTOMERAPP_1);
+          dprintf(CRITICAL, "blProgramApplImage sierra-dual-system CWE_IMAGE_TYPE_CUS0 to customer0 failed, ret:%d\n", result);
+          return result;
+        }
+        else
+        {
+          bl_dsflag_s.bad_image &= (~DS_IMAGE_CUSTOMERAPP_1);
+        }
+        /* program Linux CUS0(CUSTOMER1) image */
+        blsetcustompartition(BL_CUSTOMER1_PARTI_NAME);
+        result = blProgramImage(bufp, FLASH_PROG_USAPP_IMG, temphdr.image_sz);
+        if (result != BLRESULT_OK)
+        {
+          bl_dsflag_s.bad_image |= (DS_IMAGE_CUSTOMERAPP_2);
+          dprintf(CRITICAL, "blProgramApplImage sierra-dual-system CWE_IMAGE_TYPE_CUS0 to customer1 failed, ret:%d\n", result);
+          return result;
+        }
+        else
+        {
+          bl_dsflag_s.bad_image &= (~DS_IMAGE_CUSTOMERAPP_2);
+        }
+      }
 
-  /* program Linux CUS0(CUSTOMER1) image */
-  bufp = blSearchCWEImage(CWE_IMAGE_TYPE_CUS1, startbufp, hdr->image_sz);
-  if (bufp != NULL)
-  {
-    blsetcustompartition(BL_CUSTOMER1_PARTI_NAME);
-    result = blProgramImage(bufp, FLASH_PROG_USAPP_IMG, temphdr.image_sz);
-    if (result != BLRESULT_OK)
-    {
-      bl_dsflag_s.bad_image |= (DS_IMAGE_CUSTOMERAPP_2);
-      dprintf(CRITICAL, "blProgramApplImage CWE_IMAGE_TYPE_CUS1 to customer1 failed, ret:%d\n", result);
-      return result;
-    }
-    else
-    {
-      bl_dsflag_s.bad_image &= (~DS_IMAGE_CUSTOMERAPP_2);
-    }
-  }
+      /* program Linux image */
+      bufp = blSearchCWEImage(CWE_IMAGE_TYPE_CUS1, startbufp, hdr->image_sz);
+      if (bufp != NULL)
+      {
+        /* program Linux CUS1(CUSTOMER0) image */
+        blsetcustompartition(BL_CUSTOMER0_PARTI_NAME);
+        result = blProgramImage(bufp, FLASH_PROG_USAPP_IMG, temphdr.image_sz);
+        if (result != BLRESULT_OK)
+        {
+          bl_dsflag_s.bad_image |= (DS_IMAGE_CUSTOMERAPP_1);
+          dprintf(CRITICAL, "blProgramApplImage sierra-dual-system CWE_IMAGE_TYPE_CUS1 to customer0 failed, ret:%d\n", result);
+          return result;
+        }
+        else
+        {
+          bl_dsflag_s.bad_image &= (~DS_IMAGE_CUSTOMERAPP_1);
+        }
+        /* program Linux CUS1(CUSTOMER1) image */
+        blsetcustompartition(BL_CUSTOMER1_PARTI_NAME);
+        result = blProgramImage(bufp, FLASH_PROG_USAPP_IMG, temphdr.image_sz);
+        if (result != BLRESULT_OK)
+        {
+          bl_dsflag_s.bad_image |= (DS_IMAGE_CUSTOMERAPP_2);
+          dprintf(CRITICAL, "blProgramApplImage sierra-dual-system CWE_IMAGE_TYPE_CUS1 to customer1 failed, ret:%d\n", result);
+          return result;
+        }
+        else
+        {
+          bl_dsflag_s.bad_image &= (~DS_IMAGE_CUSTOMERAPP_2);
+        }
+      }
 
-  /* program Linux CUS0(CUSTOMER2) image */
-  bufp = blSearchCWEImage(CWE_IMAGE_TYPE_CUS2, startbufp, hdr->image_sz);
-  if (bufp != NULL)
-  {
-    blsetcustompartition(BL_CUSTOMER2_PARTI_NAME);
-    result = blProgramImage(bufp, FLASH_PROG_USAPP_IMG, temphdr.image_sz);
-    if (result != BLRESULT_OK)
-    {
-      bl_dsflag_s.bad_image |= (DS_IMAGE_CUSTOMERAPP_3);
-      dprintf(CRITICAL, "blProgramApplImage CWE_IMAGE_TYPE_CUS2 to customer2 failed, ret:%d\n", result);
-      return result;
-    }
-    else
-    {
-      bl_dsflag_s.bad_image &= (~DS_IMAGE_CUSTOMERAPP_3);
-    }
+      /* program Linux CUS2(CUSTOMER2) image */
+      bufp = blSearchCWEImage(CWE_IMAGE_TYPE_CUS2, startbufp, hdr->image_sz);
+      if (bufp != NULL)
+      {
+        blsetcustompartition(BL_CUSTOMER2_PARTI_NAME);
+        result = blProgramImage(bufp, FLASH_PROG_USAPP_IMG, temphdr.image_sz);
+        if (result != BLRESULT_OK)
+        {
+          bl_dsflag_s.bad_image |= (DS_IMAGE_CUSTOMERAPP_3);
+          dprintf(CRITICAL, "blProgramApplImage sierra-dual-system CWE_IMAGE_TYPE_CUS2 to customer2 failed, ret:%d\n", result);
+          return result;
+        }
+        else
+        {
+          bl_dsflag_s.bad_image &= (~DS_IMAGE_CUSTOMERAPP_3);
+        }
+      }
+      break;
+
+    case BL_UPDATE_SYSTEM1:
+      /* program Linux CUS0(CUSTOMER0) image */
+      bufp = blSearchCWEImage(CWE_IMAGE_TYPE_CUS0, startbufp, hdr->image_sz);
+      if (bufp != NULL)
+      {
+        blsetcustompartition(BL_CUSTOMER0_PARTI_NAME);
+        result = blProgramImage(bufp, FLASH_PROG_USAPP_IMG, temphdr.image_sz);
+        if (result != BLRESULT_OK)
+        {
+          bl_dsflag_s.bad_image |= (DS_IMAGE_CUSTOMERAPP_1);
+          dprintf(CRITICAL, "blProgramApplImage sierra1 CWE_IMAGE_TYPE_CUS0 to customer0 failed, ret:%d\n", result);
+          return result;
+        }
+        else
+        {
+          bl_dsflag_s.bad_image &= (~DS_IMAGE_CUSTOMERAPP_1);
+        }
+      }
+
+      /* program Linux CUS1(CUSTOMER0) image */
+      bufp = blSearchCWEImage(CWE_IMAGE_TYPE_CUS1, startbufp, hdr->image_sz);
+      if (bufp != NULL)
+      {
+        blsetcustompartition(BL_CUSTOMER0_PARTI_NAME);
+        result = blProgramImage(bufp, FLASH_PROG_USAPP_IMG, temphdr.image_sz);
+        if (result != BLRESULT_OK)
+        {
+          bl_dsflag_s.bad_image |= (DS_IMAGE_CUSTOMERAPP_1);
+          dprintf(CRITICAL, "blProgramApplImage sierra1 CWE_IMAGE_TYPE_CUS1 to customer0 failed, ret:%d\n", result);
+          return result;
+        }
+        else
+        {
+          bl_dsflag_s.bad_image &= (~DS_IMAGE_CUSTOMERAPP_1);
+        }
+      }
+
+      /* program Linux CUS2(CUSTOMER2) image */
+      bufp = blSearchCWEImage(CWE_IMAGE_TYPE_CUS2, startbufp, hdr->image_sz);
+      if (bufp != NULL)
+      {
+        blsetcustompartition(BL_CUSTOMER2_PARTI_NAME);
+        result = blProgramImage(bufp, FLASH_PROG_USAPP_IMG, temphdr.image_sz);
+        if (result != BLRESULT_OK)
+        {
+          bl_dsflag_s.bad_image |= (DS_IMAGE_CUSTOMERAPP_3);
+          dprintf(CRITICAL, "blProgramApplImage sierra1 CWE_IMAGE_TYPE_CUS2 to customer2 failed, ret:%d\n", result);
+          return result;
+        }
+        else
+        {
+          bl_dsflag_s.bad_image &= (~DS_IMAGE_CUSTOMERAPP_3);
+        }
+      }
+      break;
+
+    case BL_UPDATE_SYSTEM2:
+      /* program Linux CUS0(CUSTOMER0) image */
+      bufp = blSearchCWEImage(CWE_IMAGE_TYPE_CUS0, startbufp, hdr->image_sz);
+      if (bufp != NULL)
+      {
+        blsetcustompartition(BL_CUSTOMER1_PARTI_NAME);
+        result = blProgramImage(bufp, FLASH_PROG_USAPP_IMG, temphdr.image_sz);
+        if (result != BLRESULT_OK)
+        {
+          bl_dsflag_s.bad_image |= (DS_IMAGE_CUSTOMERAPP_2);
+          dprintf(CRITICAL, "blProgramApplImage sierra2 CWE_IMAGE_TYPE_CUS0 to customer1 failed, ret:%d\n", result);
+          return result;
+        }
+        else
+        {
+          bl_dsflag_s.bad_image &= (~DS_IMAGE_CUSTOMERAPP_2);
+        }
+      }
+
+      /* program Linux CUS0(CUSTOMER1) image */
+      bufp = blSearchCWEImage(CWE_IMAGE_TYPE_CUS1, startbufp, hdr->image_sz);
+      if (bufp != NULL)
+      {
+        blsetcustompartition(BL_CUSTOMER1_PARTI_NAME);
+        result = blProgramImage(bufp, FLASH_PROG_USAPP_IMG, temphdr.image_sz);
+        if (result != BLRESULT_OK)
+        {
+          bl_dsflag_s.bad_image |= (DS_IMAGE_CUSTOMERAPP_2);
+          dprintf(CRITICAL, "blProgramApplImage sierra2 CWE_IMAGE_TYPE_CUS1 to customer1 failed, ret:%d\n", result);
+          return result;
+        }
+        else
+        {
+          bl_dsflag_s.bad_image &= (~DS_IMAGE_CUSTOMERAPP_2);
+        }
+      }
+
+      /* program Linux CUS2(CUSTOMER2) image */
+      bufp = blSearchCWEImage(CWE_IMAGE_TYPE_CUS2, startbufp, hdr->image_sz);
+      if (bufp != NULL)
+      {
+        blsetcustompartition(BL_CUSTOMER2_PARTI_NAME);
+        result = blProgramImage(bufp, FLASH_PROG_USAPP_IMG, temphdr.image_sz);
+        if (result != BLRESULT_OK)
+        {
+          bl_dsflag_s.bad_image |= (DS_IMAGE_CUSTOMERAPP_3);
+          dprintf(CRITICAL, "blProgramApplImage sierra2 CWE_IMAGE_TYPE_CUS2 to customer2 failed, ret:%d\n", result);
+          return result;
+        }
+        else
+        {
+          bl_dsflag_s.bad_image &= (~DS_IMAGE_CUSTOMERAPP_3);
+        }
+      }
+      break;
+
+    default:
+      dprintf(CRITICAL, "blProgramApplImage, program customer wrong parameter update_which_system:%d\n", update_which_system);
+      break;
   }
 
   return result;
