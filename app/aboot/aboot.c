@@ -98,6 +98,7 @@
 #include "mach/sierra_smem.h"
 #include "sierra_bludefs.h"
 #include "sierra_secudefs.h"
+#include "sierra_lkversion.h"
 
 /* Sense service pin to decide whether enter fastboot mode */
 #define NO_KEYPAD_DRIVER 1
@@ -190,6 +191,7 @@ static const char *baseband_apq_nowgr   = " androidboot.baseband=baseband_apq_no
 /* SWISTART */
 #ifdef SIERRA
 static const char *lkquiet          = " quiet";
+static const char *lkversion        = " lkversion=" LKVERSION;
 #endif /* SIERRA */
 /* SWISTOP */
 
@@ -421,6 +423,11 @@ unsigned char *update_cmdline(const char * cmdline)
 		have_target_boot_params = 1;
 		cmdline_len += strlen(target_boot_params);
 	}
+ /* SWISTART */
+#ifdef SIERRA
+	 cmdline_len += strlen(lkversion);
+#endif /* SIERRA */
+ /* SWISTOP */
 
 	/* Determine correct androidboot.baseband to use */
 	switch(target_baseband())
@@ -512,6 +519,16 @@ unsigned char *update_cmdline(const char * cmdline)
 			src = cmdline;
 			while ((*dst++ = *src++));
 		}
+/* SWISTART */
+#ifdef SIERRA
+		{
+			int l = strlen(lkversion);
+			src = lkversion;
+			if (have_cmdline) --dst;
+			while ((*dst++ = *src++) && l--);
+		}
+#endif /* SIERRA */
+/* SWISTOP */
 		if (target_is_emmc_boot()) {
 			src = emmc_cmdline;
 			if (have_cmdline) --dst;
