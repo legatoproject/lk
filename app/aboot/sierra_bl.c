@@ -44,6 +44,8 @@ _local char *custom_part_name;
 
 _local struct blCtrlBlk blc;
 
+_local uint16 program_spkg_contain_image_mask = 0;
+
 bool to_update_mibib = FALSE; /* Indicates modem should warm reset to SBL, to update MIBIB. */
 
 enum bl_update_system_e update_which_system = BL_UPDATE_NONE; /* Indicates to write which system */
@@ -1873,6 +1875,8 @@ enum blresultcode blProgramModemImage(struct cwe_header_s *hdr, uint8 *startbufp
   bufp = blSearchCWEImage(CWE_IMAGE_TYPE_DSP2, startbufp, hdr->image_sz);
   if (bufp != NULL)
   {
+    /*clear program_spkg_contain_image_mask modem flag*/
+    program_spkg_contain_image_mask &= (~SPKG_IMAGE_MODEM);
     switch(update_which_system)
     {
       case BL_UPDATE_DUAL_SYSTEM:
@@ -1892,7 +1896,23 @@ enum blresultcode blProgramModemImage(struct cwe_header_s *hdr, uint8 *startbufp
         {
           bl_dsflag_s.bad_image &= (~DS_IMAGE_MODEM_2);
         }
-        
+
+        /* Program DSP1 image to modem partition*/
+        blsetcustompartition(BL_MODEM_PARTI_NAME);
+        result = blProgramImage(bufp, FLASH_PROG_DSP2_IMG, temphdr.image_sz);
+        if (result != BLRESULT_OK)
+        {
+          bl_dsflag_s.bad_image |= (DS_IMAGE_MODEM_1);
+          dprintf(CRITICAL, "blProgramModemImage CWE_IMAGE_TYPE_DSP2 to modem failed, ret:%d\n", result);
+          return result;
+        }
+        else
+        {
+          program_spkg_contain_image_mask |= SPKG_IMAGE_MODEM;
+          bl_dsflag_s.bad_image &= (~DS_IMAGE_MODEM_1);
+        }
+        break;
+
       case BL_UPDATE_SYSTEM1:
         /* Program DSP2 image to modem partition*/
         blsetcustompartition(BL_MODEM_PARTI_NAME);
@@ -1987,6 +2007,8 @@ enum blresultcode blProgramApplImage(struct cwe_header_s *hdr, uint8 *startbufp)
   bufp = blSearchCWEImage(CWE_IMAGE_TYPE_SYST, startbufp, hdr->image_sz);
   if (bufp != NULL)
   {
+    /*clear program_spkg_contain_image_mask system flag*/
+    program_spkg_contain_image_mask &= (~SPKG_IMAGE_SYSTEM);
     switch(update_which_system)
     {
       case BL_UPDATE_DUAL_SYSTEM:
@@ -2005,6 +2027,21 @@ enum blresultcode blProgramApplImage(struct cwe_header_s *hdr, uint8 *startbufp)
         {
           bl_dsflag_s.bad_image &= (~DS_IMAGE_SYSTEM_2);
         }
+
+        blsetcustompartition(BL_LINUX_SYSTEM_PARTI_NAME);
+        result = blProgramImage(bufp, FLASH_PROG_ROFS1_IMG, temphdr.image_sz);
+        if (result != BLRESULT_OK)
+        {
+          bl_dsflag_s.bad_image |= (DS_IMAGE_SYSTEM_1);
+          dprintf(CRITICAL, "blProgramApplImage CWE_IMAGE_TYPE_SYST to system failed, ret:%d\n", result);
+          return result;
+        }
+        else
+        {
+          program_spkg_contain_image_mask |= SPKG_IMAGE_SYSTEM;
+          bl_dsflag_s.bad_image &= (~DS_IMAGE_SYSTEM_1);
+        }
+        break;
 
       case BL_UPDATE_SYSTEM1:
         blsetcustompartition(BL_LINUX_SYSTEM_PARTI_NAME);
@@ -2048,6 +2085,8 @@ enum blresultcode blProgramApplImage(struct cwe_header_s *hdr, uint8 *startbufp)
   {
     switch(update_which_system)
     {
+      /*clear program_spkg_contain_image_mask legato flag*/
+      program_spkg_contain_image_mask &= (~SPKG_IMAGE_LEGATO);
       case BL_UPDATE_DUAL_SYSTEM:
         /* Store second LEFWKRO image as flash_ubi_img() will modify the image with UBI format */
         memcpy(second_ubi_images, bufp, temphdr.image_sz + sizeof(struct cwe_header_s));
@@ -2064,7 +2103,22 @@ enum blresultcode blProgramApplImage(struct cwe_header_s *hdr, uint8 *startbufp)
         {
           bl_dsflag_s.bad_image &= (~DS_IMAGE_USERDATA_2);
         }
-        
+
+        blsetcustompartition(BL_LINUX_UDATA_PARTI_NAME);
+        result = blProgramImage(bufp, FLASH_PROG_USDATA_IMG, temphdr.image_sz);
+        if (result != BLRESULT_OK)
+        {
+          bl_dsflag_s.bad_image |= (DS_IMAGE_USERDATA_1);
+          dprintf(CRITICAL, "blProgramApplImage CWE_IMAGE_TYPE_USER to lefwkro failed, ret:%d\n", result);
+          return result;
+        }
+        else
+        {
+          program_spkg_contain_image_mask |= SPKG_IMAGE_LEGATO;
+          bl_dsflag_s.bad_image &= (~DS_IMAGE_USERDATA_1);
+        }
+        break;
+
       case BL_UPDATE_SYSTEM1:
         blsetcustompartition(BL_LINUX_UDATA_PARTI_NAME);
         result = blProgramImage(bufp, FLASH_PROG_USDATA_IMG, temphdr.image_sz);
@@ -2118,6 +2172,8 @@ enum blresultcode blProgramApplImage(struct cwe_header_s *hdr, uint8 *startbufp)
   bufp = blSearchCWEImage(CWE_IMAGE_TYPE_APPS, startbufp, hdr->image_sz);
   if (bufp != NULL)
   {
+    /*clear program_spkg_contain_image_mask kernel flag*/
+    program_spkg_contain_image_mask &= (~SPKG_IMAGE_KERNEL);
     switch(update_which_system)
     {
       case BL_UPDATE_DUAL_SYSTEM:
@@ -2134,6 +2190,21 @@ enum blresultcode blProgramApplImage(struct cwe_header_s *hdr, uint8 *startbufp)
         {
           bl_dsflag_s.bad_image &= (~DS_IMAGE_BOOT_2);
         }
+
+        blsetcustompartition(BL_LINUX_BOOT_PARTI_NAME);
+        result = blProgramImage(bufp, FLASH_PROG_CUSTOM_IMG, temphdr.image_sz);
+        if (result != BLRESULT_OK)
+        {
+          bl_dsflag_s.bad_image |= (DS_IMAGE_BOOT_1);
+          dprintf(CRITICAL, "blProgramApplImage CWE_IMAGE_TYPE_APPS to boot failed, ret:%d\n", result);
+          return result;
+        }
+        else
+        {
+          program_spkg_contain_image_mask |= SPKG_IMAGE_KERNEL;
+          bl_dsflag_s.bad_image &= (~DS_IMAGE_BOOT_1);
+        }
+        break;
 
       case BL_UPDATE_SYSTEM1:
         blsetcustompartition(BL_LINUX_BOOT_PARTI_NAME);
@@ -2470,6 +2541,8 @@ enum blresultcode blProgramBootImage(struct cwe_header_s *hdr, uint8 *startbufp)
   bufp = blSearchCWEImage(CWE_IMAGE_TYPE_TZON, startbufp, hdr->image_sz);
   if (bufp != NULL)
   {
+    /*clear program_spkg_contain_image_mask tz flag*/
+    program_spkg_contain_image_mask &= (~SPKG_IMAGE_TZ);
     /* Program TZ image */
     blsetcustompartition(BL_TZ_PARTI_NAME);
     result = blProgramImage(bufp, FLASH_PROG_CUSTOM_IMG, temphdr.image_sz);
@@ -2500,7 +2573,10 @@ enum blresultcode blProgramBootImage(struct cwe_header_s *hdr, uint8 *startbufp)
       switch(update_which_system)
       {
         case BL_UPDATE_DUAL_SYSTEM:
+          program_spkg_contain_image_mask |= SPKG_IMAGE_TZ;
           bl_dsflag_s.bad_image &= (~DS_IMAGE_TZ_2);
+          bl_dsflag_s.bad_image &= (~DS_IMAGE_TZ_1);
+          break;
 
         case BL_UPDATE_SYSTEM1:
           bl_dsflag_s.bad_image &= (~DS_IMAGE_TZ_1);
@@ -2521,6 +2597,8 @@ enum blresultcode blProgramBootImage(struct cwe_header_s *hdr, uint8 *startbufp)
   bufp = blSearchCWEImage(CWE_IMAGE_TYPE_QRPM, startbufp, hdr->image_sz);
   if (bufp != NULL)
   {
+    /*clear program_spkg_contain_image_mask rpm flag*/
+    program_spkg_contain_image_mask &= (~SPKG_IMAGE_RPM);
     /* Program RPM image  */
     blsetcustompartition(BL_RPM_PARTI_NAME);
     result = blProgramImage(bufp, FLASH_PROG_CUSTOM_IMG, temphdr.image_sz);
@@ -2551,7 +2629,10 @@ enum blresultcode blProgramBootImage(struct cwe_header_s *hdr, uint8 *startbufp)
       switch(update_which_system)
       {
         case BL_UPDATE_DUAL_SYSTEM:
+          program_spkg_contain_image_mask |= SPKG_IMAGE_RPM;
           bl_dsflag_s.bad_image &= (~DS_IMAGE_RPM_2);
+          bl_dsflag_s.bad_image &= (~DS_IMAGE_RPM_1);
+          break;
 
         case BL_UPDATE_SYSTEM1:
           bl_dsflag_s.bad_image &= (~DS_IMAGE_RPM_1);
@@ -2572,6 +2653,8 @@ enum blresultcode blProgramBootImage(struct cwe_header_s *hdr, uint8 *startbufp)
   bufp = blSearchCWEImage(CWE_IMAGE_TYPE_APBL, startbufp, hdr->image_sz);
   if (bufp != NULL)
   {
+    /*clear program_spkg_contain_image_mask lk flag*/
+    program_spkg_contain_image_mask &= (~SPKG_IMAGE_LK);
     switch(update_which_system)
     {
       case BL_UPDATE_DUAL_SYSTEM:
@@ -2589,7 +2672,23 @@ enum blresultcode blProgramBootImage(struct cwe_header_s *hdr, uint8 *startbufp)
         {
           bl_dsflag_s.bad_image &= (~DS_IMAGE_ABOOT_2);
         }
-        
+
+        /* Program APBL image to aboot */
+        blsetcustompartition(BL_ABOOT_PARTI_NAME);
+        result = blProgramImage(bufp, FLASH_PROG_CUSTOM_IMG, temphdr.image_sz);
+        if (result != BLRESULT_OK)
+        {
+          bl_dsflag_s.bad_image |= (DS_IMAGE_ABOOT_1);
+          dprintf(CRITICAL, "blProgramBootImage CWE_IMAGE_TYPE_APBL to aboot failed, ret:%d\n", result);
+          return result;
+        }
+        else
+        {
+          program_spkg_contain_image_mask |= SPKG_IMAGE_LK;
+          bl_dsflag_s.bad_image &= (~DS_IMAGE_ABOOT_1);
+        }
+        break;
+
       case BL_UPDATE_SYSTEM1:
         /* Program APBL image to aboot */
         blsetcustompartition(BL_ABOOT_PARTI_NAME);
@@ -2706,7 +2805,19 @@ _global enum blresultcode blProgramCWEImage(
   const char *imagep;
   struct cwe_header_s spkg_sub_img_header;
   uint32 buflen_search_2nd_appl;
-  
+
+  /*blprogram CWE Image,read out of sync flag, if out of sync flag set sync,set mask flag*/
+  if(sierra_ds_check_if_ds_is_sync())
+  {
+    program_spkg_contain_image_mask |= SPKG_IMAGE_TZ;
+    program_spkg_contain_image_mask |= SPKG_IMAGE_RPM;
+    program_spkg_contain_image_mask |= SPKG_IMAGE_LK;
+    program_spkg_contain_image_mask |= SPKG_IMAGE_KERNEL;
+    program_spkg_contain_image_mask |= SPKG_IMAGE_SYSTEM;
+    program_spkg_contain_image_mask |= SPKG_IMAGE_MODEM;
+    program_spkg_contain_image_mask |= SPKG_IMAGE_LEGATO;
+  }
+
   /* validate the image type from the CWE sub-header */
   if (cwe_image_type_validate(hdr->image_type, &imagetype) == FALSE)
   {
@@ -2872,7 +2983,20 @@ _global enum blresultcode blProgramCWEImage(
 
     /* We consider program done, so we should update bad image flag */
     /* To make it easy, we make it out of sync if any FW image update */
-    bl_dsflag_s.out_of_sync = DS_OUT_OF_SYNC;
+    if((SPKG_IMAGE_TZ & program_spkg_contain_image_mask)
+      &&(SPKG_IMAGE_RPM & program_spkg_contain_image_mask)
+      &&(SPKG_IMAGE_LK & program_spkg_contain_image_mask)
+      &&(SPKG_IMAGE_KERNEL & program_spkg_contain_image_mask)
+      &&(SPKG_IMAGE_SYSTEM & program_spkg_contain_image_mask)
+      &&(SPKG_IMAGE_MODEM & program_spkg_contain_image_mask)
+      &&(SPKG_IMAGE_LEGATO & program_spkg_contain_image_mask))
+    {
+      bl_dsflag_s.out_of_sync = DS_IS_SYNC;
+    }
+    else
+    {
+      bl_dsflag_s.out_of_sync = DS_OUT_OF_SYNC;
+    }
     sierra_ds_update_ssdata(&bl_dsflag_s, NULL);
 
     return BLRESULT_OK;

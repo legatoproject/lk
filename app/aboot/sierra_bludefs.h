@@ -153,6 +153,18 @@ typedef enum {
 
 #define BS_BCMSG_RTYPE_IS_SET                  ((uint32_t)(0x00534554))  /* SET */
 #define BS_BCMSG_RTYPE_IS_CLEAR                ((uint32_t)(0x00434C52))  /* CLR */
+
+/*
+  update FW in lk,spkg tz,rpm,lk,kernel,system,modem,lefwkro bit.
+*/
+#define SPKG_IMAGE_TZ                          (1 << 0)   /* TZ of dual system */
+#define SPKG_IMAGE_RPM                         (1 << 1)   /* RPM of dual system */
+#define SPKG_IMAGE_LK                          (1 << 2)   /* LK of dual system */
+#define SPKG_IMAGE_KERNEL                      (1 << 3)   /* KERNEL of dual system */
+#define SPKG_IMAGE_SYSTEM                      (1 << 4)   /* SYSTEM of dual system */
+#define SPKG_IMAGE_MODEM                       (1 << 5)   /* MODEM of dual system */
+#define SPKG_IMAGE_LEGATO                      (1 << 6)   /* LEFWKRO of dual system */
+
 /*
   Reset type defination end
 */
