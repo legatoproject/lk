@@ -121,6 +121,7 @@ struct ds_shared_data_s
 };
 
 extern bool sierra_ds_check_if_out_of_sync(void);
+extern bool sierra_ds_check_if_ds_is_sync(void);
 extern bool sierra_ds_check_is_recovery_phase1(void);
 extern bool sierra_ds_check_is_recovery_phase2(void);
 extern bool sierra_ds_write_flags_in_lk(
