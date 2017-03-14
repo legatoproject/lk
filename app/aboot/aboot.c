@@ -4127,7 +4127,19 @@ normal_boot:
 	}
 
 	/* We are here means regular boot did not happen. Start fastboot. */
+/* SWISTART */
+#ifdef SIERRA
+	/* if fastboot is disabled, set B & H flag and reboot to SBL */
+	if(sierra_is_fastboot_disabled())
+	{
+		dprintf(CRITICAL, "SWI - fastboot disabled, reboot\n");
 
+		sierra_smem_boothold_mode_set();
+		reboot_device(NORMAL_DLOAD);
+		return;
+	}
+#endif /* SIERRA */
+/* SWISTOP */
 	/* register aboot specific fastboot commands */
 	aboot_fastboot_register_commands();
 
