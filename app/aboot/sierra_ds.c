@@ -1331,6 +1331,47 @@ bool sierra_ds_check_if_out_of_sync(
 
 /************
  *
+ * Name: sierra_ds_check_if_ds_is_sync
+ *
+ * Purpose: Check if dual system is ds is sync
+ *
+ * Parms: None
+ *
+ * Return: TRUE - ds is sync
+ *             FALSE - out of sync
+ *
+ * Abort: None
+ *
+ * Notes: None
+ *
+ ************/
+bool sierra_ds_check_if_ds_is_sync(
+  void)
+{
+  struct ds_flag_s ds_flag;
+
+  sierra_ds_get_full_data(&ds_flag);
+
+  if(DS_IS_SYNC == ds_flag.out_of_sync)
+  {
+#ifdef SIERRA_DUAL_SYSTEM_TEST
+    dprintf(CRITICAL, "Dual system is ds is sync\n");
+#endif /* SIERRA_DUAL_SYSTEM_TEST */
+
+    return TRUE;
+  }
+  else
+  {
+#ifdef SIERRA_DUAL_SYSTEM_TEST
+    dprintf(CRITICAL, "Dual system is out of sync\n");
+#endif /* SIERRA_DUAL_SYSTEM_TEST */
+
+    return FALSE;
+  }
+}
+
+/************
+ *
  * Name: sierra_ds_check_is_recovery_phase1
  *
  * Purpose: Check if it is recovery_phase1

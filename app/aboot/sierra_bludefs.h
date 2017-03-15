@@ -140,6 +140,16 @@ typedef enum {
 #define BLPRIMAGE_MASK_SYS  0x00000040   /* Processed Recovery Image mask for System */
 #define BLPRIMAGE_MASK_LG   0x00000080   /* Processed Recovery Image mask for Legato */
 
+/*
+  update FW in lk,spkg use tz,rpm,lk,kernel,system,modem,lefwkro bit to show image.
+*/
+#define SPKG_IMAGE_TZ                          (1 << 0)   /* TZ of dual system */
+#define SPKG_IMAGE_RPM                         (1 << 1)   /* RPM of dual system */
+#define SPKG_IMAGE_LK                          (1 << 2)   /* LK of dual system */
+#define SPKG_IMAGE_KERNEL                      (1 << 3)   /* KERNEL of dual system */
+#define SPKG_IMAGE_SYSTEM                      (1 << 4)   /* SYSTEM of dual system */
+#define SPKG_IMAGE_MODEM                       (1 << 5)   /* MODEM of dual system */
+#define SPKG_IMAGE_LEGATO                      (1 << 6)   /* LEFWKRO of dual system */
 
 /************
  *
