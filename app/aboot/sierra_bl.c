@@ -290,6 +290,46 @@ void sierra_smem_err_count_set(unsigned int err_cnt)
   return;
 }
 
+
+/************
+ *
+ * Name:     sierra_smem_fwupdate_status_set
+ *
+ * Purpose:  set fw update status to SMEM
+ *
+ * Parms:    none
+ *
+ * Return:
+ *
+ * Abort:    none
+ *
+ * Notes:    none
+ *
+ ************/
+void sierra_smem_fwupdate_status_set(uint32 err_code)
+{
+  struct bc_update_status_s *fwupdate_status = NULL;
+  unsigned char *virtual_addr;
+
+  virtual_addr = sierra_smem_base_addr_get();
+  if (virtual_addr)
+  {
+    virtual_addr += BSMEM_FWUP_OFFSET;
+    fwupdate_status = (struct bc_update_status_s *)virtual_addr;
+    memset((void *)fwupdate_status, 0, sizeof(struct bc_update_status_s));
+
+    fwupdate_status->magic_beg = BC_SMEM_MSG_MAGIC_BEG;
+    fwupdate_status->result = err_code;
+
+    fwupdate_status->resultcomp = ~err_code;
+    fwupdate_status->magic_end = BC_SMEM_MSG_MAGIC_END;
+
+    fwupdate_status->crc32 = crcrc32((void *)fwupdate_status, BC_FWUPSTATUS_CRC_SZ, CRSTART_CRC32);
+  }
+
+  return;
+}
+
 /************
  *
  * Name:     sierra_smem_reset_type_set
