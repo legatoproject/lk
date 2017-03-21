@@ -1779,6 +1779,7 @@ void sierra_ds_smem_write_bad_image_and_swap(
   /* Bad image flag set, a system swap will happen. Set the efs restore flag to restore efs at the next warm-reboot. */
   need_erestore_type = DS_RESTORE_EFS_SANITY;
   sierra_ds_smem_erestore_info_set(BL_RESTORE_INFO_RESTORE_TYPE, need_erestore_type);
+  dprintf(CRITICAL, "sierra_ds_smem_write_bad_image_and_swap(): set efs-restore flag %d\n",need_erestore_type);
 
   return;
 }
