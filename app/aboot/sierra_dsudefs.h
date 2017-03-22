@@ -120,6 +120,48 @@ struct ds_shared_data_s
   uint32  crc32;                          /* CRC value */
 };
 
+/* Information for EFS restore
+*
+* 1. The ds_efs_restore_type is the type of the EFS restore.
+*   1.1, DS_RESTORE_EFS_SANITY:
+*     1.1.1, No need to restore for mirror systerm, should restore for non-mirror systerm.
+*   1.2, DS_RESTORE_EFS_ANYWAY:
+*     1.2.1, Should restore efs no matter mirror/non-mirror systerm.
+*
+* 2. The ds_smem_erestore_info is used to store EFS restore info.
+*/
+#define DS_MAGIC_EFSB                       0x45465342  /* "EFSB" */
+#define DS_MAGIC_EFSE                       0x45465345  /* "EFSE" */
+enum ds_efs_restore_type
+{
+  DS_RESTORE_EFS_SANITY = 1,    /* restore efs sanity */
+  DS_RESTORE_EFS_ANYWAY = 2,    /* restore efs anyway */
+};
+
+enum bl_erestore_info_type
+{
+  BL_RESTORE_INFO_MIN = 1,
+  BL_RESTORE_INFO_ECOUNT_BUF= BL_RESTORE_INFO_MIN,
+  BL_RESTORE_INFO_RESTORE_DONE,
+  BL_RESTORE_INFO_RESTORE_TYPE,
+  BL_RESTORE_INFO_MAX = BL_RESTORE_INFO_RESTORE_TYPE,
+};
+
+struct ds_smem_erestore_info
+{
+  uint32  magic_beg;             /* Magic begin flag */
+  uint8   erestore_t;            /* EFS restore type */
+  uint8   errorcount;            /* backup errorcount */
+  uint8   restored_flag;         /* efs-restore last booting */
+  uint8   reserved;              /* reserved 8 bits */
+  uint32  magic_end;             /* Magic ending flag */
+  uint32  crc32;                 /* CRC32 of above fields */
+};
+
+#define BL_RESTORE_INFO_RESTORED 0x01
+#define BL_RESTORE_INFO_INVALID_VALUE 0xFF
+#define DS_ERESTORE_CRC_SZ (sizeof(struct ds_smem_erestore_info) - sizeof(uint32))
+
 extern bool sierra_ds_check_if_out_of_sync(void);
 extern bool sierra_ds_check_if_ds_is_sync(void);
 extern bool sierra_ds_check_is_recovery_phase1(void);
