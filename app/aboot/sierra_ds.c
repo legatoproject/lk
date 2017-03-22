@@ -1660,6 +1660,85 @@ uint8 sierra_ds_smem_get_ssid_linux_index(
 
 /************
  *
+ * Name:     sierra_ds_smem_erestore_info_set
+ *
+ * Purpose:  Set efs restore_info in share memory
+ *
+ * Parms:    [IN] value_type - type of the member
+ *           [OUT]value      - store value get from smem
+ *
+ * Return:   TRUE - set successfully
+ *           FALSE- set failed
+ *
+ * Abort:    None
+ *
+ * Notes:    None
+ *
+ ************/
+bool sierra_ds_smem_erestore_info_set(uint32 value_type, uint8 value)
+{
+  struct ds_smem_erestore_info *efs_restore = NULL;
+  unsigned char *virtual_addr = NULL;
+
+  virtual_addr = sierra_smem_base_addr_get();
+  if(NULL != virtual_addr)
+  {
+    /* Get DS SMEM base address */
+    virtual_addr += BSMEM_EFS_RESTORE_OFFSET;
+    efs_restore = (struct ds_smem_erestore_info *)virtual_addr;
+
+    /* Check if data in smem valid */
+    if((DS_MAGIC_EFSB != efs_restore->magic_beg) ||
+       (DS_MAGIC_EFSE != efs_restore->magic_end) ||
+       (crcrc32((void *)efs_restore, DS_ERESTORE_CRC_SZ, CRSTART_CRC32) != efs_restore->crc32))
+    {
+      /* Initalize the BS_SMEM_REGION_EFS_RESTORE.
+       * If cold-reset or smem-destroyed happend, initialize the region in defalt.
+       */
+      efs_restore->magic_beg          = DS_MAGIC_EFSB;
+      efs_restore->magic_end          = DS_MAGIC_EFSE;
+      efs_restore->erestore_t         = BL_RESTORE_INFO_INVALID_VALUE;
+      efs_restore->errorcount         = BL_RESTORE_INFO_INVALID_VALUE;
+      efs_restore->restored_flag      = BL_RESTORE_INFO_INVALID_VALUE;
+      efs_restore->reserved           = BL_RESTORE_INFO_INVALID_VALUE;
+      efs_restore->crc32              = crcrc32((void *)efs_restore, DS_ERESTORE_CRC_SZ, CRSTART_CRC32);
+    }
+
+    if(BL_RESTORE_INFO_RESTORE_TYPE == value_type)
+    {
+    /* Set efs restore info */
+      efs_restore->magic_beg  = DS_MAGIC_EFSB;
+      efs_restore->magic_end  = DS_MAGIC_EFSE;
+      efs_restore->erestore_t = value;
+      efs_restore->crc32      = crcrc32((void *)efs_restore, DS_ERESTORE_CRC_SZ, CRSTART_CRC32);
+    }
+    else if(BL_RESTORE_INFO_ECOUNT_BUF == value_type)
+    {
+    /* Backup error count. */
+      efs_restore->magic_beg  = DS_MAGIC_EFSB;
+      efs_restore->magic_end  = DS_MAGIC_EFSE;
+      efs_restore->errorcount = value;
+      efs_restore->crc32      = crcrc32((void *)efs_restore, DS_ERESTORE_CRC_SZ, CRSTART_CRC32);
+    }
+    else if(BL_RESTORE_INFO_RESTORE_DONE == value_type)
+    {
+      /* Save restore flag. */
+      efs_restore->magic_beg = DS_MAGIC_EFSB;
+      efs_restore->magic_end = DS_MAGIC_EFSE;
+      efs_restore->restored_flag = value;
+      efs_restore->crc32     = crcrc32((void *)efs_restore, DS_ERESTORE_CRC_SZ, CRSTART_CRC32);
+    }
+
+    return TRUE;
+  }
+  else
+  {
+    return FALSE;
+  }
+}
+
+/************
+ *
  * Name:     sierra_ds_smem_write_bad_image_and_swap
  *
  * Purpose:  Write DS SMEM if bad image detected in LK
@@ -1677,6 +1756,7 @@ void sierra_ds_smem_write_bad_image_and_swap(
   uint64 bad_image_mask)
 {
   struct ds_smem_message_s * ds_smem_bufp = NULL;
+  uint8 need_erestore_type;
 
   /* Get DS SMEM region */
   ds_smem_bufp = sierra_ds_smem_get_address();
@@ -1736,6 +1816,10 @@ void sierra_ds_smem_write_bad_image_and_swap(
   ds_smem_bufp->swap_reason = DS_SWAP_REASON_BAD_IMAGE;
   ds_smem_bufp->is_changed = DS_BOOT_UP_CHANGED;
   ds_smem_bufp->crc32 = crcrc32((uint8 *)ds_smem_bufp, sizeof(struct ds_smem_message_s) - sizeof(uint32), CRSTART_CRC32);
+  /* Bad image flag set, a system swap will happen. Set the efs restore flag to restore efs at the next warm-reboot. */
+  need_erestore_type = DS_RESTORE_EFS_SANITY;
+  sierra_ds_smem_erestore_info_set(BL_RESTORE_INFO_RESTORE_TYPE, need_erestore_type);
+  dprintf(CRITICAL, "sierra_ds_smem_write_bad_image_and_swap(): sierra_ds_smem_erestore_info_set sanity restore\n");
 
   return;
 }
@@ -1905,11 +1989,14 @@ void sierra_ds_update_ssdata(struct ds_flag_s *ds_flag, bool *swapreset)
       }
     }
 
+    /* Swap reason in smem indicate the system last swap reason.
+     * It is always newer than the flag in flash.
+     * So it should not be updated from flash but sync to flash.
+     */
     ds_smem_bufp->magic_beg = DS_MAGIC_NUMBER;
     ds_smem_bufp->ssid_modem_idx = ds_flag->ssid_modem_idx;
     ds_smem_bufp->ssid_lk_idx = ds_flag->ssid_lk_idx;
     ds_smem_bufp->ssid_linux_idx = ds_flag->ssid_linux_idx;
-    ds_smem_bufp->swap_reason = ds_flag->swap_reason;
     ds_smem_bufp->is_changed = DS_BOOT_UP_CHANGED;
     ds_smem_bufp->bad_image = ds_flag->bad_image;
     ds_smem_bufp->magic_end = DS_MAGIC_NUMBER;
