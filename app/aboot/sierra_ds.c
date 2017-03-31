@@ -1818,7 +1818,7 @@ void sierra_ds_smem_write_bad_image_and_swap(
   ds_smem_bufp->is_changed = DS_BOOT_UP_CHANGED;
   ds_smem_bufp->crc32 = crcrc32((uint8 *)ds_smem_bufp, sizeof(struct ds_smem_message_s) - sizeof(uint32), CRSTART_CRC32);
   /* Bad image flag set, a system swap will happen. Set the efs restore flag to restore efs at the next warm-reboot. */
-  need_erestore_type = DS_RESTORE_EFS_SANITY;
+  need_erestore_type = DS_RESTORE_EFS_SANITY_FROM_LK;
   sierra_ds_smem_erestore_info_set(BL_RESTORE_INFO_RESTORE_TYPE, need_erestore_type);
   dprintf(CRITICAL, "sierra_ds_smem_write_bad_image_and_swap(): set efs-restore flag %d\n",need_erestore_type);
 
