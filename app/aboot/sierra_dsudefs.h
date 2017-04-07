@@ -123,8 +123,13 @@ struct ds_shared_data_s
 /* Information for EFS restore
 *
 * 1. The ds_efs_restore_type is the type of the EFS restore.
-*   1.1, DS_RESTORE_EFS_SANITY:
+*   1.1, EFS sanity restore:
 *     1.1.1, No need to restore for mirror systerm, should restore for non-mirror systerm.
+*     1.1.2, The 4 efs sanity-restore types just be used to distinguish different efs restore requests from LK/KERNEL/SBL, etc.
+*     1.1.3, DS_RESTORE_EFS_SANITY request efs restore for 6 times abnormal reset or other reasons lead to system swap. Need to swap system and restore efs.
+*     1.1.4, DS_RESTORE_EFS_SANITY_FROM_LK request DS_RESTORE_EFS_SANITY for bad image detected in lk. Need to swap system and restore efs.
+*     1.1.5, DS_RESTORE_EFS_SANITY_FROM_KERNEL request DS_RESTORE_EFS_SANITY for bad image detected in kernel. Need to swap system and restore efs.
+*     1.1.6, DS_RESTORE_EFS_SANITY_FROM_SBL request DS_RESTORE_EFS_SANITY for bad image detected in sbl. Need to swap system and restore efs.
 *   1.2, DS_RESTORE_EFS_ANYWAY:
 *     1.2.1, Should restore efs no matter mirror/non-mirror systerm.
 *
@@ -134,8 +139,13 @@ struct ds_shared_data_s
 #define DS_MAGIC_EFSE                       0x45465345  /* "EFSE" */
 enum ds_efs_restore_type
 {
-  DS_RESTORE_EFS_SANITY = 1,    /* restore efs sanity */
-  DS_RESTORE_EFS_ANYWAY = 2,    /* restore efs anyway */
+  DS_RESTORE_EFS_TYPE_MIN,
+  DS_RESTORE_EFS_SANITY             = 1,    /* restore efs sanity, request for 6 times abnormal reset */
+  DS_RESTORE_EFS_ANYWAY             = 2,    /* restore efs anyway */
+  DS_RESTORE_EFS_SANITY_FROM_LK     = 3,    /* restore efs sanity, request from lk */
+  DS_RESTORE_EFS_SANITY_FROM_KERNEL = 4,    /* restore efs sanity, request from kernel */
+  DS_RESTORE_EFS_SANITY_FROM_SBL    = 5,    /* restore efs sanity, request from sbl */
+  DS_RESTORE_EFS_TYPE_MAX,
 };
 
 enum bl_erestore_info_type
