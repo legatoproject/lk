@@ -3758,7 +3758,7 @@ void cmd_flash_nand(const char *arg, void *data, unsigned sz)
 		switch (ret)
 		{
 			case  BLRESULT_OK:
-			sierra_smem_fwupdate_status_set((ret | BC_UPDATE_STATUS_ERR_UA_M));
+			sierra_smem_fwupdate_status_set(BLRESULT_OK | BC_UPDATE_STATUS_OK);
 			break;
 			case BLRESULT_AUTHENTICATION_ERROR:
 			fastboot_fail("SIERRA AUTHENTICATION_ERROR. exit");
