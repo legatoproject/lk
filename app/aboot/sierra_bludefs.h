@@ -385,5 +385,7 @@ void sierra_check_mibib_state_clear(void);
 enum blresultcode blredundancy_sbl_program(
   uint8 * bufp,
   unsigned int write_size);
+extern struct cwe_header_s *bl_get_cwe_header_buf(
+  void);
 
 #endif /* bludefs_h */
