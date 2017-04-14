@@ -1462,16 +1462,19 @@ _local uint8 *blSearchCWEImage(
 {
   uint8 *bufp;
   enum cwe_image_type_e subtype;
+  struct cwe_header_s *bl_temphdr = NULL;
 
   bufp = searchbufp;
 
+  /*get cwe header buff*/
+  bl_temphdr = bl_get_cwe_header_buf();
   do
   {
     /* Read the first CWE sub-header */
-    (void)cwe_header_load(bufp, &temphdr);
+    (void)cwe_header_load(bufp, bl_temphdr);
 
     /* validate the image type from the CWE sub-header */
-    if (cwe_image_type_validate(temphdr.image_type, &subtype) == FALSE)
+    if (cwe_image_type_validate(bl_temphdr->image_type, &subtype) == FALSE)
     {
       break;
     }
@@ -1482,7 +1485,7 @@ _local uint8 *blSearchCWEImage(
       return bufp;
     }
     bufp += sizeof(struct cwe_header_s);
-    bufp += temphdr.image_sz;
+    bufp += bl_temphdr->image_sz;
   } while (bufp < searchbufp + searchbuflen);
 
   return NULL;
@@ -1508,12 +1511,16 @@ _local uint8 *blSearchCWEImage(
 _global boolean blGoCweFile(unsigned char *buf, unsigned int len)
 {
   unsigned int ret;
-  if((len < CWE_HEADER_SZ) || (!cwe_header_load(buf, &temphdr)))
+  struct cwe_header_s *bl_temphdr = NULL;
+
+  /*get cwe header buff*/
+  bl_temphdr = bl_get_cwe_header_buf();
+  if((len < CWE_HEADER_SZ) || (!cwe_header_load(buf, bl_temphdr)))
   {
     return FALSE;
   }
 
-  if (TRUE != cwe_image_validate(&temphdr,
+  if (TRUE != cwe_image_validate(bl_temphdr,
                                                           buf + sizeof(struct cwe_header_s),
                                                           CWE_IMAGE_TYPE_FILE,
                                                           0,
@@ -1819,8 +1826,11 @@ _local enum blresultcode blProgramImage(
   uint32 image_size)
 {
   enum blresultcode result;
+  struct cwe_header_s *bl_temphdr = NULL;
 
-  if(!cwe_header_load(bufp, &temphdr))
+  /*get cwe header buff*/
+  bl_temphdr = bl_get_cwe_header_buf();
+  if(!cwe_header_load(bufp, bl_temphdr))
   {
     /* this should not happen since it is checked before */
     dprintf(CRITICAL, "BLRESULT_CWE_HEADER_ERROR\n");
@@ -1837,7 +1847,7 @@ _local enum blresultcode blProgramImage(
 */
   if(!is_dual_system_supported())
   {
-    if (TRUE != cwe_image_validate(&temphdr, 
+    if (TRUE != cwe_image_validate(bl_temphdr, 
                                                             bufp + sizeof(struct cwe_header_s), 
                                                             CWE_IMAGE_TYPE_ANY, 
                                                             BL_PRODUCT_ID, 
@@ -1849,7 +1859,7 @@ _local enum blresultcode blProgramImage(
   }
 
   flash_write_addr = 0;
-  if(temphdr.misc_opts & CWE_MISC_OPTS_COMPRESS)
+  if(bl_temphdr->misc_opts & CWE_MISC_OPTS_COMPRESS)
   {
     dprintf(CRITICAL, "BLRESULT_DECOMPRESSION_ERROR\n");
     result = BLRESULT_DECOMPRESSION_ERROR;
@@ -1893,6 +1903,10 @@ enum blresultcode blProgramModemImage(struct cwe_header_s *hdr, uint8 *startbufp
 {
   uint8         *bufp;
   enum blresultcode result = BLRESULT_FLASH_WRITE_ERROR;
+  struct cwe_header_s *bl_temphdr = NULL;
+
+  /*get cwe header buff*/
+  bl_temphdr = bl_get_cwe_header_buf();
 
   /*                    -------------------
    * MODM image format: | MODM CWE header |
@@ -1921,11 +1935,11 @@ enum blresultcode blProgramModemImage(struct cwe_header_s *hdr, uint8 *startbufp
     {
       case BL_UPDATE_DUAL_SYSTEM:
         /* Store second DSP2 image as flash_ubi_img() will modify the image with UBI format */
-        memcpy(second_ubi_images, bufp, temphdr.image_sz + sizeof(struct cwe_header_s));
+        memcpy(second_ubi_images, bufp, bl_temphdr->image_sz + sizeof(struct cwe_header_s));
 
         /* Program DSP2 image to modem2 partition */
         blsetcustompartition(BL_MODEM2_PARTI_NAME);
-        result = blProgramImage(second_ubi_images, FLASH_PROG_DSP2_IMG, temphdr.image_sz);
+        result = blProgramImage(second_ubi_images, FLASH_PROG_DSP2_IMG, bl_temphdr->image_sz);
         if (result != BLRESULT_OK)
         {
           bl_dsflag_s.bad_image |= (DS_IMAGE_MODEM_2);
@@ -1939,7 +1953,7 @@ enum blresultcode blProgramModemImage(struct cwe_header_s *hdr, uint8 *startbufp
 
         /* Program DSP1 image to modem partition*/
         blsetcustompartition(BL_MODEM_PARTI_NAME);
-        result = blProgramImage(bufp, FLASH_PROG_DSP2_IMG, temphdr.image_sz);
+        result = blProgramImage(bufp, FLASH_PROG_DSP2_IMG, bl_temphdr->image_sz);
         if (result != BLRESULT_OK)
         {
           bl_dsflag_s.bad_image |= (DS_IMAGE_MODEM_1);
@@ -1956,7 +1970,7 @@ enum blresultcode blProgramModemImage(struct cwe_header_s *hdr, uint8 *startbufp
       case BL_UPDATE_SYSTEM1:
         /* Program DSP2 image to modem partition*/
         blsetcustompartition(BL_MODEM_PARTI_NAME);
-        result = blProgramImage(bufp, FLASH_PROG_DSP2_IMG, temphdr.image_sz);
+        result = blProgramImage(bufp, FLASH_PROG_DSP2_IMG, bl_temphdr->image_sz);
         if (result != BLRESULT_OK)
         {
           bl_dsflag_s.bad_image |= (DS_IMAGE_MODEM_1);
@@ -1972,7 +1986,7 @@ enum blresultcode blProgramModemImage(struct cwe_header_s *hdr, uint8 *startbufp
       case BL_UPDATE_SYSTEM2:
         /* Program DSP2 image to modem2 partition*/
         blsetcustompartition(BL_MODEM2_PARTI_NAME);
-        result = blProgramImage(bufp, FLASH_PROG_DSP2_IMG, temphdr.image_sz);
+        result = blProgramImage(bufp, FLASH_PROG_DSP2_IMG, bl_temphdr->image_sz);
         if (result != BLRESULT_OK)
         {
           bl_dsflag_s.bad_image |= (DS_IMAGE_MODEM_2);
@@ -2016,6 +2030,7 @@ enum blresultcode blProgramApplImage(struct cwe_header_s *hdr, uint8 *startbufp)
   uint8         *bufp;
   uint8         *bufp2;
   enum blresultcode result = BLRESULT_FLASH_WRITE_ERROR;
+  struct cwe_header_s *bl_temphdr = NULL;
 
   /*                    -------------------
    * APPL image format: | APPL CWE header |
@@ -2043,6 +2058,9 @@ enum blresultcode blProgramApplImage(struct cwe_header_s *hdr, uint8 *startbufp)
    *  (all the images can be optional)
    */
 
+  /*get cwe header buff*/
+  bl_temphdr = bl_get_cwe_header_buf();
+
   /* Program Linux SYSTEM image, (maybe in format .yaffs2, UBI, squashfs) */
   bufp = blSearchCWEImage(CWE_IMAGE_TYPE_SYST, startbufp, hdr->image_sz);
   if (bufp != NULL)
@@ -2053,10 +2071,10 @@ enum blresultcode blProgramApplImage(struct cwe_header_s *hdr, uint8 *startbufp)
     {
       case BL_UPDATE_DUAL_SYSTEM:
         /* Store second SYSTEM image as flash_ubi_img() will modify the image with UBI format */
-        memcpy(second_ubi_images, bufp, temphdr.image_sz + sizeof(struct cwe_header_s));
+        memcpy(second_ubi_images, bufp, bl_temphdr->image_sz + sizeof(struct cwe_header_s));
 
         blsetcustompartition(BL_LINUX_SYSTEM2_PARTI_NAME);
-        result = blProgramImage(second_ubi_images, FLASH_PROG_ROFS1_IMG, temphdr.image_sz);
+        result = blProgramImage(second_ubi_images, FLASH_PROG_ROFS1_IMG, bl_temphdr->image_sz);
         if (result != BLRESULT_OK)
         {
           bl_dsflag_s.bad_image |= (DS_IMAGE_SYSTEM_2);
@@ -2069,7 +2087,7 @@ enum blresultcode blProgramApplImage(struct cwe_header_s *hdr, uint8 *startbufp)
         }
 
         blsetcustompartition(BL_LINUX_SYSTEM_PARTI_NAME);
-        result = blProgramImage(bufp, FLASH_PROG_ROFS1_IMG, temphdr.image_sz);
+        result = blProgramImage(bufp, FLASH_PROG_ROFS1_IMG, bl_temphdr->image_sz);
         if (result != BLRESULT_OK)
         {
           bl_dsflag_s.bad_image |= (DS_IMAGE_SYSTEM_1);
@@ -2085,7 +2103,7 @@ enum blresultcode blProgramApplImage(struct cwe_header_s *hdr, uint8 *startbufp)
 
       case BL_UPDATE_SYSTEM1:
         blsetcustompartition(BL_LINUX_SYSTEM_PARTI_NAME);
-        result = blProgramImage(bufp, FLASH_PROG_ROFS1_IMG, temphdr.image_sz);
+        result = blProgramImage(bufp, FLASH_PROG_ROFS1_IMG, bl_temphdr->image_sz);
         if (result != BLRESULT_OK)
         {
           bl_dsflag_s.bad_image |= (DS_IMAGE_SYSTEM_1);
@@ -2100,7 +2118,7 @@ enum blresultcode blProgramApplImage(struct cwe_header_s *hdr, uint8 *startbufp)
 
       case BL_UPDATE_SYSTEM2:
         blsetcustompartition(BL_LINUX_SYSTEM2_PARTI_NAME);
-        result = blProgramImage(bufp, FLASH_PROG_ROFS1_IMG, temphdr.image_sz);
+        result = blProgramImage(bufp, FLASH_PROG_ROFS1_IMG, bl_temphdr->image_sz);
         if (result != BLRESULT_OK)
         {
           bl_dsflag_s.bad_image |= (DS_IMAGE_SYSTEM_2);
@@ -2129,10 +2147,10 @@ enum blresultcode blProgramApplImage(struct cwe_header_s *hdr, uint8 *startbufp)
       program_spkg_contain_image_mask &= (~SPKG_IMAGE_LEGATO);
       case BL_UPDATE_DUAL_SYSTEM:
         /* Store second LEFWKRO image as flash_ubi_img() will modify the image with UBI format */
-        memcpy(second_ubi_images, bufp, temphdr.image_sz + sizeof(struct cwe_header_s));
+        memcpy(second_ubi_images, bufp, bl_temphdr->image_sz + sizeof(struct cwe_header_s));
 
         blsetcustompartition(BL_LINUX_UDATA2_PARTI_NAME);
-        result = blProgramImage(second_ubi_images, FLASH_PROG_USDATA_IMG, temphdr.image_sz);
+        result = blProgramImage(second_ubi_images, FLASH_PROG_USDATA_IMG, bl_temphdr->image_sz);
         if (result != BLRESULT_OK)
         {
           bl_dsflag_s.bad_image |= (DS_IMAGE_USERDATA_2);
@@ -2145,7 +2163,7 @@ enum blresultcode blProgramApplImage(struct cwe_header_s *hdr, uint8 *startbufp)
         }
 
         blsetcustompartition(BL_LINUX_UDATA_PARTI_NAME);
-        result = blProgramImage(bufp, FLASH_PROG_USDATA_IMG, temphdr.image_sz);
+        result = blProgramImage(bufp, FLASH_PROG_USDATA_IMG, bl_temphdr->image_sz);
         if (result != BLRESULT_OK)
         {
           bl_dsflag_s.bad_image |= (DS_IMAGE_USERDATA_1);
@@ -2161,7 +2179,7 @@ enum blresultcode blProgramApplImage(struct cwe_header_s *hdr, uint8 *startbufp)
 
       case BL_UPDATE_SYSTEM1:
         blsetcustompartition(BL_LINUX_UDATA_PARTI_NAME);
-        result = blProgramImage(bufp, FLASH_PROG_USDATA_IMG, temphdr.image_sz);
+        result = blProgramImage(bufp, FLASH_PROG_USDATA_IMG, bl_temphdr->image_sz);
         if (result != BLRESULT_OK)
         {
           bl_dsflag_s.bad_image |= (DS_IMAGE_USERDATA_1);
@@ -2176,7 +2194,7 @@ enum blresultcode blProgramApplImage(struct cwe_header_s *hdr, uint8 *startbufp)
 
       case BL_UPDATE_SYSTEM2:
         blsetcustompartition(BL_LINUX_UDATA2_PARTI_NAME);
-        result = blProgramImage(bufp, FLASH_PROG_USDATA_IMG, temphdr.image_sz);
+        result = blProgramImage(bufp, FLASH_PROG_USDATA_IMG, bl_temphdr->image_sz);
         if (result != BLRESULT_OK)
         {
           bl_dsflag_s.bad_image |= (DS_IMAGE_USERDATA_2);
@@ -2200,7 +2218,7 @@ enum blresultcode blProgramApplImage(struct cwe_header_s *hdr, uint8 *startbufp)
   if (bufp != NULL)
   {
     blsetcustompartition(BL_LINUX_UAPP_PARTI_NAME);
-    result = blProgramImage(bufp, FLASH_PROG_USAPP_IMG, temphdr.image_sz);
+    result = blProgramImage(bufp, FLASH_PROG_USAPP_IMG, bl_temphdr->image_sz);
     if (result != BLRESULT_OK)
     {
       dprintf(CRITICAL, "blProgramApplImage CWE_IMAGE_TYPE_UAPP failed, ret:%d\n", result);
@@ -2219,7 +2237,7 @@ enum blresultcode blProgramApplImage(struct cwe_header_s *hdr, uint8 *startbufp)
       case BL_UPDATE_DUAL_SYSTEM:
         bufp2 = bufp;
         blsetcustompartition(BL_LINUX_BOOT2_PARTI_NAME);
-        result = blProgramImage(bufp2, FLASH_PROG_CUSTOM_IMG, temphdr.image_sz);
+        result = blProgramImage(bufp2, FLASH_PROG_CUSTOM_IMG, bl_temphdr->image_sz);
         if (result != BLRESULT_OK)
         {
           bl_dsflag_s.bad_image |= (DS_IMAGE_BOOT_2);
@@ -2232,7 +2250,7 @@ enum blresultcode blProgramApplImage(struct cwe_header_s *hdr, uint8 *startbufp)
         }
 
         blsetcustompartition(BL_LINUX_BOOT_PARTI_NAME);
-        result = blProgramImage(bufp, FLASH_PROG_CUSTOM_IMG, temphdr.image_sz);
+        result = blProgramImage(bufp, FLASH_PROG_CUSTOM_IMG, bl_temphdr->image_sz);
         if (result != BLRESULT_OK)
         {
           bl_dsflag_s.bad_image |= (DS_IMAGE_BOOT_1);
@@ -2248,7 +2266,7 @@ enum blresultcode blProgramApplImage(struct cwe_header_s *hdr, uint8 *startbufp)
 
       case BL_UPDATE_SYSTEM1:
         blsetcustompartition(BL_LINUX_BOOT_PARTI_NAME);
-        result = blProgramImage(bufp, FLASH_PROG_CUSTOM_IMG, temphdr.image_sz);
+        result = blProgramImage(bufp, FLASH_PROG_CUSTOM_IMG, bl_temphdr->image_sz);
         if (result != BLRESULT_OK)
         {
           bl_dsflag_s.bad_image |= (DS_IMAGE_BOOT_1);
@@ -2263,7 +2281,7 @@ enum blresultcode blProgramApplImage(struct cwe_header_s *hdr, uint8 *startbufp)
 
       case BL_UPDATE_SYSTEM2:
         blsetcustompartition(BL_LINUX_BOOT2_PARTI_NAME);
-        result = blProgramImage(bufp, FLASH_PROG_CUSTOM_IMG, temphdr.image_sz);
+        result = blProgramImage(bufp, FLASH_PROG_CUSTOM_IMG, bl_temphdr->image_sz);
         if (result != BLRESULT_OK)
         {
           bl_dsflag_s.bad_image |= (DS_IMAGE_BOOT_2);
@@ -2292,7 +2310,7 @@ enum blresultcode blProgramApplImage(struct cwe_header_s *hdr, uint8 *startbufp)
       {
         /* program Linux CUS0(CUSTOMER0) image */
         blsetcustompartition(BL_CUSTOMER0_PARTI_NAME);
-        result = blProgramImage(bufp, FLASH_PROG_USAPP_IMG, temphdr.image_sz);
+        result = blProgramImage(bufp, FLASH_PROG_USAPP_IMG, bl_temphdr->image_sz);
         if (result != BLRESULT_OK)
         {
           bl_dsflag_s.bad_image |= (DS_IMAGE_CUSTOMERAPP_1);
@@ -2305,7 +2323,7 @@ enum blresultcode blProgramApplImage(struct cwe_header_s *hdr, uint8 *startbufp)
         }
         /* program Linux CUS0(CUSTOMER1) image */
         blsetcustompartition(BL_CUSTOMER1_PARTI_NAME);
-        result = blProgramImage(bufp, FLASH_PROG_USAPP_IMG, temphdr.image_sz);
+        result = blProgramImage(bufp, FLASH_PROG_USAPP_IMG, bl_temphdr->image_sz);
         if (result != BLRESULT_OK)
         {
           bl_dsflag_s.bad_image |= (DS_IMAGE_CUSTOMERAPP_2);
@@ -2324,7 +2342,7 @@ enum blresultcode blProgramApplImage(struct cwe_header_s *hdr, uint8 *startbufp)
       {
         /* program Linux CUS1(CUSTOMER0) image */
         blsetcustompartition(BL_CUSTOMER0_PARTI_NAME);
-        result = blProgramImage(bufp, FLASH_PROG_USAPP_IMG, temphdr.image_sz);
+        result = blProgramImage(bufp, FLASH_PROG_USAPP_IMG, bl_temphdr->image_sz);
         if (result != BLRESULT_OK)
         {
           bl_dsflag_s.bad_image |= (DS_IMAGE_CUSTOMERAPP_1);
@@ -2337,7 +2355,7 @@ enum blresultcode blProgramApplImage(struct cwe_header_s *hdr, uint8 *startbufp)
         }
         /* program Linux CUS1(CUSTOMER1) image */
         blsetcustompartition(BL_CUSTOMER1_PARTI_NAME);
-        result = blProgramImage(bufp, FLASH_PROG_USAPP_IMG, temphdr.image_sz);
+        result = blProgramImage(bufp, FLASH_PROG_USAPP_IMG, bl_temphdr->image_sz);
         if (result != BLRESULT_OK)
         {
           bl_dsflag_s.bad_image |= (DS_IMAGE_CUSTOMERAPP_2);
@@ -2355,7 +2373,7 @@ enum blresultcode blProgramApplImage(struct cwe_header_s *hdr, uint8 *startbufp)
       if (bufp != NULL)
       {
         blsetcustompartition(BL_CUSTOMER2_PARTI_NAME);
-        result = blProgramImage(bufp, FLASH_PROG_USAPP_IMG, temphdr.image_sz);
+        result = blProgramImage(bufp, FLASH_PROG_USAPP_IMG, bl_temphdr->image_sz);
         if (result != BLRESULT_OK)
         {
           bl_dsflag_s.bad_image |= (DS_IMAGE_CUSTOMERAPP_3);
@@ -2375,7 +2393,7 @@ enum blresultcode blProgramApplImage(struct cwe_header_s *hdr, uint8 *startbufp)
       if (bufp != NULL)
       {
         blsetcustompartition(BL_CUSTOMER0_PARTI_NAME);
-        result = blProgramImage(bufp, FLASH_PROG_USAPP_IMG, temphdr.image_sz);
+        result = blProgramImage(bufp, FLASH_PROG_USAPP_IMG, bl_temphdr->image_sz);
         if (result != BLRESULT_OK)
         {
           bl_dsflag_s.bad_image |= (DS_IMAGE_CUSTOMERAPP_1);
@@ -2393,7 +2411,7 @@ enum blresultcode blProgramApplImage(struct cwe_header_s *hdr, uint8 *startbufp)
       if (bufp != NULL)
       {
         blsetcustompartition(BL_CUSTOMER0_PARTI_NAME);
-        result = blProgramImage(bufp, FLASH_PROG_USAPP_IMG, temphdr.image_sz);
+        result = blProgramImage(bufp, FLASH_PROG_USAPP_IMG, bl_temphdr->image_sz);
         if (result != BLRESULT_OK)
         {
           bl_dsflag_s.bad_image |= (DS_IMAGE_CUSTOMERAPP_1);
@@ -2411,7 +2429,7 @@ enum blresultcode blProgramApplImage(struct cwe_header_s *hdr, uint8 *startbufp)
       if (bufp != NULL)
       {
         blsetcustompartition(BL_CUSTOMER2_PARTI_NAME);
-        result = blProgramImage(bufp, FLASH_PROG_USAPP_IMG, temphdr.image_sz);
+        result = blProgramImage(bufp, FLASH_PROG_USAPP_IMG, bl_temphdr->image_sz);
         if (result != BLRESULT_OK)
         {
           bl_dsflag_s.bad_image |= (DS_IMAGE_CUSTOMERAPP_3);
@@ -2431,7 +2449,7 @@ enum blresultcode blProgramApplImage(struct cwe_header_s *hdr, uint8 *startbufp)
       if (bufp != NULL)
       {
         blsetcustompartition(BL_CUSTOMER1_PARTI_NAME);
-        result = blProgramImage(bufp, FLASH_PROG_USAPP_IMG, temphdr.image_sz);
+        result = blProgramImage(bufp, FLASH_PROG_USAPP_IMG, bl_temphdr->image_sz);
         if (result != BLRESULT_OK)
         {
           bl_dsflag_s.bad_image |= (DS_IMAGE_CUSTOMERAPP_2);
@@ -2449,7 +2467,7 @@ enum blresultcode blProgramApplImage(struct cwe_header_s *hdr, uint8 *startbufp)
       if (bufp != NULL)
       {
         blsetcustompartition(BL_CUSTOMER1_PARTI_NAME);
-        result = blProgramImage(bufp, FLASH_PROG_USAPP_IMG, temphdr.image_sz);
+        result = blProgramImage(bufp, FLASH_PROG_USAPP_IMG, bl_temphdr->image_sz);
         if (result != BLRESULT_OK)
         {
           bl_dsflag_s.bad_image |= (DS_IMAGE_CUSTOMERAPP_2);
@@ -2467,7 +2485,7 @@ enum blresultcode blProgramApplImage(struct cwe_header_s *hdr, uint8 *startbufp)
       if (bufp != NULL)
       {
         blsetcustompartition(BL_CUSTOMER2_PARTI_NAME);
-        result = blProgramImage(bufp, FLASH_PROG_USAPP_IMG, temphdr.image_sz);
+        result = blProgramImage(bufp, FLASH_PROG_USAPP_IMG, bl_temphdr->image_sz);
         if (result != BLRESULT_OK)
         {
           bl_dsflag_s.bad_image |= (DS_IMAGE_CUSTOMERAPP_3);
@@ -2511,6 +2529,7 @@ enum blresultcode blProgramBootImage(struct cwe_header_s *hdr, uint8 *startbufp)
   uint8         *bufp;
   uint8         *bufp2;
   enum blresultcode result = BLRESULT_FLASH_WRITE_ERROR;
+  struct cwe_header_s *bl_temphdr = NULL;
 
   /*                    -------------------
    * BOOT image format: | BOOT CWE header |
@@ -2537,6 +2556,9 @@ enum blresultcode blProgramBootImage(struct cwe_header_s *hdr, uint8 *startbufp)
    *                    -------------------
    *  (All the images are optional)
    */
+
+  /*get cwe header buff*/
+  bl_temphdr = bl_get_cwe_header_buf();
 
   bufp = blSearchCWEImage(CWE_IMAGE_TYPE_QPAR, startbufp, hdr->image_sz);
   if (bufp != NULL)
@@ -2565,7 +2587,7 @@ enum blresultcode blProgramBootImage(struct cwe_header_s *hdr, uint8 *startbufp)
     /* SBL1 image is optional, only program if found */
     /* Program SBL image */
     blsetcustompartition(BL_SBL_PARTI_NAME);
-    result = blProgramImage(bufp, FLASH_PROG_SBL1_IMG, temphdr.image_sz);
+    result = blProgramImage(bufp, FLASH_PROG_SBL1_IMG, bl_temphdr->image_sz);
     if (result != BLRESULT_OK)
     {
       bl_dsflag_s.bad_image |= (DS_IMAGE_SBL);
@@ -2585,7 +2607,7 @@ enum blresultcode blProgramBootImage(struct cwe_header_s *hdr, uint8 *startbufp)
     program_spkg_contain_image_mask &= (~SPKG_IMAGE_TZ);
     /* Program TZ image */
     blsetcustompartition(BL_TZ_PARTI_NAME);
-    result = blProgramImage(bufp, FLASH_PROG_CUSTOM_IMG, temphdr.image_sz);
+    result = blProgramImage(bufp, FLASH_PROG_CUSTOM_IMG, bl_temphdr->image_sz);
     if (result != BLRESULT_OK)
     {
       switch(update_which_system)
@@ -2641,7 +2663,7 @@ enum blresultcode blProgramBootImage(struct cwe_header_s *hdr, uint8 *startbufp)
     program_spkg_contain_image_mask &= (~SPKG_IMAGE_RPM);
     /* Program RPM image  */
     blsetcustompartition(BL_RPM_PARTI_NAME);
-    result = blProgramImage(bufp, FLASH_PROG_CUSTOM_IMG, temphdr.image_sz);
+    result = blProgramImage(bufp, FLASH_PROG_CUSTOM_IMG, bl_temphdr->image_sz);
     if (result != BLRESULT_OK)
     {
       switch(update_which_system)
@@ -2701,7 +2723,7 @@ enum blresultcode blProgramBootImage(struct cwe_header_s *hdr, uint8 *startbufp)
         bufp2 = bufp;
         /* Program APBL image to aboot2*/
         blsetcustompartition(BL_ABOOT2_PARTI_NAME);
-        result = blProgramImage(bufp2, FLASH_PROG_CUSTOM_IMG, temphdr.image_sz);
+        result = blProgramImage(bufp2, FLASH_PROG_CUSTOM_IMG, bl_temphdr->image_sz);
         if (result != BLRESULT_OK)
         {
           bl_dsflag_s.bad_image |= (DS_IMAGE_ABOOT_2);
@@ -2715,7 +2737,7 @@ enum blresultcode blProgramBootImage(struct cwe_header_s *hdr, uint8 *startbufp)
 
         /* Program APBL image to aboot */
         blsetcustompartition(BL_ABOOT_PARTI_NAME);
-        result = blProgramImage(bufp, FLASH_PROG_CUSTOM_IMG, temphdr.image_sz);
+        result = blProgramImage(bufp, FLASH_PROG_CUSTOM_IMG, bl_temphdr->image_sz);
         if (result != BLRESULT_OK)
         {
           bl_dsflag_s.bad_image |= (DS_IMAGE_ABOOT_1);
@@ -2732,7 +2754,7 @@ enum blresultcode blProgramBootImage(struct cwe_header_s *hdr, uint8 *startbufp)
       case BL_UPDATE_SYSTEM1:
         /* Program APBL image to aboot */
         blsetcustompartition(BL_ABOOT_PARTI_NAME);
-        result = blProgramImage(bufp, FLASH_PROG_CUSTOM_IMG, temphdr.image_sz);
+        result = blProgramImage(bufp, FLASH_PROG_CUSTOM_IMG, bl_temphdr->image_sz);
         if (result != BLRESULT_OK)
         {
           bl_dsflag_s.bad_image |= (DS_IMAGE_ABOOT_1);
@@ -2748,7 +2770,7 @@ enum blresultcode blProgramBootImage(struct cwe_header_s *hdr, uint8 *startbufp)
       case BL_UPDATE_SYSTEM2:
         /* Program APBL image to aboot2*/
         blsetcustompartition(BL_ABOOT2_PARTI_NAME);
-        result = blProgramImage(bufp, FLASH_PROG_CUSTOM_IMG, temphdr.image_sz);
+        result = blProgramImage(bufp, FLASH_PROG_CUSTOM_IMG, bl_temphdr->image_sz);
         if (result != BLRESULT_OK)
         {
           bl_dsflag_s.bad_image |= (DS_IMAGE_ABOOT_2);
@@ -2845,6 +2867,7 @@ _global enum blresultcode blProgramCWEImage(
   const char *imagep;
   struct cwe_header_s spkg_sub_img_header;
   uint32 buflen_search_2nd_appl;
+  struct cwe_header_s *bl_temphdr = NULL;
 
   /*blprogram CWE Image,read out of sync flag, if out of sync flag set sync,set mask flag*/
   if(sierra_ds_check_if_ds_is_sync())
@@ -2870,9 +2893,12 @@ _global enum blresultcode blProgramCWEImage(
   /* Set the buffer pointer to the first CWE sub-header */
   startbufp = dloadbufp + sizeof(struct cwe_header_s);
 
+   /*get cwe header buff*/
+  bl_temphdr = bl_get_cwe_header_buf();
+
   do                            /* break out of this loop in case of failure */
   {
-    memmove((void *)&temphdr, (void *)hdr, sizeof(temphdr));
+    memmove((void *)bl_temphdr, (void *)hdr, sizeof(struct cwe_header_s));
 
     if (imagetype == CWE_IMAGE_TYPE_MODM)
     {
@@ -2949,7 +2975,7 @@ _global enum blresultcode blProgramCWEImage(
       bufp = blSearchCWEImage(CWE_IMAGE_TYPE_BOOT, startbufp, hdr->image_sz);
       if (bufp != NULL)
       {
-        memcpy((void *)&spkg_sub_img_header, (void *)&temphdr, sizeof(temphdr));
+        memcpy((void *)&spkg_sub_img_header, (void *)bl_temphdr, sizeof(struct cwe_header_s));
         if (blProgramBootImage(&spkg_sub_img_header, bufp + sizeof(struct cwe_header_s)) != BLRESULT_OK)
         {
           break;
@@ -2969,7 +2995,7 @@ _global enum blresultcode blProgramCWEImage(
       bufp = blSearchCWEImage(CWE_IMAGE_TYPE_MODM, startbufp, hdr->image_sz);
       if (bufp != NULL)
       {
-        memcpy((void *)&spkg_sub_img_header, (void *)&temphdr, sizeof(temphdr));
+        memcpy((void *)&spkg_sub_img_header, (void *)bl_temphdr, sizeof(struct cwe_header_s));
         if (blProgramModemImage(&spkg_sub_img_header, bufp + sizeof(struct cwe_header_s)) != BLRESULT_OK)
         {
           break;
@@ -2980,7 +3006,7 @@ _global enum blresultcode blProgramCWEImage(
       if (bufp != NULL)
       {
         /* Got first APPL image here, Program it. */
-        memcpy((void *)&spkg_sub_img_header, (void *)&temphdr, sizeof(temphdr));
+        memcpy((void *)&spkg_sub_img_header, (void *)bl_temphdr, sizeof(struct cwe_header_s));
         if (blProgramApplImage(&spkg_sub_img_header, bufp + sizeof(struct cwe_header_s)) != BLRESULT_OK)
         {
           break;
@@ -2994,7 +3020,7 @@ _global enum blresultcode blProgramCWEImage(
           bufp = blSearchCWEImage(CWE_IMAGE_TYPE_APPL, startbuf_search_2nd_appl, buflen_search_2nd_appl);
           if (bufp != NULL)
           {
-            memcpy((void *)&spkg_sub_img_header, (void *)&temphdr, sizeof(temphdr));
+            memcpy((void *)&spkg_sub_img_header, (void *)bl_temphdr, sizeof(struct cwe_header_s));
             if (blProgramApplImage(&spkg_sub_img_header, bufp + sizeof(struct cwe_header_s)) != BLRESULT_OK)
             {
               break;
@@ -3006,8 +3032,8 @@ _global enum blresultcode blProgramCWEImage(
       bufp = blSearchCWEImage(CWE_IMAGE_TYPE_FILE, startbufp, hdr->image_sz);
       if (bufp != NULL)
       {
-        memcpy((void *)&spkg_sub_img_header, (void *)&temphdr, sizeof(temphdr));
-        if (blProgramImageFile(CWE_IMAGE_TYPE_FILE, bufp, temphdr.image_sz) != BLRESULT_OK)
+        memcpy((void *)&spkg_sub_img_header, (void *)bl_temphdr, sizeof(struct cwe_header_s));
+        if (blProgramImageFile(CWE_IMAGE_TYPE_FILE, bufp, bl_temphdr->image_sz) != BLRESULT_OK)
         {
           break;
         }
@@ -3046,7 +3072,7 @@ _global enum blresultcode blProgramCWEImage(
   if (flog_imgtype == CWE_IMAGE_TYPE_INVALID)
   {
     /* try to get image type from last processed CWE header */
-    (void)cwe_image_type_validate(temphdr.image_type, &flog_imgtype);
+    (void)cwe_image_type_validate(bl_temphdr->image_type, &flog_imgtype);
   }
 
   memset(flog_typestr, 0, CWE_IMAGE_TYP_SZ + 1);
@@ -3144,6 +3170,7 @@ _global uint32 blProgramCWERecoveryImage(
   char flog_typestr[CWE_IMAGE_TYP_SZ+1];
   uint32 ret = 0;
   const char *imagep;
+  struct cwe_header_s *bl_temphdr = NULL;
 
   /* validate the image type from the CWE sub-header */
   if (cwe_image_type_validate(hdr->image_type, &imagetype) == FALSE)
@@ -3158,9 +3185,12 @@ _global uint32 blProgramCWERecoveryImage(
   /* Set the buffer pointer to the first CWE sub-header */
   startbufp = dloadbufp + sizeof(struct cwe_header_s);
 
+  /*get cwe header buff*/
+  bl_temphdr = bl_get_cwe_header_buf();
+
   do                            /* break out of this loop in case of failure */
   {
-    memmove((void *)&temphdr, (void *)hdr, sizeof(temphdr));
+    memmove((void *)bl_temphdr, (void *)hdr, sizeof(struct cwe_header_s));
     bufp = startbufp;
     /*                    -------------------
      * APPL image format: | APPL CWE header |
@@ -3214,7 +3244,7 @@ _global uint32 blProgramCWERecoveryImage(
   if (flog_imgtype == CWE_IMAGE_TYPE_INVALID)
   {
     /* try to get image type from last processed CWE header */
-    (void)cwe_image_type_validate(temphdr.image_type, &flog_imgtype);
+    (void)cwe_image_type_validate(bl_temphdr->image_type, &flog_imgtype);
   }
 
   memset(flog_typestr, 0, CWE_IMAGE_TYP_SZ + 1);
@@ -3555,3 +3585,25 @@ unsigned int sierra_smem_bcfuntions_get(void)
 
   return bitmask;
 }
+
+/************
+ *
+ * Name:     bl_get_cwe_header_buf
+ *
+ * Purpose:  get cwe header
+ *
+ * Params:   None
+ *
+ * Return:   cwe header
+ *
+ * Abort:    none
+ *
+ * Notes:    None
+ *
+ ************/
+_package struct cwe_header_s *bl_get_cwe_header_buf(
+  void)
+{
+  return &temphdr;
+}
+
