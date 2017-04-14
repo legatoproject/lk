@@ -416,4 +416,7 @@ enum blresultcode blredundancy_sbl_program(
 
 extern unsigned int sierra_smem_reset_type_get(void);
 
+extern struct cwe_header_s *bl_get_cwe_header_buf(
+  void);
+
 #endif /* bludefs_h */
