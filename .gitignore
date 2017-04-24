@@ -10,3 +10,6 @@ target/*/tools/mkheader
 cscope.*
 ncscope.*
 
+# shared symlink
+app/aboot/sierra
+

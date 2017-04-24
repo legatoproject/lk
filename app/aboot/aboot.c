@@ -970,7 +970,14 @@ static void verify_signed_bootimg(uint32_t bootimg_addr, uint32_t bootimg_size)
 
 	dprintf(INFO, "Authenticating boot image (%d): start\n", bootimg_size);
 
-#if VERIFIED_BOOT
+/* SWISTART */
+/* authenticate kernel image using Verified boot,
+ * VERIFIED_BOOT_SWI is only the subfeature to auth kernel, not including
+ * other parts of VERIFIED_BOOT
+ */
+/* #if VERIFIED_BOOT */
+#if VERIFIED_BOOT || VERIFIED_BOOT_SWI
+/* SWISTOP */
 	if(boot_into_recovery)
 	{
 		ret = boot_verify_image((unsigned char *)bootimg_addr,
@@ -1053,6 +1060,17 @@ static void verify_signed_bootimg(uint32_t bootimg_addr, uint32_t bootimg_size)
 #if !VERIFIED_BOOT
 	if(device.is_tampered)
 	{
+/* SWISTART */
+#ifdef SIERRA
+		if (!sierra_sec_oem_cert_hash_get())
+		{
+			/* auth not enabled, OK for auth failure */
+			dprintf(CRITICAL, "SWI: auth failed, OEM auth disabled\n");
+			return;
+		}
+#endif /* SIERRA */
+/* SWISTOP */
+
 		write_device_info_mmc(&device);
 	#ifdef TZ_TAMPER_FUSE
 		set_tamper_fuse_cmd();
@@ -1786,18 +1804,6 @@ int boot_linux_from_flash(void)
 	}
 	else
 	{
-/* SWISTART */
-#ifdef SIERRA
-		/* Authenticate Kernel image before load it to RAM address space */
-		if(!boot_swi_lk_auth_kernel(ptn,hdr))
-		{
-			dprintf(CRITICAL, "ERROR: LK auth kernel failed\n");
-
-			/* halt and fall back to download mode */
-			return -1;
-		}
-#endif
-/* SWISTOP */
 		offset = page_size;
 
 		kernel_actual = ROUND_TO_PAGE(hdr->kernel_size, page_mask);

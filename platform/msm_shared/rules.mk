@@ -54,6 +54,11 @@ OBJS += \
 	$(LOCAL_DIR)/boot_verifier.o
 endif
 
+# SWISTART - enable boot_verifier.o for VERIFIED_BOOT_SWI
+OBJS += \
+	$(LOCAL_DIR)/boot_verifier.o
+# SWISTOP
+
 ifeq ($(ENABLE_FBCON_DISPLAY_MSG),1)
 OBJS += \
 	$(LOCAL_DIR)/menu_keys_detect.o \

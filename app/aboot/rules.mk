@@ -43,4 +43,6 @@ INCLUDES += -I${LINUX_KERNEL_DIR}/arch/arm/mach-msm/include
 OBJS += \
 	$(LOCAL_DIR)/sierra_bl.o \
 	$(LOCAL_DIR)/sierra_sec.o
+
+include $(LOCAL_DIR)/sierra/rules.mk
 # SWISTOP

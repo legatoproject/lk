@@ -46,6 +46,12 @@
 #include <target.h>
 #include "bootimg.h"
 
+/* SWISTART */
+#ifdef SIERRA
+#include "sierra_secudefs.h"
+#endif /* SIERRA */
+/* SWISTOP */
+
 #define ASN1_ENCODED_SHA256_SIZE 0x33
 #define ASN1_ENCODED_SHA256_OFFSET 0x13
 #define ASN1_SIGNATURE_BUFFER_SZ   mmc_page_size()
@@ -286,6 +292,9 @@ static bool verify_image_with_sig(unsigned char* img_addr, uint32_t img_size,
 		else img_size += attr;
 	}
 
+/* SWISTART */
+/* full ks not supported yet */
+#ifndef SIERRA
 	/* compare SHA256SUM of image with value in signature */
 	if(ks != NULL)
 	{
@@ -308,6 +317,8 @@ static bool verify_image_with_sig(unsigned char* img_addr, uint32_t img_size,
 		goto verify_image_with_sig_done;
 	}
 	else
+#endif /* SIERRA */
+/* SWISTOP */
 	{
 		dprintf(INFO, "Verification with oem keystore failed. Use embedded certificate for verification\n");
 		// get the public key from certificate in boot.img
@@ -331,6 +342,17 @@ static bool verify_image_with_sig(unsigned char* img_addr, uint32_t img_size,
 	{
 		dprintf(SPEW, "Verified boot.img with embedded certificate in boot image\n");
 		boot_verify_send_event(BOOTIMG_EMBEDDED_CERT_VERIFICATION_PASS);
+/* SWISTART */
+#ifdef SIERRA
+		/* further verify the cert matches injected OEM cert hash */
+		if (!sierra_sec_oem_cert_compare((uint8_t *)sig->certificate))
+		{
+			ret = false;
+			dprintf(CRITICAL, "SWI: cert verification failed\n");
+			boot_verify_send_event(BOOTIMG_VERIFICATION_FAIL);
+		}
+#endif /* SIERRA */
+/* SWISTOP */
 		goto verify_image_with_sig_done;
 	}
 	else
@@ -617,7 +639,14 @@ bool boot_verify_image(unsigned char* img_addr, uint32_t img_size, char *pname)
 	if(!sig_len)
 	{
 		dprintf(CRITICAL, "boot_verifier: Error while reading signature length.\n");
+/* SWISTART */
+#ifndef SIERRA
 		ASSERT(0);
+#else /* SIERRA */
+		/* image not signed, trigger unified error handler at aboot.c */
+		goto verify_image_error;
+#endif /* SIERRA */
+/* SWISTOP */
 	}
 
 	if (sig_len > ASN1_SIGNATURE_BUFFER_SZ)

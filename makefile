@@ -41,11 +41,6 @@ OUTELF_STRIP := $(BUILDDIR)/lk_s.elf
 
 CONFIGHEADER := $(BUILDDIR)/config.h
 
-# SWISTART
-SECBOOTLIB := lib/libswi/libsecboot.a
-LIBS := $(SECBOOTLIB)
-# SWISTOP
-
 #Initialize the command-line flag ENABLE_TRUSTZONE. Value for flag passed in at command-line will take precedence
 ENABLE_TRUSTZONE := 0
 
@@ -75,6 +70,7 @@ endif
 
 # SWISTART
 CFLAGS += -DSIERRA
+CFLAGS += -DSWI_IMAGE_LK
 # SWISTOP
 
 # setup toolchain prefix
@@ -88,9 +84,6 @@ LDFLAGS :=
 
 CFLAGS += -ffunction-sections -fdata-sections -I app/aboot
 LDFLAGS += -gc-sections
-# SWISTART
-LDFLAGS += $(LIBS)
-# SWISTOP
 
 # top level rule
 all:: $(OUTBIN) $(OUTELF).lst $(OUTELF).debug.lst $(OUTELF).sym $(OUTELF).size $(OUTELF_STRIP) APPSBOOTHEADER
@@ -120,6 +113,10 @@ ifeq ($(VERIFIED_BOOT),1)
     DEFINES += DEFAULT_UNLOCK=1
   endif
 endif
+
+# SWISTART - enable subset of VERIFIED_BOOT
+  DEFINES += VERIFIED_BOOT_SWI=1
+# SWISTOP
 
 ifeq ($(OSVERSION_IN_BOOTIMAGE),1)
  DEFINES += OSVERSION_IN_BOOTIMAGE=1
