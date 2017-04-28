@@ -4793,11 +4793,6 @@ void aboot_init(const struct app_descriptor *app)
 
 	if (sierra_smem_boothold_mode_get())
 		boot_into_fastboot = true;
-
-	if (sierra_if_enter_fastboot())
-	{
-		boot_into_fastboot = true;
-	}
 #endif
 /* SWISTOP */
 
