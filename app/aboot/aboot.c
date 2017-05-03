@@ -3182,7 +3182,16 @@ void cmd_flash_nand(const char *arg, void *data, unsigned sz)
 			else if(!strcmp(arg, "sierra-dual-system"))
 			{
 				update_which_system = BL_UPDATE_DUAL_SYSTEM;
-				second_ubi_images = data + sz;
+
+				/*If fastboot buffer size is 256MB, RAM must be 512M*/
+				if (BL_BOOT_FASTBOOT_BUF_SIZE == target_get_max_flash_size_for_fastboot())
+				{
+					second_ubi_images = target_get_scratch_address();
+				}
+				else
+				{
+					second_ubi_images = data + sz;
+				}
 			}
 
 			ret = blProcessFastbootImage((unsigned char *)data, sz);
@@ -4138,7 +4147,14 @@ normal_boot:
 	partition_dump();
 
 	/* initialize and start fastboot */
+/* SWISTART */
+#ifdef SIERRA
+	fastboot_init(target_get_fastboot_address(), target_get_max_flash_size_for_fastboot());
+#else
 	fastboot_init(target_get_scratch_address(), target_get_max_flash_size());
+
+#endif
+/* SWISTOP */
 }
 
 uint32_t get_page_size()

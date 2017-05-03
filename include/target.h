@@ -47,6 +47,16 @@ void *target_get_scratch_address(void);
 /* get the max allowed flash size */
 unsigned target_get_max_flash_size(void);
 
+/* SWISTART */
+#ifdef SIERRA
+/* Get fastboot image download address*/
+void *target_get_fastboot_address(void);
+
+/*This function is use for fastboot init to get max image size*/
+unsigned target_get_max_flash_size_for_fastboot(void);
+#endif
+/* SWISTOP */
+
 /* if target is using eMMC bootup */
 int target_is_emmc_boot(void);
 
