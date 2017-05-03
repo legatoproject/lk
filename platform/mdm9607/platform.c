@@ -84,6 +84,27 @@ mmu_section_t mmu_section_table_256[] = {
 	{KERNEL_REGION,              KERNEL_REGION,               KERNEL_REGION_SIZE/ MB,           SCRATCH_MEMORY},
 };
 
+/* SWISTART */
+#ifdef SIERRA
+mmu_section_t mmu_section_table_512[] = {
+	{SCRATCH_REGION_512,         SCRATCH_REGION_512,          SCRATCH_REGION_SIZE_512/ MB,      SCRATCH_MEMORY},
+	{SCRATCH_REGION_256,         SCRATCH_REGION_256,          SCRATCH_REGION_SIZE_256/ MB,      SCRATCH_MEMORY},
+	{KERNEL_REGION,              KERNEL_REGION,               KERNEL_REGION_SIZE/ MB,           SCRATCH_MEMORY},
+};
+
+static void board_ddr_detect()
+{
+	ddr_size = smem_get_ddr_size();
+	/*128MB DDR*/
+	if(ddr_size == DDR_MEMORY_SIZE_128)
+		ddr_based_mmu_mappings(mmu_section_table_128, ARRAY_SIZE(mmu_section_table_128));
+	/*256MB DDR*/
+	else if(ddr_size == DDR_MEMORY_SIZE_256)
+		ddr_based_mmu_mappings(mmu_section_table_256, ARRAY_SIZE(mmu_section_table_256));
+	else
+		ddr_based_mmu_mappings(mmu_section_table_512, ARRAY_SIZE(mmu_section_table_512));
+}
+#else
 static void board_ddr_detect()
 {
 	ddr_size = smem_get_ddr_size();
@@ -93,7 +114,8 @@ static void board_ddr_detect()
 	else
 		ddr_based_mmu_mappings(mmu_section_table_256, ARRAY_SIZE(mmu_section_table_256));
 }
-
+#endif
+/* SWISTOP */
 void platform_early_init(void)
 {
 	board_init();

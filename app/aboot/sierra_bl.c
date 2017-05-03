@@ -2890,6 +2890,7 @@ _global enum blresultcode blProgramCWEImage(
         /* 1.1 then copy whole BOOT image to  SCRATCH_REGION2:0x88000000 */
         /* In this case FULL BOOT image has already been stored in SCRATCH_REGION2:0x88000000 */
         /* 1.2 MIBIB smart update, should go to sbl now */
+        memmove((void *)BL_BOOT_IMG_STORED_BY_LK, (void *)dloadbufp, dloadsize);
         return BLRESULT_OK;
       }
     } /* CWE_IMAGE_TYPE_BOOT */

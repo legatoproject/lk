@@ -53,6 +53,15 @@
 
 #define SMEM_NUM_SMD_STREAM_CHANNELS        64
 
+/*SWISTART*/
+#ifdef SIERRA
+/* 256MB DDR*/
+#define DDR_MEMORY_SIZE_256            0x10000000
+/* 128MB DDR*/
+#define DDR_MEMORY_SIZE_128            0x8000000
+#endif
+/*SWISTOP*/
+
 enum smem_ram_ptable_version
 {
 	SMEM_RAM_PTABLE_VERSION_0,
