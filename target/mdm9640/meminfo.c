@@ -84,3 +84,30 @@ unsigned target_get_max_flash_size(void)
 {
 	return (SCRATCH_REGION2_SIZE);
 }
+
+/*SWISTART*/
+#ifdef SIERRA
+void *target_get_fastboot_address(void)
+{
+	uint64_t ddr_size = smem_get_ddr_size();
+	if (ddr_size == DDR_MEMORY_SIZE_256)
+		/*256MB DDR scratch address*/
+		return ((void *)VA((addr_t)SCRATCH_REGION2));
+	else
+		/*512MB DDR scratch address*/
+		return ((void *)VA((addr_t)SCRATCH_ADDR_512));
+}
+/*This function is use for fastboot init to get max image size*/
+unsigned target_get_max_flash_size_for_fastboot(void)
+{
+	uint64_t ddr_size = smem_get_ddr_size();
+
+	if (ddr_size == DDR_MEMORY_SIZE_256)
+		/*256MB DDR scratch size*/
+		return (SCRATCH_REGION2_SIZE);
+	else
+		/*512MB DDR scratch size*/
+		return (SCRATCH_REGION_SIZE_512);
+}
+#endif
+/*SWISTOP*/

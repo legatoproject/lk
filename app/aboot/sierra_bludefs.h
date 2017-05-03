@@ -123,6 +123,9 @@ typedef enum {
   then SBL will update module with update boot_parti_update.cwe */
 #define BL_BOOT_IMG_STORED_BY_LK         SCRATCH_REGION2
 
+/* The fastboot buffer size for 512MB RAM*/
+#define BL_BOOT_FASTBOOT_BUF_SIZE         0x10000000
+
 #define BLRXBUFSZ         2000  /* maximum allowed by data link protocol */
 #define BLTXBUFSZ         2000  /* maximum allowed by data link protocol; must
                                  * match RX buffer for loopback to work properly

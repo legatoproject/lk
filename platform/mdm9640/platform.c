@@ -55,6 +55,14 @@ extern struct smem_ram_ptable* target_smem_ram_ptable_init();
 #define IOMAP_MEMORY                          (MMU_MEMORY_TYPE_DEVICE_SHARED | \
                                               MMU_MEMORY_AP_READ_WRITE | MMU_MEMORY_XN)
 
+/* SWISTART */
+#ifdef SIERRA
+static void ddr_based_mmu_mappings(mmu_section_t *table, uint32_t table_size);
+static uint64_t ddr_size;
+static void board_ddr_detect();
+#endif
+/* SWISTOP */
+
 /* Map all the accesssible memory according to the following rules:
  * 1. Map 1MB from MSM_SHARED_BASE with 1 -1 mapping.
  * 2. Map MEMBASE - MEMSIZE with 1 -1 mapping.
@@ -64,14 +72,33 @@ extern struct smem_ram_ptable* target_smem_ram_ptable_init();
  * 5. Map all the rest of the SDRAM/ IMEM regions as 1 -1.
  */
 mmu_section_t mmu_section_table[] = {
-/*   Physical addr,         Virtual addr,               Size (in MB),              Flags   */
-	{MSM_SHARED_BASE,       MSM_SHARED_BASE,            1,                         SCRATCH_MEMORY},
-	{MEMBASE,               MEMBASE,                    MEMSIZE / MB,              LK_MEMORY},
-	{MSM_IOMAP_BASE,        MSM_IOMAP_BASE,             MSM_IOMAP_SIZE,            IOMAP_MEMORY},
-	{SCRATCH_REGION1,       SCRATCH_REGION1, SCRATCH_REGION1_SIZE / MB, SCRATCH_MEMORY},
-	{SCRATCH_REGION2,       SCRATCH_REGION2, SCRATCH_REGION2_SIZE / MB, SCRATCH_MEMORY},
-	{KERNEL_REGION,         KERNEL_REGION, KERNEL_REGION_SIZE / MB, SCRATCH_MEMORY},
+/*  	 Physical addr,         Virtual addr,       Size (in MB),                   Flags   */
+	{MSM_SHARED_BASE,       MSM_SHARED_BASE,    1,                              SCRATCH_MEMORY},
+	{MEMBASE,               MEMBASE,            MEMSIZE / MB,                   LK_MEMORY},
+	{MSM_IOMAP_BASE,        MSM_IOMAP_BASE,     MSM_IOMAP_SIZE,                 IOMAP_MEMORY},
+	{SCRATCH_REGION1,       SCRATCH_REGION1,    SCRATCH_REGION1_SIZE / MB,      SCRATCH_MEMORY},
+	{SCRATCH_REGION2,       SCRATCH_REGION2,    SCRATCH_REGION2_SIZE / MB,      SCRATCH_MEMORY},
+	{KERNEL_REGION,         KERNEL_REGION,      KERNEL_REGION_SIZE / MB,        SCRATCH_MEMORY},
 };
+
+/* SWISTART */
+#ifdef SIERRA
+mmu_section_t mmu_section_table_512[] = {
+	{SCRATCH_REGION_512,         SCRATCH_REGION_512,          SCRATCH_REGION_SIZE_512/ MB,      SCRATCH_MEMORY},
+};
+
+static void board_ddr_detect()
+{
+	ddr_size = smem_get_ddr_size();
+	/*256MB DDR*/
+	if(ddr_size == DDR_MEMORY_SIZE_256)
+		return;
+	/*512MB DDR*/
+	else
+		ddr_based_mmu_mappings(mmu_section_table_512, ARRAY_SIZE(mmu_section_table_512));
+}
+#endif
+/* SWISTOP */
 
 void platform_early_init(void)
 {
@@ -90,6 +117,12 @@ void platform_early_init(void)
 
 	/* timer */
 	qtimer_init();
+
+/* SWISTART */
+#ifdef SIERRA
+	board_ddr_detect();
+#endif
+/* SWISTOP */
 }
 
 void platform_init(void)
@@ -143,6 +176,34 @@ void platform_init_mmu_mappings(void)
 		}
 	}
 }
+
+/* SWISTART */
+#ifdef SIERRA
+/* Setup memory for this platform */
+static void ddr_based_mmu_mappings(mmu_section_t *table,uint32_t table_size)
+{
+	uint32_t i;
+	uint32_t sections;
+
+	/* Configure the MMU page entries for memory read from the
+		 mmu_section_table */
+	for (i = 0; i < table_size; i++)
+	{
+		sections = table->num_of_sections;
+
+		while (sections--)
+		{
+			arm_mmu_map_section(table->paddress +
+								sections * MB,
+								table->vaddress +
+								sections * MB,
+								table->flags);
+		}
+	table++;
+	}
+}
+#endif
+/* SWISTOP */
 
 addr_t platform_get_virt_to_phys_mapping(addr_t virt_addr)
 {
