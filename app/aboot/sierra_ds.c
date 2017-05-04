@@ -1700,7 +1700,7 @@ bool sierra_ds_smem_erestore_info_set(uint32 value_type, uint8 value)
       efs_restore->erestore_t         = BL_RESTORE_INFO_INVALID_VALUE;
       efs_restore->errorcount         = BL_RESTORE_INFO_INVALID_VALUE;
       efs_restore->restored_flag      = BL_RESTORE_INFO_INVALID_VALUE;
-      efs_restore->reserved           = BL_RESTORE_INFO_INVALID_VALUE;
+      efs_restore->beroption          = BL_RESTORE_INFO_INVALID_VALUE;
       efs_restore->crc32              = crcrc32((void *)efs_restore, DS_ERESTORE_CRC_SZ, CRSTART_CRC32);
     }
 
@@ -1718,6 +1718,14 @@ bool sierra_ds_smem_erestore_info_set(uint32 value_type, uint8 value)
       efs_restore->magic_beg  = DS_MAGIC_EFSB;
       efs_restore->magic_end  = DS_MAGIC_EFSE;
       efs_restore->errorcount = value;
+      efs_restore->crc32      = crcrc32((void *)efs_restore, DS_ERESTORE_CRC_SZ, CRSTART_CRC32);
+    }
+    else if(BL_RESTORE_INFO_BEROPTION_BUF == value_type)
+    {
+    /* Backup error count. */
+      efs_restore->magic_beg  = DS_MAGIC_EFSB;
+      efs_restore->magic_end  = DS_MAGIC_EFSE;
+      efs_restore->beroption = value;
       efs_restore->crc32      = crcrc32((void *)efs_restore, DS_ERESTORE_CRC_SZ, CRSTART_CRC32);
     }
     else if(BL_RESTORE_INFO_RESTORE_DONE == value_type)
