@@ -2978,7 +2978,7 @@ _global enum blresultcode blProgramCWEImage(
         /* 1, If found QPAR image, */
         if (to_update_mibib == TRUE)
         {
-          /* 1.1 then copy whole BOOT image to  SCRATCH_REGION2:0x88000000 */
+          /* 1.1 then copy whole BOOT image to  SCRATCH_REGION2:0x88D00000 */
           memmove((void *)BL_BOOT_IMG_STORED_BY_LK, (void *)bufp, sizeof(struct cwe_header_s) + spkg_sub_img_header.image_sz);
 
           /* 1.2 MIBIB smart update, should go to sbl now */
