@@ -3688,12 +3688,68 @@ void cmd_updatevol(const char *vol_name, void *data, unsigned sz)
 	struct ptentry *sys_ptn;
 	struct ptable *ptable;
 
+#ifdef SIERRA
+	char tmp[128]={0};
+	char partiti_name[128]={0};
+	char ubi_vol_name[128]={0};
+	char *delim="-";
+	char *p;
+#endif
+
 	ptable = flash_get_ptable();
 	if (ptable == NULL) {
 		fastboot_fail("partition table doesn't exist");
 		return;
 	}
 
+#ifdef SIERRA
+/*
+ * How to update UBI volume for a UBI partition
+ *
+ * Format: fastboot flash <partition name>-<ubi volume name>
+ * Example1: fastboot flash system2-rootfs image
+ * Example2: fastboot flash lefwkro-legato_rhs image
+ *
+ */
+	if(vol_name == NULL || strlen(vol_name) <= 0){
+		dprintf(CRITICAL, "cmd_updatevol: vol_name is empty!\n");
+		return;
+	}
+	sprintf(tmp,"%s",vol_name);
+
+	p=strtok(tmp, delim);
+	if(p == NULL){
+		dprintf(CRITICAL, "cmd_updatevol: partition name is empty!\n");
+		fastboot_fail("partition name is empty");
+		return;
+	}
+	sprintf(partiti_name,"%s",p);
+
+	p = strtok(NULL, delim);
+	if(p == NULL){
+		dprintf(CRITICAL, "cmd_updatevol: UBI volume name is empty!\n");
+		fastboot_fail("UBI volume name is empty");
+		return;
+	}
+	sprintf(ubi_vol_name,"%s",p);
+
+	sys_ptn = ptable_find(ptable, partiti_name);
+	if (sys_ptn == NULL) {
+		sprintf(tmp,"%s partition not found",partiti_name);
+		dprintf(CRITICAL, "%s partition not found!\n",partiti_name);
+		fastboot_fail(tmp);
+		return;
+	}
+
+	if (update_ubi_vol(sys_ptn, ubi_vol_name, data, sz)){
+		sprintf(tmp,"update_ubi_vol %s failed",ubi_vol_name);
+		dprintf(CRITICAL, "update_ubi_vol %s failed\n",ubi_vol_name);
+		fastboot_fail(tmp);
+	}
+	else
+		fastboot_okay("");
+
+#else
 	sys_ptn = ptable_find(ptable, "system");
 	if (sys_ptn == NULL) {
 		fastboot_fail("system partition not found");
@@ -3705,6 +3761,7 @@ void cmd_updatevol(const char *vol_name, void *data, unsigned sz)
 		fastboot_fail("update_ubi_vol failed");
 	else
 		fastboot_okay("");
+#endif
 }
 
 void cmd_flash_nand(const char *arg, void *data, unsigned sz)
@@ -4167,7 +4224,7 @@ void cmd_swi_set_ssid(const char *arg, void *data, unsigned sz)
 			fastboot_fail("Please try:fastboot oem swi-get-ssdata");
 		}
 	}
-	
+
 	return;
 }
 
@@ -4175,7 +4232,7 @@ void cmd_swi_get_ssdata(const char *arg, void *data, unsigned sz)
 {
 	struct ds_flag_s ds_flag = {0};
 	char response[64];
-	
+
 	if (sierra_ds_get_full_data(&ds_flag))
 	{
 		/* Display all flags */
@@ -4195,7 +4252,7 @@ void cmd_swi_get_ssdata(const char *arg, void *data, unsigned sz)
 		fastboot_info(response);
 		sprintf(response, "edb_in_sw_update: 0x%x", ds_flag.edb_in_sw_update);
 		fastboot_info(response);
-		sprintf(response, "bad_image: 0x%08X%08X", 
+		sprintf(response, "bad_image: 0x%08X%08X",
 				(uint32)(ds_flag.bad_image >> 32), (uint32)ds_flag.bad_image);
 		fastboot_info(response);
 		fastboot_okay("");
