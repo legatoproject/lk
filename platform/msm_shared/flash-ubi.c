@@ -34,6 +34,8 @@
 #include <rand.h>
 #include <target.h>
 
+#define UBI_VOL_UPDATE_IMG_MEM_OFFSET (80*1024*1024)
+
 static
 const uint32_t crc32_table[256] = {
 	0x00000000L, 0x77073096L, 0xee0e612cL, 0x990951baL, 0x076dc419L,
@@ -340,14 +342,12 @@ static int read_leb_data(uint32_t peb, void *leb_data,
 		dprintf(CRITICAL, "read_leb_data: Mem allocation failed\n");
 		return ret;
 	}
-
 	tmp_buf = (unsigned char *)malloc(leb_size);
 	if (!tmp_buf)
 	{
 		dprintf(CRITICAL, "read_leb_data: Mem allocation failed\n");
 		goto out_tmp_buf;
 	}
-
 	if (qpic_nand_block_isbad(peb * num_pages_per_blk)) {
 		dprintf(CRITICAL, "read_leb_data: Bad block @ %d\n", peb);
 		goto out;
@@ -390,7 +390,7 @@ static int write_ec_header(uint32_t peb, struct ubi_ec_hdr *new_ech)
 		return -1;
 	}
 
-	memset(buf, 0, page_size);
+	memset(buf, 0xFF, page_size);
 	ASSERT(page_size > sizeof(*new_ech));
 	memcpy(buf, new_ech, UBI_EC_HDR_SIZE);
 	ret = qpic_nand_write(peb * num_pages_per_blk, 1, buf, 0);
@@ -430,7 +430,7 @@ static int write_vid_header(uint32_t peb,
 		return -1;
 	}
 
-	memset(buf, 0, page_size);
+	memset(buf, 0xFF, page_size);
 	ASSERT(page_size > sizeof(*new_vidh));
 	memcpy(buf, new_vidh, UBI_VID_HDR_SIZE);
 	ret = qpic_nand_write(peb * num_pages_per_blk + offset/page_size,
@@ -469,19 +469,23 @@ static int write_leb_data(uint32_t peb, void *data,
 	int block_size = flash_block_size();
 	int num_pages_per_blk = block_size/page_size;
 
-	tmp_buf = (unsigned char *)malloc(block_size - data_offset);
+	if(size > block_size - data_offset ){
+		dprintf(CRITICAL,
+			"write_leb_data: data size %d is too big!\n",size);
+		return ret;
+	}
+	num_pages = calc_data_len(page_size, data,
+				block_size - data_offset);
+
+	tmp_buf = (unsigned char *)malloc(num_pages*page_size);
 	if (!tmp_buf)
 	{
 		dprintf(CRITICAL, "write_leb_data: Mem allocation failed\n");
 		return -1;
 	}
+	memset(tmp_buf, 0xFF, num_pages*page_size);
 
-	if (size < block_size - data_offset)
-		num_pages = size / page_size;
-	else
-		num_pages = calc_data_len(page_size, data,
-				block_size - data_offset);
-	memcpy(tmp_buf, data, num_pages * page_size);
+	memcpy(tmp_buf, data, size);
 	ret = qpic_nand_write(peb * num_pages_per_blk + data_offset/page_size,
 			num_pages, tmp_buf, 0);
 	if (ret) {
@@ -681,17 +685,20 @@ static void update_ec_header(struct ubi_ec_hdr *old_ech,
 
 
 static void update_vid_header(struct ubi_vid_hdr *vid_hdr,
-		const struct ubi_scan_info *si, uint32_t vol_id,
-		uint32_t lnum, uint32_t data_pad)
+		struct ubi_vid_hdr *old_vidh,
+		const struct ubi_scan_info *si, uint32_t data_pad)
 {
 	uint32_t crc;
 
-	vid_hdr->vol_type = UBI_VID_DYNAMIC;
-	vid_hdr->sqnum = BE64(si->image_seq);
-	vid_hdr->vol_id = BE32(vol_id);
-	vid_hdr->lnum = BE32(lnum);
+	vid_hdr->vol_type = old_vidh->vol_type;
 	vid_hdr->compat = 0;
+	vid_hdr->vol_id = old_vidh->vol_id;
+	vid_hdr->lnum = old_vidh->lnum;
+	vid_hdr->data_size = old_vidh->data_size;
+	vid_hdr->used_ebs = old_vidh->used_ebs;
+	vid_hdr->sqnum = BE64(si->image_seq);
 	vid_hdr->data_pad = BE32(data_pad);
+	vid_hdr->data_crc = old_vidh->data_crc;
 
 	vid_hdr->magic = BE32(UBI_VID_HDR_MAGIC);
 	vid_hdr->version = UBI_VERSION;
@@ -742,7 +749,7 @@ static int ubi_erase_peb(int peb_num, struct ubi_scan_info *si,
 		dprintf(INFO, "ubi_erase_peb: erase of %d failed\n", peb_num);
 		return -1;
 	}
-	memset(&new_ech, 0xff, sizeof(new_ech));
+	memset(&new_ech, 0, sizeof(new_ech));
 	update_ec_header(&new_ech, si, peb_num - ptn_start, true);
 
 	/* Write new ec_header */
@@ -960,11 +967,16 @@ static int find_volume(struct ubi_scan_info *si, int ptn_start,
 	if (vtbl_records > UBI_MAX_VOLUMES)
 		vtbl_records = UBI_MAX_VOLUMES;
 
+#ifdef SIERRA
+	leb_data = (unsigned char *)target_get_scratch_address() + UBI_VOL_UPDATE_IMG_MEM_OFFSET;
+	memset(leb_data, 0, block_size - si->data_offs);
+#else
 	leb_data = malloc(block_size - si->data_offs);
 	if (!leb_data) {
 		dprintf(CRITICAL,"find_volume: Memory allocation failed\n");
 		goto out_free_leb;
 	}
+#endif
 retry:
 	/* First read the volume table */
 	if (read_leb_data(vtbl_peb + ptn_start, leb_data,
@@ -991,7 +1003,11 @@ retry:
 	}
 
 out_free_leb:
+#ifndef SIERRA
 	free(leb_data);
+#else
+	memset(leb_data, 0xFF, block_size - si->data_offs);
+#endif
 	return ret;
 }
 
@@ -1000,9 +1016,7 @@ out_free_leb:
  * @curr_peb - PEB to write to
  * @ptn_start: number of first PEB of the partition
  * @si: pointer to struct ubi_scan_info
- * @idx: index of required PEB in si->pebs_data array
- * @lnum: lun number this LEB belongs to
- * @vol_id: volume ID this PEB belongs to
+ * @new_vidh: a struct ubi_vid_hdr object containing VID header
  * @data: data to write
  * @size: size of the data
  *
@@ -1014,13 +1028,13 @@ out_free_leb:
  */
 static int write_one_peb(int curr_peb, int ptn_start,
 		struct ubi_scan_info *si,
-		int lnum, int vol_id, void* data, int size)
+		struct ubi_vid_hdr *new_vidh, void* data, int size)
 {
 	int ret;
 	struct ubi_vid_hdr vidh;
 
 	memset((void *)&vidh, 0, UBI_VID_HDR_SIZE);
-	update_vid_header(&vidh, si, vol_id, lnum, 0);
+	update_vid_header(&vidh, new_vidh, si, 0);
 	if (write_vid_header(curr_peb + ptn_start, &vidh, si->vid_hdr_offs)) {
 		dprintf(CRITICAL,
 				"update_ubi_vol: write_vid_header for peb %d failed \n",
@@ -1056,15 +1070,27 @@ int update_ubi_vol(struct ptentry *ptn, const char* vol_name,
 	struct ubi_scan_info *si;
 	int vol_id, vol_pebs, curr_peb = 0, ret = -1;
 	unsigned block_size = flash_block_size();
+	unsigned page_size = flash_page_size();
 	void *img_peb;
 	struct ubi_vtbl_record curr_vol;
-	int img_pebs, lnum = 0;
+	struct ubi_vid_hdr *new_vidh;
+	uint32_t data_size, data_crc;
+	int img_pebs, tmp_pebs, lnum = 0, reserve_pebs = 0;
 
 	si = scan_partition(ptn);
 	if (!si) {
 		dprintf(CRITICAL, "update_ubi_vol: scan_partition failed\n");
 		return -1;
 	}
+
+	new_vidh = malloc(UBI_VID_HDR_SIZE);
+	if (!new_vidh) {
+		dprintf(CRITICAL,
+			"update_ubi_vol: new_vidh memory allocation failed\n");
+		goto out_vid;
+	}
+	memset(new_vidh, 0, UBI_VID_HDR_SIZE);
+
 	if (si->read_image_seq)
 		si->image_seq = si->read_image_seq;
 
@@ -1073,6 +1099,7 @@ int update_ubi_vol(struct ptentry *ptn, const char* vol_name,
 		dprintf(CRITICAL, "update_ubi_vol: dint find volume\n");
 		goto out;
 	}
+
 	if (si->fastmap_sb > -1 &&
 			ubi_erase_peb(ptn->start + si->fastmap_sb, si, ptn->start)) {
 		dprintf(CRITICAL, "update_ubi_vol: fastmap invalidation failed\n");
@@ -1083,11 +1110,13 @@ int update_ubi_vol(struct ptentry *ptn, const char* vol_name,
 	if (size % (block_size - si->data_offs))
 		img_pebs++;
 
+
 	vol_pebs = BE32(curr_vol.reserved_pebs);
-	if (img_pebs > vol_pebs) {
+	tmp_pebs = vol_pebs + si->free_cnt;
+	if ( (tmp_pebs - img_pebs) < (tmp_pebs*4/100 + 2) ) {
 		dprintf(CRITICAL,
 			"update_ubi_vol: Provided image is too big. Requires %d PEBs, avail. only %d\n",
-				img_pebs, vol_pebs);
+				tmp_pebs*4/100 + 2 + img_pebs, tmp_pebs);
 		goto out;
 	}
 
@@ -1104,20 +1133,57 @@ int update_ubi_vol(struct ptentry *ptn, const char* vol_name,
 		curr_peb++;
 	}
 
+	/* Get free PEBs */
+	curr_peb = 0;
+	tmp_pebs = 0;
+	while (curr_peb < (int)ptn->length) {
+		if (si->pebs_data[curr_peb].status == UBI_FREE_PEB) {
+			tmp_pebs++;
+		}
+		curr_peb++;
+	}
+	reserve_pebs = tmp_pebs;
+
+	/* Keep at least 4% empty blocks for UBI wear-leveling and bad block handling */
+	if( (reserve_pebs - img_pebs) < (reserve_pebs*4/100 + 2) ){
+		dprintf(CRITICAL,
+			"update_ubi_vol: Provided img is too big. need at least 4 percent empty blocks!\n");
+		goto out;
+	}
+
+	new_vidh->vol_type = curr_vol.vol_type;
+	new_vidh->vol_id = BE32(vol_id);
+	if(curr_vol.vol_type != UBI_VID_DYNAMIC){
+		new_vidh->used_ebs = BE32(img_pebs);
+	}
+
 	/* Flash the image */
 	img_peb = data;
 	lnum = 0;
 	for (curr_peb = 0;
-			curr_peb < (int)ptn->length && size && vol_pebs;
+			curr_peb < (int)ptn->length && size && reserve_pebs;
 			curr_peb++) {
 		if (si->pebs_data[curr_peb].status != UBI_FREE_PEB &&
 			si->pebs_data[curr_peb].status != UBI_EMPTY_PEB)
 			continue;
 
+		data_size = (size < block_size - si->data_offs ? size :
+						block_size - si->data_offs);
+
+		if( data_size > page_size)
+			data_size = (calc_data_len(page_size, img_peb,
+							data_size) * page_size);
+
+		data_crc = mtd_crc32(UBI_CRC32_INIT, img_peb, data_size);
+		new_vidh->lnum = BE32(lnum);
+		lnum++;
+		if(curr_vol.vol_type != UBI_VID_DYNAMIC){
+			new_vidh->data_size = BE32(data_size);
+			new_vidh->data_crc= BE32(data_crc);
+		}
+
 		if (write_one_peb(curr_peb, ptn->start, si,
-				lnum++, vol_id, img_peb,
-				(size < block_size - si->data_offs ? size :
-						block_size - si->data_offs))) {
+				new_vidh, img_peb, data_size)) {
 			dprintf(CRITICAL, "update_ubi_vol: write_one_peb failed\n");
 			goto out;
 		}
@@ -1125,7 +1191,7 @@ int update_ubi_vol(struct ptentry *ptn, const char* vol_name,
 			size = 0;
 		else
 			size -= (block_size - si->data_offs);
-		vol_pebs--;
+		reserve_pebs--;
 		img_peb += block_size - si->data_offs;
 	}
 
@@ -1135,7 +1201,10 @@ int update_ubi_vol(struct ptentry *ptn, const char* vol_name,
 		goto out;
 	}
 	ret = 0;
+
 out:
+	free(new_vidh);
+out_vid:
 	free(si->pebs_data);
 	free(si);
 	return ret;
