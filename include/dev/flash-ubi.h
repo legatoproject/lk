@@ -187,7 +187,8 @@ struct __attribute__ ((packed)) ubi_vtbl_record {
 	uint8_t    vol_type;
 	uint8_t    upd_marker;
 	uint16_t  name_len;
-	uint8_t    name[UBI_MAX_VOLUMES];
+#define UBI_VOL_NAME_MAX 127
+	uint8_t    name[UBI_VOL_NAME_MAX+1];
 	uint8_t    flags;
 	uint8_t    padding[23];
 	uint32_t  crc;
@@ -259,4 +260,6 @@ struct ubi_scan_info {
 int flash_ubi_img(struct ptentry *ptn, void *data, unsigned size);
 int update_ubi_vol(struct ptentry *ptn, const char* vol_name,
 				void *data, unsigned size);
+int get_ubi_vol_data(struct ptentry *ptn, const char* vol_name,
+				void *data, unsigned *size);
 #endif
