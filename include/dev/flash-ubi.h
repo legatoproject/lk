@@ -242,4 +242,6 @@ struct __attribute__ ((packed)) ubi_image_scan_info {
 int flash_ubi_img(struct ptentry *ptn, void *data, unsigned size);
 int update_ubi_vol(struct ptentry *ptn, const char* vol_name,
 				void *data, unsigned size);
+int get_ubi_vol_data(struct ptentry *ptn, const char* vol_name,
+				void *data, unsigned *size);
 #endif
