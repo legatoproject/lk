@@ -1510,4 +1510,69 @@ out_vid:
 	return ret;
 }
 
+/**
+ * get_ubi_vol_data() - Get the provided (UBI) volume data from UBI partition
+ * @ptn: partition holding the required UBI volume
+ * @data: the data of the UBI volume store in this pointer.
+ * @size: size of the UBI volume get from UBI partition
+ *
+ *  Return codes:
+ * -1 - in case of error
+ *  0 - on success
+ */
+int get_ubi_vol_data(struct ptentry *ptn, const char* vol_name,
+				void *data, unsigned *size)
+{
+	struct ubi_scan_info *si;
+	int vol_id, curr_peb = 0, ret = -1;
+	unsigned block_size = flash_block_size();
 
+	struct ubi_vtbl_record curr_vol;
+	struct ubi_vid_hdr vid_hdr;
+	unsigned lnum = 0;
+
+	si = scan_partition(ptn);
+	if (!si) {
+		dprintf(CRITICAL, "get_ubi_vol_data: scan_partition failed\n");
+		return -1;
+	}
+
+/* Get vol id */
+	vol_id = find_volume(si, ptn->start, vol_name, &curr_vol);
+	if (vol_id == -1) {
+		dprintf(CRITICAL, "get_ubi_vol_data: volume %s not found!\n",vol_name);
+		goto out;
+	}
+
+/* Get volume data */
+	curr_peb = 0;
+	while (curr_peb < (int)ptn->length) {
+		if (si->pebs_data[curr_peb].status == UBI_USED_PEB &&
+			si->pebs_data[curr_peb].volume == vol_id) {
+
+			if(read_vid_hdr(ptn->start + curr_peb, &vid_hdr,
+					si->vid_hdr_offs) ){
+				dprintf(CRITICAL,"get_ubi_vol_data: read_vid_hdr failed\n");
+				goto out;
+			}
+			if (read_leb_data(ptn->start + curr_peb,
+					data + (block_size - si->data_offs)*BE32(vid_hdr.lnum),
+					block_size - si->data_offs, si->data_offs)) {
+				dprintf(CRITICAL,"get_ubi_vol_data: read_leb_data failed\n");
+				goto out;
+			}
+
+			if(BE32(vid_hdr.lnum) > lnum)
+				lnum = BE32(vid_hdr.lnum);
+		}
+		curr_peb++;
+	}
+
+	*size = (lnum+1)*(block_size - si->data_offs);
+	ret = 0;
+
+out:
+	free(si->pebs_data);
+	free(si);
+	return ret;
+}
