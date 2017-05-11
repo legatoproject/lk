@@ -140,6 +140,7 @@ struct __attribute__ ((packed)) ubi_vid_hdr {
 #define UBI_VID_DYNAMIC 1
 #define UBI_LAYOUT_VOLUME_TYPE UBI_VID_DYNAMIC
 #define UBI_FM_SB_VOLUME_ID	(UBI_INTERNAL_VOL_START + 1)
+#define UBI_COMPAT_REJECT 5
 
 
 /**

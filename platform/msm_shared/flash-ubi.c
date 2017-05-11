@@ -474,16 +474,20 @@ static int write_leb_data(uint32_t peb, void *data,
 			"write_leb_data: data size %d is too big!\n",size);
 		return ret;
 	}
-	num_pages = calc_data_len(page_size, data,
-				block_size - data_offset);
 
-	tmp_buf = (unsigned char *)malloc(num_pages*page_size);
+	tmp_buf = (unsigned char *)malloc(block_size - data_offset);
 	if (!tmp_buf)
 	{
 		dprintf(CRITICAL, "write_leb_data: Mem allocation failed\n");
 		return -1;
 	}
-	memset(tmp_buf, 0xFF, num_pages*page_size);
+	memset(tmp_buf, 0xFF, block_size - data_offset);
+
+	if (size < page_size)
+		num_pages = 1;
+	else
+		num_pages = calc_data_len(page_size, data,
+				block_size - data_offset);
 
 	memcpy(tmp_buf, data, size);
 	ret = qpic_nand_write(peb * num_pages_per_blk + data_offset/page_size,
@@ -684,6 +688,15 @@ static void update_ec_header(struct ubi_ec_hdr *old_ech,
 }
 
 
+/**
+ * update_vid_header() - Update provided vid_header
+ * @si: pointer to struct ubi_scan_info, holding the collected
+ *      vid_headers information of the partition
+ * @vid_hdr: a &struct ubi_vid_hdr object where to store the new vid header
+ * @old_vidh: a &struct ubi_vid_hdr object where to store the old vid header
+ * @data_pad: how many bytes are not used at the end of physical eraseblocks to
+ *            satisfy the requested alignment
+ */
 static void update_vid_header(struct ubi_vid_hdr *vid_hdr,
 		struct ubi_vid_hdr *old_vidh,
 		const struct ubi_scan_info *si, uint32_t data_pad)
@@ -707,6 +720,138 @@ static void update_vid_header(struct ubi_vid_hdr *vid_hdr,
 	vid_hdr->hdr_crc = BE32(crc);
 }
 
+/**
+ * get_layout_vol_vidh() - Read the second layout vid header
+ * @si: pointer to struct ubi_scan_info, holding the collected
+ *      ec_headers information of the partition
+ * @ptn_start: Partition offset address
+ * @vidh: a &struct ubi_vid_hdr object where to store the read header
+ *
+ * Returns: -1 on error
+ *           0 on success
+ */
+static int get_layout_vol_vidh(struct ubi_scan_info *si,
+			int ptn_start, struct ubi_vid_hdr *vidh)
+{
+	struct ubi_vid_hdr vid_hdr1, vid_hdr2;
+	int ret = -1;
+
+	if(read_vid_hdr(ptn_start + si->vtbl_peb1, &vid_hdr1,
+			si->vid_hdr_offs) ){
+		dprintf(CRITICAL,"update_layout_vol: read_vid_hdr failed\n");
+		return ret;
+	}
+
+	if(read_vid_hdr(ptn_start + si->vtbl_peb2, &vid_hdr2,
+			si->vid_hdr_offs) ){
+		dprintf(CRITICAL,"update_layout_vol: read_vid_hdr failed\n");
+		return ret;
+	}
+
+	if( BE64(vid_hdr1.sqnum) > BE64(vid_hdr2.sqnum))
+		memcpy(vidh, &vid_hdr1, UBI_VID_HDR_SIZE);
+	else
+		memcpy(vidh, &vid_hdr2, UBI_VID_HDR_SIZE);
+
+	return 0;
+}
+
+/**
+ * update_layout_vol() - Read the second layout vid header
+ * @si: pointer to struct ubi_scan_info, holding the collected
+ *      ec_headers information of the partition
+ * @data: vtbl LEBs buffer
+ * @ptn: partition holding the required volume
+ * @curr_peb: current PEB for new layout volume to write to
+ * @new_vidh: a &struct ubi_vid_hdr object where to store the read header
+ *
+ * Returns: -1 on error
+ *           0 on success
+ */
+static int update_layout_vol(struct ubi_scan_info *si,
+		void *data, struct ptentry *ptn,
+		int curr_peb, struct ubi_vid_hdr *new_vidh)
+{
+	struct ubi_vid_hdr vidh;
+	unsigned page_size = flash_page_size();
+	unsigned num_pages_per_blk = flash_block_size() / page_size;
+	uint64_t sqnum;
+	uint32_t crc, data_size;
+	int lnum;
+
+	memset(new_vidh, 0, UBI_VID_HDR_SIZE);
+	if(get_layout_vol_vidh(si, ptn->start, new_vidh)){
+		dprintf(CRITICAL,
+			"update_layout_vol: Get ubi layout volume fail!\n");
+		return -1;
+	}
+	sqnum = BE64(new_vidh->sqnum);
+
+	memset(&vidh, 0, UBI_VID_HDR_SIZE);
+	vidh.magic = new_vidh->magic;
+	vidh.version = new_vidh->version;
+	vidh.vol_type = UBI_VID_DYNAMIC;
+	vidh.copy_flag = 1;
+	vidh.compat = UBI_COMPAT_REJECT;
+	vidh.vol_id = BE32(UBI_LAYOUT_VOLUME_ID);
+	vidh.data_pad = new_vidh->data_pad;
+	data_size = UBI_VTBL_RECORD_SIZE*UBI_MAX_VOLUMES;
+
+	data_size = (data_size + page_size - 1) / page_size*page_size;
+	vidh.data_size = BE32(data_size);
+
+	for (lnum=0; curr_peb < (int)ptn->length && lnum < 2;
+							curr_peb++) {
+		if (si->pebs_data[curr_peb].status != UBI_FREE_PEB &&
+			si->pebs_data[curr_peb].status != UBI_EMPTY_PEB)
+			continue;
+
+		sqnum++;
+		vidh.lnum =  BE32(lnum);
+		vidh.sqnum=  BE64(sqnum);
+		crc = mtd_crc32(UBI_CRC32_INIT,(const void *)data, data_size);
+		vidh.data_crc = BE32(crc);
+
+		crc = mtd_crc32(UBI_CRC32_INIT,
+				(const void *)&vidh, UBI_VID_HDR_SIZE_CRC);
+		vidh.hdr_crc = BE32(crc);
+
+		if (write_vid_header(curr_peb + ptn->start, &vidh, si->vid_hdr_offs)) {
+			dprintf(CRITICAL,
+					"update_layout_vol: write_vid_header for peb %d failed \n",
+					curr_peb);
+			return -1;
+		}
+
+		/* now write the data */
+		if (write_leb_data(curr_peb + ptn->start, data, data_size, si->data_offs))
+			dprintf(CRITICAL, "update_layout_vol: writing data to peb-%d failed\n",
+					curr_peb);
+		else
+			si->pebs_data[curr_peb].status = UBI_USED_PEB;
+
+		lnum++;
+	}
+	if(lnum != 2){
+		dprintf(CRITICAL,
+				"update_layout_vol: write fail, lnum %d\n",lnum);
+		return -1;
+	}
+
+	if(si->vtbl_peb1 != -1 ){
+		if (qpic_nand_blk_erase((ptn->start + si->vtbl_peb1) * num_pages_per_blk)) {
+			dprintf(CRITICAL,
+				"update_layout_vol: Erase old vtbl fail,vtbl_peb1 %d\n", si->vtbl_peb1);
+		}
+	}
+	if(si->vtbl_peb2 != -1 ){
+		if (qpic_nand_blk_erase((ptn->start + si->vtbl_peb2) * num_pages_per_blk)) {
+			dprintf(CRITICAL,
+				"update_layout_vol: Erase old vtbl fail,vtbl_peb2 %d\n", si->vtbl_peb2);
+		}
+	}
+	return 0;
+}
 /**
  * fastmap_present - returns true if Fastmap superblock is found
  * @data: raw data to test
@@ -950,7 +1095,8 @@ out:
  * volume in dex when found
  */
 static int find_volume(struct ubi_scan_info *si, int ptn_start,
-		const char *vol_name, struct ubi_vtbl_record *vol_info)
+		const char *vol_name, struct ubi_vtbl_record *vol_info,
+		void *leb_mem_buf)
 {
 	int i, vtbl_records, vtbl_peb, ret = -1;
 	int block_size = flash_block_size();
@@ -968,7 +1114,7 @@ static int find_volume(struct ubi_scan_info *si, int ptn_start,
 		vtbl_records = UBI_MAX_VOLUMES;
 
 #ifdef SIERRA
-	leb_data = (unsigned char *)target_get_scratch_address() + UBI_VOL_UPDATE_IMG_MEM_OFFSET;
+	leb_data = leb_mem_buf;
 	memset(leb_data, 0, block_size - si->data_offs);
 #else
 	leb_data = malloc(block_size - si->data_offs);
@@ -994,7 +1140,7 @@ retry:
 		curr_vol = (struct ubi_vtbl_record *)
 				(leb_data + UBI_VTBL_RECORD_SIZE*i);
 		if (!curr_vol->vol_type)
-			break;
+			continue;
 		if (!strcmp((char *)curr_vol->name, vol_name)) {
 			ret = i;
 			memcpy((void*)vol_info, curr_vol, sizeof(struct ubi_vtbl_record));
@@ -1005,8 +1151,6 @@ retry:
 out_free_leb:
 #ifndef SIERRA
 	free(leb_data);
-#else
-	memset(leb_data, 0xFF, block_size - si->data_offs);
 #endif
 	return ret;
 }
@@ -1055,6 +1199,35 @@ out:
 }
 
 /**
+ * get_used_lebs() - Get PEBs used by all the ubi volumes
+ * @leb_size: size of LEB
+ * @leb_mem_buf: vtbl buffer containing volume informations
+ *
+ *  Return codes:
+ * -1 - in case of error
+ *  0 - on success
+ */
+static int get_used_lebs(unsigned leb_size, void * leb_mem_buf)
+{
+	int vtbl_records, i, used_lebs = 0, vol_num = 0;
+	struct ubi_vtbl_record *vtbl;
+
+	vtbl_records = leb_size / UBI_VTBL_RECORD_SIZE;
+	if (vtbl_records > UBI_MAX_VOLUMES)
+		vtbl_records = UBI_MAX_VOLUMES;
+
+	for (i = 0; i < vtbl_records; i++) {
+		vtbl = (struct ubi_vtbl_record *)
+				(leb_mem_buf + UBI_VTBL_RECORD_SIZE*i);
+		if (!vtbl->vol_type)
+			continue;
+		used_lebs += BE32(vtbl->reserved_pebs);
+		vol_num++;
+	}
+	return used_lebs;
+}
+
+/**
  * update_ubi_vol() - Write the provided (UBI) image to given volume
  * @ptn: partition holding the required volume
  * @data: the image to write
@@ -1071,17 +1244,24 @@ int update_ubi_vol(struct ptentry *ptn, const char* vol_name,
 	int vol_id, vol_pebs, curr_peb = 0, ret = -1;
 	unsigned block_size = flash_block_size();
 	unsigned page_size = flash_page_size();
-	void *img_peb;
+	unsigned leb_size;
+	void *img_peb, *leb_mem_buf;
 	struct ubi_vtbl_record curr_vol;
+	struct ubi_vtbl_record *vtbl, *vtbl_bak;
 	struct ubi_vid_hdr *new_vidh;
-	uint32_t data_size, data_crc;
-	int img_pebs, tmp_pebs, lnum = 0, reserve_pebs = 0;
+	uint32_t data_size, crc;
+	int img_pebs, tmp_pebs = 0, lnum = 0, reserve_pebs = 0;
 
 	si = scan_partition(ptn);
 	if (!si) {
 		dprintf(CRITICAL, "update_ubi_vol: scan_partition failed\n");
 		return -1;
 	}
+	leb_size = block_size - si->data_offs;
+
+	leb_mem_buf = (unsigned char *)target_get_scratch_address() + UBI_VOL_UPDATE_IMG_MEM_OFFSET;
+	vtbl_bak = leb_mem_buf + leb_size;
+	memset(vtbl_bak, 0, leb_size);
 
 	new_vidh = malloc(UBI_VID_HDR_SIZE);
 	if (!new_vidh) {
@@ -1094,7 +1274,7 @@ int update_ubi_vol(struct ptentry *ptn, const char* vol_name,
 	if (si->read_image_seq)
 		si->image_seq = si->read_image_seq;
 
-	vol_id = find_volume(si, ptn->start, vol_name, &curr_vol);
+	vol_id = find_volume(si, ptn->start, vol_name, &curr_vol, leb_mem_buf);
 	if (vol_id == -1) {
 		dprintf(CRITICAL, "update_ubi_vol: dint find volume\n");
 		goto out;
@@ -1106,17 +1286,18 @@ int update_ubi_vol(struct ptentry *ptn, const char* vol_name,
 		goto out;
 	}
 
-	img_pebs = size / (block_size - si->data_offs);
-	if (size % (block_size - si->data_offs))
+	vol_pebs = BE32(curr_vol.reserved_pebs);
+	tmp_pebs = get_used_lebs(leb_size,leb_mem_buf) - vol_pebs;
+	reserve_pebs = (int)ptn->length - si->bad_cnt - tmp_pebs - 2;
+
+	img_pebs = size / leb_size;
+	if (size % leb_size)
 		img_pebs++;
 
-
-	vol_pebs = BE32(curr_vol.reserved_pebs);
-	tmp_pebs = vol_pebs + si->free_cnt;
-	if ( (tmp_pebs - img_pebs) < (tmp_pebs*4/100 + 2) ) {
+	if ( (reserve_pebs - img_pebs) < (reserve_pebs*4/100 + 2) ) {
 		dprintf(CRITICAL,
 			"update_ubi_vol: Provided image is too big. Requires %d PEBs, avail. only %d\n",
-				tmp_pebs*4/100 + 2 + img_pebs, tmp_pebs);
+				reserve_pebs*4/100 + 2 + img_pebs, reserve_pebs);
 		goto out;
 	}
 
@@ -1137,12 +1318,13 @@ int update_ubi_vol(struct ptentry *ptn, const char* vol_name,
 	curr_peb = 0;
 	tmp_pebs = 0;
 	while (curr_peb < (int)ptn->length) {
-		if (si->pebs_data[curr_peb].status == UBI_FREE_PEB) {
+		if (si->pebs_data[curr_peb].status == UBI_FREE_PEB ||
+			si->pebs_data[curr_peb].status == UBI_EMPTY_PEB) {
 			tmp_pebs++;
 		}
 		curr_peb++;
 	}
-	reserve_pebs = tmp_pebs;
+	reserve_pebs = tmp_pebs - 2;/* leave 2 for vtble header */
 
 	/* Keep at least 4% empty blocks for UBI wear-leveling and bad block handling */
 	if( (reserve_pebs - img_pebs) < (reserve_pebs*4/100 + 2) ){
@@ -1164,22 +1346,21 @@ int update_ubi_vol(struct ptentry *ptn, const char* vol_name,
 			curr_peb < (int)ptn->length && size && reserve_pebs;
 			curr_peb++) {
 		if (si->pebs_data[curr_peb].status != UBI_FREE_PEB &&
-			si->pebs_data[curr_peb].status != UBI_EMPTY_PEB)
+			si->pebs_data[curr_peb].status != UBI_EMPTY_PEB){
 			continue;
+		}
 
-		data_size = (size < block_size - si->data_offs ? size :
-						block_size - si->data_offs);
-
+		data_size = (size < leb_size ? size : leb_size);
 		if( data_size > page_size)
 			data_size = (calc_data_len(page_size, img_peb,
-							data_size) * page_size);
+					data_size) * page_size);
 
-		data_crc = mtd_crc32(UBI_CRC32_INIT, img_peb, data_size);
+		crc = mtd_crc32(UBI_CRC32_INIT, img_peb, data_size);
 		new_vidh->lnum = BE32(lnum);
 		lnum++;
 		if(curr_vol.vol_type != UBI_VID_DYNAMIC){
 			new_vidh->data_size = BE32(data_size);
-			new_vidh->data_crc= BE32(data_crc);
+			new_vidh->data_crc= BE32(crc);
 		}
 
 		if (write_one_peb(curr_peb, ptn->start, si,
@@ -1187,18 +1368,36 @@ int update_ubi_vol(struct ptentry *ptn, const char* vol_name,
 			dprintf(CRITICAL, "update_ubi_vol: write_one_peb failed\n");
 			goto out;
 		}
-		if (size < block_size - si->data_offs)
+
+		if (size < leb_size)
 			size = 0;
 		else
-			size -= (block_size - si->data_offs);
+			size -= leb_size;
 		reserve_pebs--;
-		img_peb += block_size - si->data_offs;
+		img_peb += leb_size;
 	}
 
 	if (size) {
 		dprintf(CRITICAL,
 			"update_ubi_vol: Not enough available PEBs for writing the volume\n");
 		goto out;
+	}
+
+	/* Update layout volume - VID header and vtble */
+	if(vol_pebs < img_pebs){
+		vtbl = (struct ubi_vtbl_record *)
+				(leb_mem_buf + UBI_VTBL_RECORD_SIZE*vol_id);
+
+		vtbl->reserved_pebs = BE32(img_pebs);
+		crc = mtd_crc32(UBI_CRC32_INIT,
+				(const void *)vtbl, UBI_VTBL_RECORD_SIZE_CRC);
+		vtbl->crc = BE32(crc);
+
+		if(update_layout_vol(si, leb_mem_buf, ptn, curr_peb, new_vidh)){
+			dprintf(CRITICAL,
+				"update_ubi_vol: Get ubi layout volume fail!\n");
+			goto out;
+		}
 	}
 	ret = 0;
 
@@ -1230,15 +1429,17 @@ int get_ubi_vol_data(struct ptentry *ptn, const char* vol_name,
 	struct ubi_vtbl_record curr_vol;
 	struct ubi_vid_hdr vid_hdr;
 	unsigned lnum = 0;
+	void *leb_mem_buf;
 
 	si = scan_partition(ptn);
 	if (!si) {
 		dprintf(CRITICAL, "get_ubi_vol_data: scan_partition failed\n");
 		return -1;
 	}
+	leb_mem_buf = (unsigned char *)target_get_scratch_address() + UBI_VOL_UPDATE_IMG_MEM_OFFSET;
 
 /* Get vol id */
-	vol_id = find_volume(si, ptn->start, vol_name, &curr_vol);
+	vol_id = find_volume(si, ptn->start, vol_name, &curr_vol, leb_mem_buf);
 	if (vol_id == -1) {
 		dprintf(CRITICAL, "get_ubi_vol_data: volume %s not found!\n",vol_name);
 		goto out;
