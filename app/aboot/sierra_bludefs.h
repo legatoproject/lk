@@ -209,8 +209,7 @@ enum blresultcode
  * Notes:    Firmware update error code can be reported as:
  *           BC_UPDATE_STATUS_ERR_BL_M | blresultcode
  *           blresultcode (defined in bludefs.h) is the error code reported
- *           back to firmware update host tool or in FOTA update case:
- *           BC_UPDATE_STATUS_ERR_UA_M | UA error code (in ua_error.h)
+ *           back to firmware update host tool.
  *
  *           This is a 32-bit mask.  Enums (in C) are int, hence the cast
  *           to int32_t.  Otherwise, a compile error will result when
@@ -222,14 +221,11 @@ enum bc_update_status_e
   BC_UPDATE_STATUS_DLOADED     = (int32_t)0x00000000,  /* Initial state, firmware downloaded    */
   BC_UPDATE_STATUS_OK          = (int32_t)0x00000001,  /* Update OK                             */
   BC_UPDATE_STATUS_UNKNOWN     = (int32_t)0xFFFFFFFF,  /* Status unknown                        */
-  BC_UPDATE_STATUS_ERR_BADEFS_M = (int32_t)0x01000000, /* NV update failure                     */
-  BC_UPDATE_STATUS_ERR_VALIDATE_M = (int32_t)0x02000000,/* NV update failure                    */
-  BC_UPDATE_STATUS_ERR_PROCESS_M = (int32_t)0x04000000,/* NV update failure                     */
-  BC_UPDATE_STATUS_ERR_DFLTS_M = (int32_t)0x08000000,  /* Failed in defaulting NV               */
+  BC_UPDATE_STATUS_ERR_DFLTS_M = (int32_t)0x08000000,  /* FDT/SSDP reported errors              */
   BC_UPDATE_STATUS_ERR_FILE_M  = (int32_t)0x10000000,  /* FILE update failure or error code TBD */
   BC_UPDATE_STATUS_ERR_NVUP_M  = (int32_t)0x20000000,  /* NVUP update failure or error code TBD */
-  BC_UPDATE_STATUS_ERR_UA_M    = (int32_t)0x40000000,  /* BL update error or blresultcode       */
-  BC_UPDATE_STATUS_ERR_BL_M    = (int32_t)0x80000000,  /* UA update error or UA_Error           */
+  BC_UPDATE_STATUS_ERR_UA_M    = (int32_t)0x40000000,  /* FOTA update agent errors              */
+  BC_UPDATE_STATUS_ERR_BL_M    = (int32_t)0x80000000,  /* SDP download error                    */
 };
 
 /************
