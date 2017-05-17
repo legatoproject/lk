@@ -54,6 +54,12 @@
 #include <shutdown_detect.h>
 #endif
 
+/* SWISTART */
+#ifdef SIERRA
+#include "sierra_dsudefs.h"
+#endif /* SIERRA */
+/* SWISTOP */
+
 #define FASTBOOT_MODE           0x77665500
 #define PON_SOFT_RB_SPARE       0x88F
 
@@ -156,7 +162,14 @@ void target_early_init(void)
 	}
 	else
 	{
-		uart_dm_init(5, 0, BLSP1_UART5_BASE);
+		if(BS_UART_SRV_LINUX_CONSOLE == sierra_smem_bsuartfun_get(1))
+		{
+			uart_dm_init(5, 0, BLSP1_UART5_BASE);
+		}
+		else if(BS_UART_SRV_LINUX_CONSOLE == sierra_smem_bsuartfun_get(0))
+		{
+			uart_dm_init(2, 0, BLSP1_UART1_BASE);
+		}
 	}
 #endif /* SIERRA */
 /* SWISTOP */

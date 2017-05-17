@@ -3552,6 +3552,49 @@ unsigned int sierra_smem_bcfuntions_get(void)
 
 /************
  *
+ * Name:     sierra_smem_bsuartfun_get
+ *
+ * Purpose:  get bsuartfun from SMEM
+ *
+ * Parms:    uart_num: uart number
+ *
+ * Return:   bsuartfun
+ *
+ * Abort:    none
+ *
+ * Notes:    none
+ *
+ ************/
+int8_t sierra_smem_bsuartfun_get(uint uart_num)
+{
+  struct bscoworkmsg *mp;
+  unsigned char *virtual_addr;
+  int8_t uart_func1 = 0;
+  int8_t uart_func2 = 16;
+
+  virtual_addr = sierra_smem_base_addr_get();
+  if (virtual_addr)
+  {
+    virtual_addr += BSMEM_COWORK_OFFSET;
+    mp = (struct bscoworkmsg *)virtual_addr;
+
+    if (mp->magic_beg == BS_SMEM_COWORK_MAGIC_BEG &&
+        mp->magic_end == BS_SMEM_COWORK_MAGIC_END &&
+        mp->crc32 == crc32(~0, (void *)mp, BS_COWORK_CRC_SIZE))
+    {
+      uart_func1 = (int8_t)mp->bsuartfun[0];
+      uart_func2 = (int8_t)mp->bsuartfun[1];
+    }
+  }
+
+  if(0 == uart_num)
+    return uart_func1;
+  else if(1 == uart_num)
+    return uart_func2;
+}
+
+/************
+ *
  * Name:     bl_get_cwe_header_buf
  *
  * Purpose:  get cwe header

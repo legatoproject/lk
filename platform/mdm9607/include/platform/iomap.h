@@ -115,6 +115,13 @@
 #define BLSP1_UART1_APPS_M                 (CLK_CTL_BASE + 0x204C)
 #define BLSP1_UART1_APPS_N                 (CLK_CTL_BASE + 0x2050)
 #define BLSP1_UART1_APPS_D                 (CLK_CTL_BASE + 0x2054)
+
+#define BLSP1_UART2_APPS_CBCR              (CLK_CTL_BASE + 0x302c)
+#define BLSP1_UART2_APPS_CMD_RCGR          (CLK_CTL_BASE + 0x3034)
+#define BLSP1_UART2_APPS_CFG_RCGR          (CLK_CTL_BASE + 0x3038)
+#define BLSP1_UART2_APPS_M                 (CLK_CTL_BASE + 0x303C)
+#define BLSP1_UART2_APPS_N                 (CLK_CTL_BASE + 0x3040)
+#define BLSP1_UART2_APPS_D                 (CLK_CTL_BASE + 0x3044)
 #endif /* SIERRA */
 /* SWISTOP */
 
