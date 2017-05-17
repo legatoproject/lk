@@ -216,6 +216,57 @@ static struct branch_clk gcc_blsp1_uart1_apps_clk =
                .ops      = &clk_ops_branch,
        },
 };
+
+/*Add blsp1_uart2 clock */
+static struct clk_freq_tbl ftbl_gcc_blsp1_2_uart2_apps_clk[] =
+{
+       F( 3686400,  gpll0,    1,  72,  15625),
+       F( 7372800,  gpll0,    1, 144,  15625),
+       F(14745600,  gpll0,    1, 288,  15625),
+       F(16000000,  gpll0,   10,   1,      5),
+       F(19200000,    cxo,    1,   0,      0),
+       F(24000000,  gpll0,    1,   3,    100),
+       F(25000000,  gpll0,   16,   1,      2),
+       F(32000000,  gpll0,    1,   1,     25),
+       F(40000000,  gpll0,    1,   1,     20),
+       F(46400000,  gpll0,    1,  29,    500),
+       F(48000000,  gpll0,    1,   3,     50),
+       F(51200000,  gpll0,    1,   8,    125),
+       F(56000000,  gpll0,    1,   7,    100),
+       F(58982400,  gpll0,    1,1152,  15625),
+       F(60000000,  gpll0,    1,   3,     40),
+       F_END
+};
+
+static struct rcg_clk blsp1_uart2_apps_clk_src =
+{
+       .cmd_reg      = (uint32_t *) BLSP1_UART2_APPS_CMD_RCGR,
+       .cfg_reg      = (uint32_t *) BLSP1_UART2_APPS_CFG_RCGR,
+       .m_reg        = (uint32_t *) BLSP1_UART2_APPS_M,
+       .n_reg        = (uint32_t *) BLSP1_UART2_APPS_N,
+       .d_reg        = (uint32_t *) BLSP1_UART2_APPS_D,
+
+       .set_rate     = clock_lib2_rcg_set_rate_mnd,
+       .freq_tbl     = ftbl_gcc_blsp1_2_uart2_apps_clk,
+       .current_freq = &rcg_dummy_freq,
+
+       .c = {
+               .dbg_name = "blsp1_uart2_apps_clk",
+               .ops      = &clk_ops_rcg_mnd,
+       },
+};
+
+static struct branch_clk gcc_blsp1_uart2_apps_clk =
+{
+       .cbcr_reg     = (uint32_t *) BLSP1_UART2_APPS_CBCR,
+       .parent       = &blsp1_uart2_apps_clk_src.c,
+
+       .c = {
+               .dbg_name = "gcc_blsp1_uart2_apps_clk",
+               .ops      = &clk_ops_branch,
+       },
+};
+
 #endif /* SIERRA */
 /* SWISTOP */
 
@@ -418,6 +469,9 @@ static struct clk_lookup mdm_clocks_9607[] =
 #ifdef SIERRA
 	CLK_LOOKUP("spi1_iface_clk", gcc_blsp1_ahb_clk.c),
 	CLK_LOOKUP("spi1_core_clk",  gcc_blsp1_spi1_apps_clk.c),
+
+	CLK_LOOKUP("uart2_iface_clk", gcc_blsp1_ahb_clk.c),
+	CLK_LOOKUP("uart2_core_clk",  gcc_blsp1_uart2_apps_clk.c),
 
 #endif
 /* SWISTOP */

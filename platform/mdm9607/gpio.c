@@ -117,15 +117,27 @@ void gpio_config_uart_dm(uint8_t id)
 	}
 	else
 	{
-		/* configure rx gpio */
-		gpio_tlmm_config(9, 2, GPIO_INPUT, GPIO_NO_PULL,
-				GPIO_8MA, GPIO_DISABLE);
-
-		/* configure tx gpio */
-		gpio_tlmm_config(8, 2, GPIO_OUTPUT, GPIO_NO_PULL,
+		if(5 == id)
+		{
+			/* configure rx gpio */
+			gpio_tlmm_config(9, 2, GPIO_INPUT, GPIO_NO_PULL,
 					GPIO_8MA, GPIO_DISABLE);
+
+			/* configure tx gpio */
+			gpio_tlmm_config(8, 2, GPIO_OUTPUT, GPIO_NO_PULL,
+						GPIO_8MA, GPIO_DISABLE);
+		}
+		else if(2 == id)
+		{
+			/* configure rx gpio */
+			gpio_tlmm_config(5, 2, GPIO_INPUT, GPIO_NO_PULL,
+					GPIO_8MA, GPIO_DISABLE);
+
+			/* configure tx gpio */
+			gpio_tlmm_config(4, 2, GPIO_OUTPUT, GPIO_NO_PULL,
+						GPIO_8MA, GPIO_DISABLE);
+		}
 	}
-	
 #endif /* SIERRA */
 /* SWISTOP */
 }
