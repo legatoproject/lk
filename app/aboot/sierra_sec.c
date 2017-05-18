@@ -69,16 +69,16 @@ static boolean sierra_lk_enable_hash_check(void)
 {
   if (sierra_sec_get_auth_en())
   {
-    dprintf(CRITICAL,"%s_%d: secure boot enabled.\n",__func__,__LINE__);
+    dprintf(INFO,"%s_%d: secure boot enabled.\n",__func__,__LINE__);
     return TRUE;
   }
   else
   {
 #ifdef ENABLE_HASH_CHECK
-    dprintf(CRITICAL,"%s_%d: define ENABLE_HASH_CHECK\n",__func__,__LINE__);
+    dprintf(INFO,"%s_%d: define ENABLE_HASH_CHECK\n",__func__,__LINE__);
     return TRUE;
 #else
-    dprintf(CRITICAL,"%s_%d: not define ENABLE_HASH_CHECK\n",__func__,__LINE__);
+    dprintf(INFO,"%s_%d: not define ENABLE_HASH_CHECK\n",__func__,__LINE__);
     return FALSE;
 #endif
   }
