@@ -1641,13 +1641,13 @@ int boot_linux_from_flash(void)
 			ssid_linux_index = sierra_ds_smem_get_ssid_linux_index();
 			if(DS_SSID_SUB_SYSTEM_2 == ssid_linux_index)
 			{
-				dprintf(CRITICAL, "Load kernel from boot2 partition due to linux sub system 2\n");
+				dprintf(INFO, "Load kernel from boot2 partition due to linux sub system 2\n");
 				ptn = ptable_find(ptable, "boot2");
 				bad_image_mask = DS_IMAGE_BOOT_2;
 			}
 			else
 			{
-				dprintf(CRITICAL, "Load kernel from boot partition due to linux sub system 1\n");
+				dprintf(INFO, "Load kernel from boot partition due to linux sub system 1\n");
 				ptn = ptable_find(ptable, "boot");
 				bad_image_mask = DS_IMAGE_BOOT_1;
 			}
@@ -4615,7 +4615,7 @@ int sierra_smem_boothold_mode_get(void)
 		(a2bmsgp->version < BC_SMEM_MSG_CRC32_VERSION_MIN ||
 		a2bmsgp->crc32 == crc32(~0, (void *)a2bmsgp, BC_MSG_CRC_SZ))) {
 			a2bflags_in = a2bmsgp->in.flags;
-			dprintf(ALWAYS, "sierra_smem_boothold_mode_get: a2bflags_in=%llu\n",
+			dprintf(INFO, "sierra_smem_boothold_mode_get: a2bflags_in=%llu\n",
 				a2bflags_in);
 			if(a2bflags_in & BC_MSG_A2B_BOOT_HOLD)
 				return true;
@@ -4731,7 +4731,7 @@ void aboot_init(const struct app_descriptor *app)
 			board_hardware_subtype() == SWI_AR_BOARD4)
 	{
 		reset_type = sierra_smem_reset_type_get();
-		dprintf(CRITICAL, "Reset type=%d\n", reset_type);
+		dprintf(INFO, "Reset type=%d\n", reset_type);
 
 		if (fastboot_trigger() &&
 				((sierra_smem_bcfuntions_get() & BSFUNCTIONS_SERVICEPINDISABLE) == 0) &&
