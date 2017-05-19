@@ -120,6 +120,39 @@ struct ds_shared_data_s
   uint32  crc32;                          /* CRC value */
 };
 
+/************
+ *
+ * Name:     bs_uart_srv_e
+ *
+ * Purpose:  Enumerated list of possible over uart services
+ *
+ * Members:  see below
+ *
+ * Notes:    None
+ *
+ ************/
+enum bs_uart_srv_e{
+ BS_UART_SRV_NULL           = 0,       /* Null service mapped to UART device    */
+ BS_UART_SRV_AT_PORT        = 1,       /* AT/Data service mapped to UART device */
+ BS_UART_SRV_DM_PORT        = 2,       /* Diag service mapped to UART device    */
+ BS_UART_SRV_OSA_PORT       = 3,
+ BS_UART_SRV_NMEA_PORT      = 4,       /* NMEA service mapped to UART device    */
+ BS_UART_SRV_RESERVED_1     = 5,       /* Reserved */
+ BS_UART_SRV_RESERVED_2     = 6,       /* Reserved */
+ BS_UART_SRV_RESERVED_3     = 7,       /* Reserved */
+ BS_UART_SRV_RESERVED_4     = 8,       /* Reserved */
+ BS_UART_SRV_RESERVED_5     = 9,       /* Reserved */
+ BS_UART_SRV_RESERVED_6     = 10,      /* Reserved */
+ BS_UART_SRV_RESERVED_7     = 11,      /* Reserved */
+ BS_UART_SRV_RESERVED_8     = 12,      /* Reserved */
+ BS_UART_SRV_RESERVED_9     = 13,      /* Reserved */
+ BS_UART_SRV_RESERVED_10    = 14,      /* Reserved */
+ BS_UART_SRV_RESERVED_11    = 15,      /* Reserved */
+ BS_UART_SRV_LINUX_CONSOLE  = 16,      /* Linux Console */
+ BS_UART_SRV_LINUX_APP_1    = 17,      /* Customer Linux application */
+ BS_UART_SRV_MAX
+};
+
 extern bool sierra_ds_check_if_out_of_sync(void);
 extern bool sierra_ds_check_if_ds_is_sync(void);
 extern bool sierra_ds_check_is_recovery_phase1(void);

@@ -385,5 +385,6 @@ enum blresultcode blredundancy_sbl_program(
   unsigned int write_size);
 extern struct cwe_header_s *bl_get_cwe_header_buf(
   void);
+int8_t sierra_smem_bsuartfun_get(uint uart_num);
 
 #endif /* bludefs_h */

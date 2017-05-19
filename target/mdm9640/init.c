@@ -55,6 +55,12 @@
 #include <uart_dm.h>
 #include <boot_device.h>
 #include <crypto5_wrapper.h>
+/* SWISTART */
+#ifdef SIERRA
+#include <sierra_bludefs.h>
+#include "sierra_dsudefs.h"
+#endif /* SIERRA */
+/* SWISTOP */
 
 extern void smem_ptable_init(void);
 extern void smem_add_modem_partitions(struct ptable *flash_ptable);
@@ -132,7 +138,20 @@ void update_ptable_names(void)
 void target_early_init(void)
 {
 #if WITH_DEBUG_UART
+/* SWISTART */
+#ifndef SIERRA
 	uart_dm_init(2, 0, BLSP1_UART1_BASE);
+#else /* SIERRA */
+	if(BS_UART_SRV_LINUX_CONSOLE == sierra_smem_bsuartfun_get(1))
+	{
+		uart_dm_init(2, 0, BLSP1_UART1_BASE);
+	}
+	else if(BS_UART_SRV_LINUX_CONSOLE == sierra_smem_bsuartfun_get(0))
+	{
+		uart_dm_init(1, 0, BLSP1_UART0_BASE);
+	}
+#endif /* SIERRA */
+/* SWISTOP */
 #endif
 }
 
