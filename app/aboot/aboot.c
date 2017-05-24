@@ -3213,47 +3213,47 @@ void cmd_flash_nand(const char *arg, void *data, unsigned sz)
 			case BLRESULT_AUTHENTICATION_ERROR:
 			fastboot_fail("SIERRA AUTHENTICATION_ERROR. exit");
 			sierra_check_mibib_state_clear();
-			sierra_smem_fwupdate_status_set((ret | BC_UPDATE_STATUS_ERR_UA_M));
+			sierra_smem_fwupdate_status_set((ret | BC_UPDATE_STATUS_ERR_DFLTS_M));
 			return;
 			case BLRESULT_FLASH_WRITE_ERROR:
 			fastboot_fail("SIERRA FLASH_WRITE_ERROR. exit");
 			sierra_check_mibib_state_clear();
-			sierra_smem_fwupdate_status_set((ret | BC_UPDATE_STATUS_ERR_UA_M));
+			sierra_smem_fwupdate_status_set((ret | BC_UPDATE_STATUS_ERR_DFLTS_M));
 			return;
 			case BLRESULT_PRODUCT_TYPE_INVALID:
 			fastboot_fail("SIERRA PRODUCT_TYPE_INVALID. exit");
 			sierra_check_mibib_state_clear();
-			sierra_smem_fwupdate_status_set((ret | BC_UPDATE_STATUS_ERR_UA_M));
+			sierra_smem_fwupdate_status_set((ret | BC_UPDATE_STATUS_ERR_DFLTS_M));
 			return;
 			case BLRESULT_DECOMPRESSION_ERROR:
 			fastboot_fail("SIERRA DECOMPRESSION_ERROR. exit");
 			sierra_check_mibib_state_clear();
-			sierra_smem_fwupdate_status_set((ret | BC_UPDATE_STATUS_ERR_UA_M));
+			sierra_smem_fwupdate_status_set((ret | BC_UPDATE_STATUS_ERR_DFLTS_M));
 			return;
 			case BLRESULT_FLASH_READ_ERROR:
 			fastboot_fail("SIERRA FLASH_READ_ERROR. exit");
 			sierra_check_mibib_state_clear();
-			sierra_smem_fwupdate_status_set((ret | BC_UPDATE_STATUS_ERR_UA_M));
+			sierra_smem_fwupdate_status_set((ret | BC_UPDATE_STATUS_ERR_DFLTS_M));
 			return;
 			case BLRESULT_CRC32_CHECK_ERROR:
 			fastboot_fail("SIERRA CRC32_CHECK_ERROR. exit");
 			sierra_check_mibib_state_clear();
-			sierra_smem_fwupdate_status_set((ret | BC_UPDATE_STATUS_ERR_UA_M));
+			sierra_smem_fwupdate_status_set((ret | BC_UPDATE_STATUS_ERR_DFLTS_M));
 			return;
 			case BLRESULT_CWE_HEADER_ERROR:
 			fastboot_fail("SIERRA CWE_HEADER_ERROR. exit");
 			sierra_check_mibib_state_clear();
-			sierra_smem_fwupdate_status_set((ret | BC_UPDATE_STATUS_ERR_UA_M));
+			sierra_smem_fwupdate_status_set((ret | BC_UPDATE_STATUS_ERR_DFLTS_M));
 			return;
 			case BLRESULT_PKG_NOT_COMPATIBLE:
 			fastboot_fail("SIERRA PKG NOT COMPATIBLE. exit");
 			sierra_check_mibib_state_clear();
-			sierra_smem_fwupdate_status_set((ret | BC_UPDATE_STATUS_ERR_UA_M));
+			sierra_smem_fwupdate_status_set((ret | BC_UPDATE_STATUS_ERR_DFLTS_M));
 			return;
 			default:
 			fastboot_fail("SIERRA IMG FLASH WRITE ERROR. exit");
 			sierra_check_mibib_state_clear();
-			sierra_smem_fwupdate_status_set((BLRESULT_FLASH_WRITE_ERROR | BC_UPDATE_STATUS_ERR_UA_M));
+			sierra_smem_fwupdate_status_set((BLRESULT_FLASH_WRITE_ERROR | BC_UPDATE_STATUS_ERR_DFLTS_M));
 			return;
 		}
 
