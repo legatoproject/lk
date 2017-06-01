@@ -151,7 +151,9 @@ typedef enum {
 #define BS_BCMSG_RTYPE_SW_UPDATE_IN_SBL        ((uint32_t)(7))           /* SW update in SBL */
 #define BS_BCMSG_RTYPE_SW_UPDATE_IN_LK         ((uint32_t)(8))           /* SW update in LK */
 #define BS_BCMSG_RTYPE_SW_UPDATE_IN_LINUX      ((uint32_t)(9))           /* SW update in Linux */
-#define BS_BCMSG_RTYPE_UNKNOWN                 ((uint32_t)(10))          /* Unknown reset */
+#define BS_BCMSG_RTYPE_SYSTEM_SWAP             ((uint32_t)(10))          /* SYSTEM SWAP */
+#define BS_BCMSG_RTYPE_SYSTEM_SWAP_SYNC        ((uint32_t)(11))          /* SYSTEM SWAP & SYNC */
+#define BS_BCMSG_RTYPE_UNKNOWN                 ((uint32_t)(12))          /* Unknown reset */
 #define BS_BCMSG_RTYPE_MAX                     BS_BCMSG_RTYPE_UNKNOWN
 
 #define BS_BCMSG_RTYPE_IS_SET                  ((uint32_t)(0x00534554))  /* SET */
