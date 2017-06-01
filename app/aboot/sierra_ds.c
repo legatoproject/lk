@@ -247,7 +247,9 @@ bool sierra_ds_dssd_data_blocks_find(
   }/* end for ... */
 
   sierra_ds_page_buf_free();
+#ifdef SIERRA_DUAL_SYSTEM_TEST
   dprintf(CRITICAL, "sierra_ds_dssd_data_blocks_find(): find %d data blocks\n", *data_block_count);
+#endif
   return TRUE;
 }
 
@@ -509,7 +511,9 @@ bool sierra_ds_dssd_last_valid_data_page_find(
         /* It is valid DS data in the page */
         if(NULL != ds_data)
         {
+#ifdef SIERRA_DUAL_SYSTEM_TEST
           dprintf(CRITICAL, "sierra_ds_dssd_last_valid_data_page_find(): Store valid DS data\n");
+#endif
           /* Store valid DS data */
           memcpy((void *)ds_data, (void *)data_p, sizeof(struct ds_shared_data_s));
         }
