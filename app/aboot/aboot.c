@@ -2,7 +2,7 @@
  * Copyright (c) 2009, Google Inc.
  * All rights reserved.
  *
- * Copyright (c) 2009-2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2009-2017, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -815,6 +815,19 @@ static void verify_signed_bootimg(uint32_t bootimg_addr, uint32_t bootimg_size)
 		auth_kernel_img = 1;
 	}
 
+#if ENABLE_RECOVERY
+	if (!ret) {
+		if (!boot_into_recovery) {
+			/* Set the cookie in misc partition to boot into recovery kernel */
+			if(set_recovery_cookie())
+				dprintf(CRITICAL, "Failed to set the cookie in misc partition\n");
+			else
+				reboot_device (0);
+		}
+
+	}
+#endif
+
 #if USE_PCOM_SECBOOT
 	set_tamper_flag(device.is_tampered);
 #endif
@@ -1516,6 +1529,17 @@ int boot_linux_from_flash(void)
 			/* Validate and Read device device tree in the "tags_add */
 			if (check_aboot_addr_range_overlap(hdr->tags_addr, dt_entry.size)){
 				dprintf(CRITICAL, "Device tree addresses overlap with aboot addresses.\n");
+				return -1;
+			}
+
+			if(dt_entry.offset > (UINT_MAX - dt_entry.size)) {
+				dprintf(CRITICAL, "ERROR: Device tree contents are Invalid\n");
+				return -1;
+			}
+
+			/* Ensure we are not overshooting dt_size with the dt_entry selected */
+			if ((dt_entry.offset + dt_entry.size) > hdr->dt_size) {
+				dprintf(CRITICAL, "ERROR: Device tree contents are Invalid\n");
 				return -1;
 			}
 
