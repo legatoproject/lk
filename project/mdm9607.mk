@@ -5,6 +5,8 @@ LOCAL_DIR := $(GET_LOCAL_DIR)
 TARGET := mdm9607
 
 MODULES += app/aboot
+MODULES += app/rpmbtests
+MODULES += app/nandwrite
 
 ifeq ($(TARGET_BUILD_VARIANT),user)
 DEBUG := 0
@@ -33,3 +35,5 @@ ENABLE_SMD_SUPPORT := 1
 ifeq ($(ENABLE_SMD_SUPPORT),1)
 DEFINES += SMD_SUPPORT=1
 endif
+
+ENABLE_SECAPP_LOADER := 1
