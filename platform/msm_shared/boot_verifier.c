@@ -342,17 +342,6 @@ static bool verify_image_with_sig(unsigned char* img_addr, uint32_t img_size,
 	{
 		dprintf(SPEW, "Verified boot.img with embedded certificate in boot image\n");
 		boot_verify_send_event(BOOTIMG_EMBEDDED_CERT_VERIFICATION_PASS);
-/* SWISTART */
-#ifdef SIERRA
-		/* further verify the cert matches injected OEM cert hash */
-		if (!sierra_sec_oem_cert_compare((uint8_t *)sig->certificate))
-		{
-			ret = false;
-			dprintf(CRITICAL, "SWI: cert verification failed\n");
-			boot_verify_send_event(BOOTIMG_VERIFICATION_FAIL);
-		}
-#endif /* SIERRA */
-/* SWISTOP */
 		goto verify_image_with_sig_done;
 	}
 	else
@@ -675,6 +664,17 @@ bool boot_verify_image(unsigned char* img_addr, uint32_t img_size, char *pname)
 	}
 
 	ret = verify_image_with_sig(img_addr, img_size, pname, sig, user_keystore);
+
+/* SWISTART */
+#ifdef SIERRA
+	if (ret)
+	{
+		/* further verify the OEM certs */
+		ret = sierra_sec_oem_cert_verify((uint8_t *)sig->certificate,
+		                                 img_addr + img_size + sig_len);
+	}
+#endif /* SIERRA */
+/* SWISTOP */
 
 #if OSVERSION_IN_BOOTIMAGE
 	/* Extract the os version and patch level */

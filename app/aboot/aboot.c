@@ -1746,6 +1746,16 @@ int boot_linux_from_flash(void)
 			dprintf(CRITICAL, "ERROR: Cannot read boot image signature\n");
 			return -1;
 		}
+/* SWISTART */
+#ifdef SIERRA
+		else
+		{
+			/* read more pages for possible extra certs */
+			sierra_sec_cert_page_read(ptn, offset, image_addr + offset,
+			                          page_size);
+		}
+#endif /* SIERRA */
+/* SWISTOP */
 
 		verify_signed_bootimg((uint32_t)image_addr, imagesize_actual);
 
