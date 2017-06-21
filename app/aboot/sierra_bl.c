@@ -548,21 +548,22 @@ bool sierra_check_mibib_smart_update_allow(void)
 
 /************
  *
- * Name:     sierra_smem_mibib_set_flag
+ * Name:     sierra_smem_mibib_set_flag_addr
  *
  * Purpose:  Set MIBIB update flag to SM
  *
- * Parms:    update_flag
+ * Parms:    update_flag  -- [IN] update state flag
+ *               addr  --    [IN] MIBIB image store address
  *
  * Return:   TRUE if success
  *               FALSE otherwise
  *
  * Abort:    none
  *
- * Notes:    none
+ * Notes:    SBL get the MIBIB image from addr.
  *
  ************/
-bool sierra_smem_mibib_set_flag(uint32 update_flag)
+bool sierra_smem_mibib_set_flag_addr(uint32 update_flag, uint32 addr)
 {
   struct mibib_smem_s *mibibp = NULL;
   unsigned char *virtual_addr = NULL;
@@ -579,6 +580,7 @@ bool sierra_smem_mibib_set_flag(uint32 update_flag)
     mibibp->magic_beg = MIBIB_SMEM_MAGIC_BEG;
     mibibp->magic_end = MIBIB_SMEM_MAGIC_END;
     mibibp->update_flag = update_flag;
+    mibibp->download_addr = addr;
     mibibp->crc32 = crcrc32((uint8 *)mibibp, (sizeof(struct mibib_smem_s) - sizeof(uint32_t)), (uint32)CRSTART_CRC32);
 
     dprintf(CRITICAL, "Save MIBIB to SIERRA SMEM successfully\n");
@@ -1848,7 +1850,7 @@ _local enum blresultcode blProgramImage(
 
 /************
  *
- * Name:     blProgramBootImage
+ * Name:     blProgramModemImage
  *
  * Purpose:  This function will program the MODEM image into flash.
  *
@@ -1974,7 +1976,7 @@ enum blresultcode blProgramModemImage(struct cwe_header_s *hdr, uint8 *startbufp
 
 /************
  *
- * Name:     blProgramBootImage
+ * Name:     blProgramApplImage
  *
  * Purpose:  This function will program the APPL image into flash.
  *
@@ -2530,7 +2532,8 @@ enum blresultcode blProgramBootImage(struct cwe_header_s *hdr, uint8 *startbufp)
     if (sierra_check_mibib_smart_update_allow())
     {
       /* MIBIB image(partition image) found. LK can't write MIBIB image. */
-      if(!sierra_smem_mibib_set_flag(MIBIB_TO_UPDATE_IN_SBL))
+      if(!sierra_smem_mibib_set_flag_addr(MIBIB_TO_UPDATE_IN_SBL,
+                                          BL_BOOT_IMG_STORED_BY_LK))
       {
         result = BLRESULT_MEMORY_MAP_ERROR;
         dprintf(CRITICAL, "write MIBIB to SMEM failed, ret:%d\n", result);
@@ -2679,7 +2682,7 @@ enum blresultcode blProgramBootImage(struct cwe_header_s *hdr, uint8 *startbufp)
   bufp = blSearchCWEImage(CWE_IMAGE_TYPE_APBL, startbufp, hdr->image_sz);
   if (bufp != NULL)
   {
-    /*clear program_spkg_contain_image_mask rpm flag*/
+    /*clear program_spkg_contain_image_mask lk flag*/
     program_spkg_contain_image_mask &= (~SPKG_IMAGE_LK);
     switch(update_which_system)
     {
@@ -2888,8 +2891,8 @@ _global enum blresultcode blProgramCWEImage(
       /* 1, If found QPAR image, */
       if (to_update_mibib == TRUE)
       {
-        /* 1.1 then copy whole BOOT image to  SCRATCH_REGION2:0x88D00000 */
-        /* In this case FULL BOOT image has already been stored in SCRATCH_REGION2:0x88D00000 */
+        /* 1.1 then copy whole BOOT image to  SCRATCH_REGION2 */
+        /* In this case FULL BOOT image has already been stored in SCRATCH_REGION2 */
         /* 1.2 MIBIB smart update, should go to sbl now */
         memmove((void *)BL_BOOT_IMG_STORED_BY_LK, (void *)dloadbufp, dloadsize);
         return BLRESULT_OK;
@@ -2949,7 +2952,7 @@ _global enum blresultcode blProgramCWEImage(
         /* 1, If found QPAR image, */
         if (to_update_mibib == TRUE)
         {
-          /* 1.1 then copy whole BOOT image to  SCRATCH_REGION2:0x88D00000 */
+          /* 1.1 then copy whole BOOT image to  SCRATCH_REGION2 */
           memmove((void *)BL_BOOT_IMG_STORED_BY_LK, (void *)bufp, sizeof(struct cwe_header_s) + spkg_sub_img_header.image_sz);
 
           /* 1.2 MIBIB smart update, should go to sbl now */
