@@ -118,11 +118,11 @@ typedef enum {
 #define BL_BOOT_COMPAT_WORD (BL_HW_COMPAT_BYTE)
 
 
-/* SWI LK will store Boot.cwe in 0x88000000 */
-/* fastboot of LK will use "SCRATCH_REGION2:0x88000000" as download region, 
+/* SWI LK will store Boot.cwe in SCRATCH_REGION_256 */
+/* fastboot of LK will use "SCRATCH_REGION_256" as download region, 
   for feature to update boot_parti_update.cwe in SBL, we use this address to store image,
   then SBL will update module with update boot_parti_update.cwe */
-#define BL_BOOT_IMG_STORED_BY_LK         0x88000000
+#define BL_BOOT_IMG_STORED_BY_LK         SCRATCH_REGION_256
 
 /* The fastboot buffer size for 512MB RAM*/
 #define BL_BOOT_FASTBOOT_BUF_SIZE         0x10000000
