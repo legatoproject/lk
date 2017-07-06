@@ -24,6 +24,8 @@
 
 #include "mach/sierra_smem.h"
 #include "sierra_bludefs.h"
+#include <sierra/api/cowork_ssmem_structure.h>
+#include <sierra/api/ssmemudefs.h>
 #include <target.h>
 
 /*
@@ -135,24 +137,16 @@ unsigned int sierra_smem_b2a_flags_get(void)
  ************/
 bool sierra_is_bootquiet_disabled(void)
 {
-  struct bccoworkmsg *msgp;
-  unsigned char *virtual_addr;
+  struct cowork_ssmem_s *coworkp;
   bool is_disable = false;
 
-  virtual_addr = sierra_smem_base_addr_get();
-  if (NULL != virtual_addr)
+  coworkp = ssmem_cowork_get();
+  if (!coworkp)
   {
-    virtual_addr += BSMEM_COWORK_OFFSET;
-
-    msgp = (struct bccoworkmsg *)virtual_addr;
-
-    if (msgp->magic_beg == BS_SMEM_COWORK_MAGIC_BEG &&
-        msgp->magic_end == BS_SMEM_COWORK_MAGIC_END &&
-        msgp->crc32 == crc32(~0, (void *)msgp, BS_COWORK_CRC_SIZE))
-    {
-      is_disable = msgp->bcbootquiet ? true : false;
-    }
+    return false;
   }
+  is_disable = coworkp->boot_quiet ? true : false;
+
   return is_disable;
 }
 
