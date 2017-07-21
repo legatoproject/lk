@@ -2011,6 +2011,7 @@ void sierra_ds_update_ssdata(struct ds_flag_s *ds_flag, bool *swapreset)
     ds_smem_bufp->ssid_linux_idx = ds_flag->ssid_linux_idx;
     ds_smem_bufp->is_changed = DS_BOOT_UP_CHANGED;
     ds_smem_bufp->bad_image = ds_flag->bad_image;
+    ds_smem_bufp->swap_reason = DS_SWAP_REASON_NONE;
     ds_smem_bufp->magic_end = DS_MAGIC_NUMBER;
     ds_smem_bufp->crc32 = crcrc32((uint8 *)ds_smem_bufp, sizeof(struct ds_smem_message_s) - sizeof(uint32), CRSTART_CRC32);
   }
