@@ -2,7 +2,7 @@
  * Copyright (c) 2009, Google Inc.
  * All rights reserved.
  *
- * Copyright (c) 2009-2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2009-2016, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -1427,14 +1427,14 @@ int boot_linux_from_flash(void)
 			{
 				ptn = ptable_find(ptable, "boot2");
 			}
-	
+
 			/* Regard it as emergency download mode if both kernel images not exist */
 			if ((flash_read(ptn, offset, buf, page_size)) || (memcmp(hdr->magic, BOOT_MAGIC, BOOT_MAGIC_SIZE))){
 				dprintf(CRITICAL, "ERROR: Invalid image header of both kernel images\n");
 				boot_into_fastboot_swi = true;
 				return -1;
 			}
-	
+
 			dprintf(CRITICAL, "ERROR: Cannot read boot image header or invalid boot image header\n");
 			return -1;
 		}
@@ -2141,7 +2141,7 @@ void boot_linux_from_ram(void *data, unsigned sz)
 		unsigned char *kernel_start_addr = NULL;
 		unsigned int kernel_size = 0;
 		unsigned int scratch_offset = 0;
-	
+
 #if VERIFIED_BOOT
 		if(target_build_variant_user() && !device.is_unlocked)
 		{
@@ -2149,41 +2149,41 @@ void boot_linux_from_ram(void *data, unsigned sz)
 			return;
 		}
 #endif
-	
+
 		if (sz < sizeof(hdr)) {
 			fastboot_fail("invalid bootimage header");
 			return;
 		}
-	
+
 		hdr = (struct boot_img_hdr *)data;
-	
+
 		/* ensure commandline is terminated */
 		hdr->cmdline[BOOT_ARGS_SIZE-1] = 0;
-	
+
 		if(target_is_emmc_boot() && hdr->page_size) {
 			page_size = hdr->page_size;
 			page_mask = page_size - 1;
 		}
-	
+
 		kernel_actual = ROUND_TO_PAGE(hdr->kernel_size, page_mask);
 		ramdisk_actual = ROUND_TO_PAGE(hdr->ramdisk_size, page_mask);
 #if DEVICE_TREE
 		dt_actual = ROUND_TO_PAGE(hdr->dt_size, page_mask);
 #endif
-	
+
 		image_actual = ADD_OF(page_size, kernel_actual);
 		image_actual = ADD_OF(image_actual, ramdisk_actual);
 		image_actual = ADD_OF(image_actual, dt_actual);
-	
+
 		if (target_use_signed_kernel() && (!device.is_unlocked))
 			image_actual = ADD_OF(image_actual, sig_actual);
-	
+
 		/* sz should have atleast raw boot image */
 		if (image_actual > sz) {
 			fastboot_fail("bootimage: incomplete or not signed");
 			return;
 		}
-	
+
 		/* Handle overflow if the input image size is greater than
 		 * boot image buffer can hold
 		 */
@@ -2194,7 +2194,7 @@ void boot_linux_from_ram(void *data, unsigned sz)
 			return;
 		}
 #endif
-	
+
 		/* Verify the boot image
 		 * device & page_size are initialized in aboot_init
 		 */
@@ -2203,26 +2203,26 @@ void boot_linux_from_ram(void *data, unsigned sz)
 			 * access signature beyond its length
 			 */
 			verify_signed_bootimg((uint32_t)data, (image_actual - sig_actual));
-	
+
 #ifdef MDTP_SUPPORT
 		else
 		{
 			/* fastboot boot is not allowed when MDTP is activated */
 			mdtp_ext_partition_verification_t ext_partition;
-	
+
 			if (!is_mdtp_activated) {
 				ext_partition.partition = MDTP_PARTITION_NONE;
 				mdtp_fwlock_verify_lock(&ext_partition);
 			}
 		}
-	
+
 		mdtp_activated(&is_mdtp_activated);
 		if(is_mdtp_activated){
 			dprintf(CRITICAL, "fastboot boot command is not available.\n");
 			return;
 		}
 #endif /* MDTP_SUPPORT */
-	
+
 		/*
 		 * Check if the kernel image is a gzip package. If yes, need to decompress it.
 		 * If not, continue booting.
@@ -2241,7 +2241,7 @@ void boot_linux_from_ram(void *data, unsigned sz)
 				dprintf(CRITICAL, "decompressing image failed!!!\n");
 				ASSERT(0);
 			}
-	
+
 			dprintf(INFO, "decompressing kernel image: done\n");
 			kptr = (struct kernel64_hdr *)out_addr;
 			kernel_start_addr = out_addr;
@@ -2251,19 +2251,19 @@ void boot_linux_from_ram(void *data, unsigned sz)
 			kernel_start_addr = (unsigned char *)((char *)data + page_size);
 			kernel_size = hdr->kernel_size;
 		}
-	
+
 		/*
 		 * Update the kernel/ramdisk/tags address if the boot image header
 		 * has default values, these default values come from mkbootimg when
 		 * the boot image is flashed using fastboot flash:raw
 		 */
 		update_ker_tags_rdisk_addr(hdr, IS_ARM64(kptr));
-	
+
 		/* Get virtual addresses since the hdr saves physical addresses. */
 		hdr->kernel_addr = VA(hdr->kernel_addr);
 		hdr->ramdisk_addr = VA(hdr->ramdisk_addr);
 		hdr->tags_addr = VA(hdr->tags_addr);
-	
+
 		kernel_size  = ROUND_TO_PAGE(kernel_size,  page_mask);
 		/* Check if the addresses in the header are valid. */
 		if (check_aboot_addr_range_overlap(hdr->kernel_addr, kernel_size) ||
@@ -2272,12 +2272,12 @@ void boot_linux_from_ram(void *data, unsigned sz)
 			dprintf(CRITICAL, "kernel/ramdisk addresses overlap with aboot addresses.\n");
 			return;
 		}
-	
+
 #if DEVICE_TREE
 		scratch_offset = image_actual + page_size + out_len;
 		/* find correct dtb and copy it to right location */
 		ret = copy_dtb(data, scratch_offset);
-	
+
 		dtb_copied = !ret ? 1 : 0;
 #else
 		if (check_aboot_addr_range_overlap(hdr->tags_addr, MAX_TAGS_SIZE))
@@ -2286,18 +2286,18 @@ void boot_linux_from_ram(void *data, unsigned sz)
 			return;
 		}
 #endif
-	
+
 		/* Load ramdisk & kernel */
 		memmove((void*) hdr->ramdisk_addr, ptr + page_size + kernel_actual, hdr->ramdisk_size);
 		memmove((void*) hdr->kernel_addr, (char*) (kernel_start_addr), kernel_size);
-	
+
 #if DEVICE_TREE
 		if (check_aboot_addr_range_overlap(hdr->tags_addr, kernel_actual))
 		{
 			dprintf(CRITICAL, "Tags addresses overlap with aboot addresses.\n");
 			return;
 		}
-	
+
 		/*
 		 * If dtb is not found look for appended DTB in the kernel.
 		 * If appended dev tree is found, update the atags with
@@ -2314,7 +2314,7 @@ void boot_linux_from_ram(void *data, unsigned sz)
 				return;
 			}
 		}
-#endif	
+#endif
 		boot_linux((void*) hdr->kernel_addr, (void*) hdr->tags_addr,
 			   (const char*) hdr->cmdline, board_machtype(),
 			   (void*) hdr->ramdisk_addr, hdr->ramdisk_size);
@@ -2704,7 +2704,7 @@ void cmd_flash_mmc_img(const char *arg, void *data, unsigned sz)
 					fastboot_fail("unlock device to flash keystore");
 					return;
 				}
-				if(!boot_verify_validate_keystore((unsigned char *)data))
+				if(!boot_verify_validate_keystore((unsigned char *)data,sz))
 				{
 					fastboot_fail("image is not a keystore file");
 					return;
@@ -3218,10 +3218,21 @@ void cmd_flash_nand(const char *arg, void *data, unsigned sz)
 	struct ptentry *ptn;
 	struct ptable *ptable;
 	unsigned extra = 0;
+	unsigned bytes_to_round_page = 0;
+	unsigned rounded_size = 0;
 /* SWISTART */
 #ifdef SIERRA
 	enum blresultcode ret = BLRESULT_OK;
+#endif
+/* SWISTOP */
 
+	if((uintptr_t)data > (UINT_MAX - sz)) {
+		fastboot_fail("Cannot flash: image header corrupt");
+                return;
+        }
+
+/* SWISTART */
+#ifdef SIERRA
 	if (!strcmp(arg, "sierra")
 		|| !strcmp(arg, "sierra2")
 		|| !strcmp(arg, "sierra-dual-system"))
@@ -3325,7 +3336,6 @@ void cmd_flash_nand(const char *arg, void *data, unsigned sz)
 
 		sierra_check_mibib_state_clear();
 	}
-/* SWISTART */
 #ifdef SIERRA_DUAL_SYSTEM_TEST
 	else if(!strcmp(arg, "swi_ds_read")
 			|| !strcmp(arg, "swi_dssd_write")
@@ -3335,7 +3345,6 @@ void cmd_flash_nand(const char *arg, void *data, unsigned sz)
 		sierra_ds_test(arg);
 	}
 #endif /* SIERRA_DUAL_SYSTEM_TEST */
-/* SWISTOP */
 	else
 	{
 #endif
@@ -3355,8 +3364,10 @@ void cmd_flash_nand(const char *arg, void *data, unsigned sz)
 	}
 
 	if (!strcmp(ptn->name, "boot") || !strcmp(ptn->name, "recovery")) {
-		if (memcmp((void *)data, BOOT_MAGIC, BOOT_MAGIC_SIZE)) {
-			fastboot_fail("image is not a boot image");
+		if((sz > BOOT_MAGIC_SIZE) && (!memcmp((void *)data, BOOT_MAGIC, BOOT_MAGIC_SIZE))) {
+			dprintf(INFO, "Verified the BOOT_MAGIC in image header  \n");
+		} else {
+			fastboot_fail("Image is not a boot image");
 			return;
 		}
 	}
@@ -3367,11 +3378,28 @@ void cmd_flash_nand(const char *arg, void *data, unsigned sz)
 		|| !strcmp(ptn->name, "recoveryfs")
 		|| !strcmp(ptn->name, "modem"))
 		extra = 1;
-	else
-		sz = ROUND_TO_PAGE(sz, page_mask);
+	else {
+		rounded_size = ROUNDUP(sz, page_size);
+		bytes_to_round_page = rounded_size - sz;
+		if (bytes_to_round_page) {
+			if (((uintptr_t)data + sz ) > (UINT_MAX - bytes_to_round_page)) {
+				fastboot_fail("Integer overflow detected");
+				return;
+			}
+			if (((uintptr_t)data + sz + bytes_to_round_page) >
+				((uintptr_t)target_get_scratch_address() + target_get_max_flash_size())) {
+				fastboot_fail("Buffer size is not aligned to page_size");
+				return;
+			}
+			else {
+				memset(data + sz, 0, bytes_to_round_page);
+				sz = rounded_size;
+			}
+		}
+	}
 
 	dprintf(INFO, "writing %d bytes to '%s'\n", sz, ptn->name);
-	if (!memcmp((void *)data, UBI_MAGIC, UBI_MAGIC_SIZE)) {
+	if ((sz > UBI_MAGIC_SIZE) && (!memcmp((void *)data, UBI_MAGIC, UBI_MAGIC_SIZE))) {
 		if (flash_ubi_img(ptn, data, sz)) {
 			fastboot_fail("flash write failure");
 			return;
