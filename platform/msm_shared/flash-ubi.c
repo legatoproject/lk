@@ -91,6 +91,9 @@ const uint32_t crc32_table[256] = {
 	0x2d02ef8dL
 };
 
+static int ubi_erase_peb(int peb_num, struct ubi_scan_info *si,
+		int ptn_start);
+
 static uint32_t mtd_crc32(uint32_t crc, const void *buf, size_t size)
 {
 	const uint8_t *p = buf;
@@ -773,7 +776,6 @@ static int update_layout_vol(struct ubi_scan_info *si,
 {
 	struct ubi_vid_hdr vidh;
 	unsigned page_size = flash_page_size();
-	unsigned num_pages_per_blk = flash_block_size() / page_size;
 	uint64_t sqnum;
 	uint32_t crc, data_size;
 	int lnum;
@@ -838,13 +840,13 @@ static int update_layout_vol(struct ubi_scan_info *si,
 	}
 
 	if(si->vtbl_peb1 != -1 ){
-		if (qpic_nand_blk_erase((ptn->start + si->vtbl_peb1) * num_pages_per_blk)) {
+		if (ubi_erase_peb(ptn->start + si->vtbl_peb1, si, ptn->start)) {
 			dprintf(CRITICAL,
 				"update_layout_vol: Erase old vtbl fail,vtbl_peb1 %d\n", si->vtbl_peb1);
 		}
 	}
 	if(si->vtbl_peb2 != -1 ){
-		if (qpic_nand_blk_erase((ptn->start + si->vtbl_peb2) * num_pages_per_blk)) {
+		if (ubi_erase_peb(ptn->start + si->vtbl_peb2, si, ptn->start)) {
 			dprintf(CRITICAL,
 				"update_layout_vol: Erase old vtbl fail,vtbl_peb2 %d\n", si->vtbl_peb2);
 		}
