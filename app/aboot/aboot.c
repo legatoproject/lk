@@ -99,6 +99,7 @@ extern void platform_uninit(void);
 extern void target_uninit(void);
 extern int get_target_boot_params(const char *cmdline, const char *part,
 				  char **buf);
+extern int qseecom_test_cmd_handler(const char *arg);
 
 void *info_buf;
 void write_device_info_mmc(device_info *dev);
@@ -3506,6 +3507,24 @@ void cmd_oem_select_display_panel(const char *arg, void *data, unsigned size)
 	fastboot_okay("");
 }
 
+#if QSEECOM_TEST_SUPPORT
+void cmd_oem_qseecom_test_cmd_handler(const char *arg, void *data, unsigned size)
+{
+	if (arg){
+		dprintf(INFO, "Validating qseecom app %s\n", arg);
+		qseecom_test_cmd_handler(arg);
+	} else {
+		dprintf(INFO, "Unsupported command\n");
+	}
+       fastboot_okay("");
+}
+#else
+void cmd_oem_qseecom_test_cmd_handler(const char *arg, void *data, unsigned size)
+{
+	return;
+}
+#endif
+
 void cmd_oem_unlock(const char *arg, void *data, unsigned sz)
 {
 	set_device_unlock(UNLOCK, TRUE);
@@ -3923,6 +3942,7 @@ void aboot_fastboot_register_commands(void)
 						{"oem disable-charger-screen", cmd_oem_disable_charger_screen},
 						{"oem off-mode-charge", cmd_oem_off_mode_charger},
 						{"oem select-display-panel", cmd_oem_select_display_panel},
+						{"oem qseecom-test", cmd_oem_qseecom_test_cmd_handler},
 #if UNITTEST_FW_SUPPORT
 						{"oem run-tests", cmd_oem_runtests},
 #endif
