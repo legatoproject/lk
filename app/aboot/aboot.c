@@ -3936,8 +3936,16 @@ void cmd_flash_nand(const char *arg, void *data, unsigned sz)
 				fastboot_fail("Integer overflow detected");
 				return;
 			}
+/* SWISTART */
+#ifdef SIERRA
+			if (((uintptr_t)data + sz + bytes_to_round_page) >
+				((uintptr_t)target_get_fastboot_address() + target_get_max_flash_size_for_fastboot())) {
+#else
 			if (((uintptr_t)data + sz + bytes_to_round_page) >
 				((uintptr_t)target_get_scratch_address() + target_get_max_flash_size())) {
+#endif
+/* SWISTOP */
+
 				fastboot_fail("Buffer size is not aligned to page_size");
 				return;
 			}
