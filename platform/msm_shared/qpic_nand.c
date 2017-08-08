@@ -65,7 +65,12 @@ struct cmd_element ce_read_array[20] __attribute__ ((aligned(16)));
 #define QPIC_BAM_DATA_FIFO_SIZE          64
 #define QPIC_BAM_CMD_FIFO_SIZE           64
 
+#ifdef SIERRA
+/* Currently we are using 8 bits ECC capability nand device */
+#define THRESHOLD_BIT_FLIPS              8
+#else
 #define THRESHOLD_BIT_FLIPS              4
+#endif
 
 static struct bam_desc cmd_desc_fifo[QPIC_BAM_CMD_FIFO_SIZE] __attribute__ ((aligned(BAM_DESC_SIZE)));
 static struct bam_desc data_desc_fifo[QPIC_BAM_DATA_FIFO_SIZE] __attribute__ ((aligned(BAM_DESC_SIZE)));
@@ -200,7 +205,7 @@ qpic_nand_check_status(uint32_t status)
 		if (!(status & NAND_FLASH_ERR))
 			return NANDC_RESULT_SUCCESS;
 
-		dprintf(CRITICAL, "Nand Flash error. Status = %d\n", status);
+		dprintf(CRITICAL, "Nand Flash error. Status = %x\n", status);
 
 		if (status & NAND_FLASH_TIMEOUT_ERR)
 			return NANDC_RESULT_TIMEOUT;
@@ -856,8 +861,10 @@ qpic_nand_block_isbad_exec(struct cfg_params *params,
 	/* Dummy read to unlock pipe. */
 	status = qpic_nand_read_reg(NAND_FLASH_STATUS, BAM_DESC_UNLOCK_FLAG);
 
-	if (nand_ret)
+	if (nand_ret){
+		dprintf(CRITICAL, "qpic_nand_block_isbad_exec, status 0x%x, nand_ret %d\n",status, nand_ret);
 		return NANDC_RESULT_FAILURE;
+	}
 
 	qpic_nand_wait_for_data(DATA_PRODUCER_PIPE_INDEX);
 
@@ -1912,6 +1919,51 @@ qpic_nand_read_page(uint32_t page, unsigned char* buffer, unsigned char* sparead
 qpic_nand_read_page_error:
 	return nand_ret;
 }
+/* SWISTART */
+#ifdef SIERRA
+/**
+ * nand_read_page_erase_sierra() - read a page data, re-init nand controller if meet bit-flips
+ * @page_num: number of page to begin reading from
+ * @buffer: buffer where to store the read data
+ * @spareaddr: buffer where to store spare data.
+ * If null, spare data wont be read
+ *
+ * This function is a work-around, Please remove me when the nand driver
+ * can work correctly after meet the non-recoverable bit-flips.
+ *
+ * This function reads a page data from @page_num and stores the
+ * read data in buffer, during page reads, if there are bit-flips
+ * and the bits more than the devices can corrent itselt, then
+ * re-init controller to recover the flash status for later operation.
+ *
+ * Returns nand_result_t
+ */
+nand_result_t nand_read_page_reset_sierra(uint32_t page_num,
+			unsigned char* buffer, unsigned char* spareaddr)
+{
+	unsigned ret = 0;
+
+	if (!buffer) {
+		dprintf(CRITICAL, "nand_read_page_reset_sierra: buffer = null\n");
+		return NANDC_RESULT_PARAM_INVALID;
+	}
+
+	ret = qpic_nand_read_page(page_num, buffer,spareaddr);
+	if (ret == NANDC_RESULT_BAD_PAGE){
+		nand_int_sierra();
+	}
+
+	if (ret) {
+		dprintf(CRITICAL,
+				"nand_read_page_reset_sierra: reading page %d failed with %d err\n",
+				page_num, ret);
+		return ret;
+	}
+	return NANDC_RESULT_SUCCESS;
+}
+
+#endif
+/* SWISTOP */
 
 /**
  * qpic_nand_read() - read data
@@ -2611,7 +2663,7 @@ flash_write_sierra(struct ptentry *ptn,
 			memcpy(rdwr_buf, image, bytes);
 			/* Loop should be ended at this time */
 			bytes = wsize;
-		}  
+		}
 
 		if (write_extra_bytes)
 		{
@@ -2751,7 +2803,7 @@ flash_write_sierra_tz_rpm(struct ptentry *ptn,
 				memcpy(rdwr_buf, image, write_length);
 				/* Loop should be ended at this time */
 				write_length = wsize;
-			}  
+			}
 
 			r = qpic_nand_write_page(page, NAND_CFG, rdwr_buf, spare);
 			if (r)
@@ -3014,7 +3066,7 @@ int flash_write_sierra_file_img(struct ptentry *ptn,
 			memcpy(rdwr_buf, image, bytes);
 			/* Loop should be ended at this time */
 			bytes = wsize;
-		}  
+		}
 
 		if (write_extra_bytes)
 		{
@@ -3065,8 +3117,23 @@ int flash_write_sierra_file_img(struct ptentry *ptn,
 	dprintf(INFO, "flash_write_image: success\n");
 	return 0;
 }
-#endif
 
+/**
+ * nand_int_sierra - reset the whole nand operation.
+ *
+ * Return codes: We can do nothing when fail.
+ */
+void nand_int_sierra()
+{
+	qpic_bam_init(&config);
+
+	qpic_nand_non_onfi_probe(&flash);
+
+	/* Save the RAW and read/write configs */
+	qpic_nand_save_config(&flash);
+}
+
+#endif
 /* SWISTOP */
 
 uint32_t nand_device_base()
