@@ -189,10 +189,18 @@ static int read_ec_hdr(uint32_t peb, struct ubi_ec_hdr *ec_hdr)
 		goto out;
 	}
 
+#ifdef SIERRA
+	if(nand_read_page_reset_sierra(peb * num_pages_per_blk,
+		tmp_buf, spare)) {
+		dprintf(CRITICAL, "read_ec_hdr: Read %d failed\n", peb);
+		goto out;
+	}
+#else
 	if (qpic_nand_read(peb * num_pages_per_blk, 1, tmp_buf, spare)) {
 		dprintf(CRITICAL, "read_ec_hdr: Read %d failed \n", peb);
 		goto out;
 	}
+#endif
 	memcpy(ec_hdr, tmp_buf, UBI_EC_HDR_SIZE);
 
 	if (check_pattern((void *)ec_hdr, 0xFF, UBI_EC_HDR_SIZE)) {
@@ -282,11 +290,19 @@ static int read_vid_hdr(uint32_t peb, struct ubi_vid_hdr *vid_hdr,
 		goto out;
 	}
 
+#ifdef SIERRA
+	if(nand_read_page_reset_sierra(
+		peb * num_pages_per_blk + vid_hdr_offset/page_size,tmp_buf, spare)){
+		dprintf(CRITICAL,"read_vid_hdr: Read %d failed\n", peb);
+		goto out;
+	}
+#else
 	if (qpic_nand_read(peb * num_pages_per_blk + vid_hdr_offset/page_size,
 			1, tmp_buf, spare)) {
 		dprintf(CRITICAL, "read_vid_hdr: Read %d failed \n", peb);
 		goto out;
 	}
+#endif
 	memcpy(vid_hdr, tmp_buf, UBI_VID_HDR_SIZE);
 
 	if (check_pattern((void *)vid_hdr, 0xFF, UBI_VID_HDR_SIZE)) {
@@ -723,8 +739,9 @@ static void update_vid_header(struct ubi_vid_hdr *vid_hdr,
 	vid_hdr->hdr_crc = BE32(crc);
 }
 
+#ifdef SIERRA
 /**
- * get_layout_vol_vidh() - Read the second layout vid header
+ * get_layout_vol_vidh() - Read the newer layout vid header
  * @si: pointer to struct ubi_scan_info, holding the collected
  *      ec_headers information of the partition
  * @ptn_start: Partition offset address
@@ -760,13 +777,16 @@ static int get_layout_vol_vidh(struct ubi_scan_info *si,
 }
 
 /**
- * update_layout_vol() - Read the second layout vid header
+ * update_layout_vol() - Update layout volume - VID header and vtble
  * @si: pointer to struct ubi_scan_info, holding the collected
  *      ec_headers information of the partition
  * @data: vtbl LEBs buffer
  * @ptn: partition holding the required volume
  * @curr_peb: current PEB for new layout volume to write to
  * @new_vidh: a &struct ubi_vid_hdr object where to store the read header
+ *
+ * This function write the new vtable to two different empty blocks and
+ * erase the older vtables, put them back to empty block list
  *
  * Returns: -1 on error
  *           0 on success
@@ -854,6 +874,8 @@ static int update_layout_vol(struct ubi_scan_info *si,
 	}
 	return 0;
 }
+#endif
+
 /**
  * fastmap_present - returns true if Fastmap superblock is found
  * @data: raw data to test
@@ -1434,6 +1456,7 @@ out_vid:
 	return ret;
 }
 
+#ifdef SIERRA
 /**
  * get_ubi_vol_data() - Get the provided (UBI) volume data from UBI partition
  * @ptn: partition holding the required UBI volume
@@ -1502,4 +1525,4 @@ out:
 	free(si);
 	return ret;
 }
-
+#endif
