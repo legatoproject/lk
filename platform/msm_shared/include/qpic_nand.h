@@ -369,6 +369,12 @@ extern int qpic_nand_read_page_sierra(uint32_t page, unsigned char* buffer);
 extern nand_result_t qpic_nand_write_page_spare_sierra(uint32_t page,
 	unsigned char* buffer,
 	unsigned write_extra_bytes);
+extern nand_result_t nand_read_page_reset_sierra(uint32_t page_num,
+			unsigned char* buffer, unsigned char* spareaddr);
+
+void nand_int_sierra(void);
+extern struct qpic_nand_init_config config;
+
 #endif
 /* SWISTOP */
 
