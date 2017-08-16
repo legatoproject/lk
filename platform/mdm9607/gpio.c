@@ -82,6 +82,18 @@ void gpio_set_val(uint32_t gpio, uint32_t val)
 	return;
 }
 
+#ifdef TARGET_FX30
+uint32_t gpio_get(uint32_t gpio)
+{
+    unsigned int dir_out = (readl(GPIO_CONFIG_ADDR(gpio)) >> 9) & 0x1;
+
+    if (dir_out)
+        return (readl(GPIO_IN_OUT_ADDR(gpio)) >> 1) & 0x1;
+
+    return readl(GPIO_IN_OUT_ADDR(gpio)) & 0x1;
+}
+#endif
+
 uint32_t gpio_get_state(uint32_t gpio)
 {
 	return readl(GPIO_IN_OUT_ADDR(gpio));
