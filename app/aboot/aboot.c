@@ -324,6 +324,10 @@ char get_variant[MAX_RSP_SIZE];
 
 extern int emmc_recovery_init(void);
 
+#ifdef TARGET_FX30
+int reset_to_factory = 0;
+#endif
+
 #if NO_KEYPAD_DRIVER
 extern int fastboot_trigger(void);
 #endif
@@ -445,6 +449,10 @@ unsigned char *update_cmdline(const char * cmdline)
 #if !VBOOT_MOTA
     uint32_t boot_state = boot_verify_get_state();
 #endif
+#endif
+
+#ifdef TARGET_FX30
+        const char* reset_cmd = " reset_to_default=true ";
 #endif
 
 #ifdef MDTP_SUPPORT
@@ -594,18 +602,25 @@ unsigned char *update_cmdline(const char * cmdline)
 	cmdline_len += target_cmd_line_len;
 #endif
 
+#ifdef TARGET_FX30
+        if (reset_to_factory == 1)
+        {
+                cmdline_len += strlen(reset_cmd);
+        }
+#endif
+
 #ifdef SIERRA
 	if(TRUE != sierra_is_bootquiet_disabled())
-         {
+        {
 	     cmdline_len += strlen(lkquiet);
-	 }
+	}
+ 
 #ifdef FUDGE_ROOTFS
 	cmdline_len += strlen(rootfs_rw);
 #endif
 	cmdline_len += strlen(ima_enforce);
 #endif
-
-	 if (cmdline_len > 0) {
+	if (cmdline_len > 0) {
 		const char *src;
 		unsigned char *dst;
 
@@ -835,6 +850,15 @@ unsigned char *update_cmdline(const char * cmdline)
 			while((*dst++ = *src++));
 			free(target_cmdline_buf);
 		}
+#endif
+
+#ifdef TARGET_FX30
+                if (reset_to_factory == 1)
+                {
+                        if (have_cmdline) --dst;
+                        src = reset_cmd;
+                        while ((*dst++ = *src++));
+                }
 #endif
 	}
 
