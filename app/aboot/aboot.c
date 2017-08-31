@@ -490,7 +490,7 @@ unsigned char *update_cmdline(const char * cmdline)
 		}
 		while ((*dst++ = *src++) != '\0');
 #endif /* SIERRA */
-#endif 
+#endif
 /* SWISTOP */
 
 		switch(target_baseband())
@@ -3561,8 +3561,13 @@ void aboot_fastboot_register_commands(void)
 		publish_getvar_partition_info(part_info, ARRAY_SIZE(part_info));
 
 	/* Max download size supported */
+	#ifdef SIERRA
+	snprintf(max_download_size, MAX_RSP_SIZE, "\t0x%x",
+			target_get_max_flash_size_for_fastboot());
+	#else
 	snprintf(max_download_size, MAX_RSP_SIZE, "\t0x%x",
 			target_get_max_flash_size());
+	#endif
 	fastboot_publish("max-download-size", (const char *) max_download_size);
 	/* Is the charger screen check enabled */
 	snprintf(charger_screen_enabled, MAX_RSP_SIZE, "%d",
