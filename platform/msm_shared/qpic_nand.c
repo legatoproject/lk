@@ -917,9 +917,23 @@ nand_result_t qpic_nand_block_isbad(unsigned page)
 
 		if (qpic_nand_block_isbad_exec(&params, bad_block))
 		{
+/* SWISTART */
+#ifdef SIERRA
+			dprintf(CRITICAL,
+					"Could not read block value, reset nand status then to read again\n");
+			nand_int_sierra();
+			if (qpic_nand_block_isbad_exec(&params, bad_block))
+			{
+				dprintf(CRITICAL,
+						"Could not read real bad block value\n");
+				return NANDC_RESULT_FAILURE;
+			}
+#else
 			dprintf(CRITICAL,
 					"Could not read bad block value\n");
 			return NANDC_RESULT_FAILURE;
+#endif
+/* SWISTOP */
 		}
 
 		if (flash.widebus)
