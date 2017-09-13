@@ -93,8 +93,8 @@ uint8 bl_yaffs2_header[] =
 struct ds_flag_s bl_dsflag_s;
 
 
-/* 
- * Local functions 
+/*
+ * Local functions
  */
 
 /************
@@ -484,7 +484,7 @@ void sierra_check_mibib_state_clear(void)
     mibibp = (struct mibib_smem_s *)(virtual_addr + BSMEM_MIBIB_OFFSET);
     memset(mibibp, 0, sizeof(struct mibib_smem_s));
   }
-  
+
   return;
 }
 
@@ -631,7 +631,7 @@ boolean swipart_get_logical_partition_from_backup(
     return FALSE;
   }
 
-  if((logical_partition <= LOGICAL_PARTITION_NONE) || 
+  if((logical_partition <= LOGICAL_PARTITION_NONE) ||
     (logical_partition >= LOGICAL_PARTITION_INVALID))
   {
     dprintf(CRITICAL, "wrong logical partition ID(%d)", logical_partition);
@@ -829,7 +829,7 @@ _local uint32 blCrcCheck(
  * Params:   startflag - if this payload is CWE header
  *                       (CWE header should be skipped for CRC32 calculation)
  *           payloadp  - image payload
- *           tlen      - payload length 
+ *           tlen      - payload length
  *
  * Return:   result code (as defined in 'enum blresultcode')
  *
@@ -845,7 +845,7 @@ _local enum blresultcode blsave2dloadram(
   uint32 tlen)
 {
   /* ptr to control block structure */
-  struct blCtrlBlk *cbp = blGetcbp(); 
+  struct blCtrlBlk *cbp = blGetcbp();
 
   if ((payloadp == NULL) || (cbp == NULL))
   {
@@ -908,7 +908,7 @@ _package enum blresultcode blcallerror(
  * Purpose:  save payload to RAM, write to flash if necessary
  *
  * Params:   payloadp   - image payload
- *           tlen       - payload length 
+ *           tlen       - payload length
  *           bytesleftp - output buffer to return number of bytes left for image
  *
  * Return:   process result code, see 'enum blresultcode'
@@ -924,7 +924,7 @@ _global enum blresultcode blprocessdldcontinue(
   uint32 *bytesleftp)
 {
   /* ptr to control block structure */
-  struct blCtrlBlk *cbp = blGetcbp(); 
+  struct blCtrlBlk *cbp = blGetcbp();
   enum blresultcode result;
 
   if ((payloadp == NULL) || (cbp == NULL))
@@ -992,8 +992,8 @@ _package uint8 *bl_dload_area_start_get(
  * Return:   Number of bytes used
  *
  * Notes:    Will use downloaded image size as 'used' size.
- *           Buffer after the downloaded image will be free to use 
- *           (as temp buffer for inflation for example) 
+ *           Buffer after the downloaded image will be free to use
+ *           (as temp buffer for inflation for example)
  *
  * Abort:
  *
@@ -1002,7 +1002,7 @@ _package uint32 bl_dload_area_used_size_get(
   struct blCtrlBlk * cbp)
 {
   if((uint32)(cbp->blcbufp) > (uint32)bl_dload_area_start_get(cbp))
-  { 
+  {
     return ((uint32)(cbp->blcbufp) - (uint32)bl_dload_area_start_get(cbp));
   }
   else
@@ -1023,7 +1023,7 @@ _package uint32 bl_dload_area_used_size_get(
  *
  * Abort:    none
  *
- * Notes:    SKU from package version string will be checked against 
+ * Notes:    SKU from package version string will be checked against
  *           SKU set in the device, SKU is a UINT32 number:
  *           - if match, check pass;
  *           - if device SKU not set, check pass
@@ -1068,27 +1068,27 @@ _package boolean blpkgchkver(
   }
 
   /* get package SKU, slatol will read the number until a non-digit char */
-  pkgsku = slatol(pkgverp);  
+  pkgsku = slatol(pkgverp);
   /* invalid SKU in package version, fail the check */
   if(!pkgsku)
   {
     return FALSE;
-  }      
+  }
 
   if(pkgsku == BL_SPKG_TEST_SKU_NUM)
   {
-    /* test SKU, accept anyway */  
+    /* test SKU, accept anyway */
     return TRUE;
   }
 
-  /* read device SKU from NVBU area 
-   * specify NV name diretctly since we don't want to link NV package into boot 
+  /* read device SKU from NVBU area
+   * specify NV name diretctly since we don't want to link NV package into boot
    */
   bcnvreadfromuserbackram(NVMMT_TYPE_SWINV, 0, 0, FALSE, "PRODUCT_SKU", &nvitemp, &nvitemlen);
 
   if(nvitemp && nvitemlen == sizeof(uint32))
   {
-    /* note that nvitemp since it is might be 4 byte aligned */  
+    /* note that nvitemp since it is might be 4 byte aligned */
     memmove((void *)&devicesku, nvitemp, sizeof(uint32));
     if(devicesku == pkgsku)
     {
@@ -1109,8 +1109,8 @@ _package boolean blpkgchkver(
  *
  * Name:     bl_compatibility_test
  *
- * Purpose:  Tests whether the given compatibility value 
- *           matches the expected compatibility value for the 
+ * Purpose:  Tests whether the given compatibility value
+ *           matches the expected compatibility value for the
  *           given image type
  *
  * Parms:    value - compatibility value to be compared with expected
@@ -1189,7 +1189,7 @@ _package boolean bl_compatibility_test(uint32 value, enum cwe_image_type_e image
  *
  * Return:   Size of download RAM area
  *
- * Notes:    None 
+ * Notes:    None
  *
  * Abort:
  *
@@ -1210,7 +1210,7 @@ _package uint32 bl_dload_area_size_get(
  *           to control block.
  *
  * Params:   cwehdrp  - CWE header pointer from Download Start Request message
- *           tlen     - cwehdrp buffer length (payload len of Download Start Request) 
+ *           tlen     - cwehdrp buffer length (payload len of Download Start Request)
  *           errmsgpp - error message to be returned if validate failed
  *
  * Return:   process result code, see 'enum blresultcode'
@@ -1227,7 +1227,7 @@ _global enum blresultcode blprocessdldstart(
 {
   enum blresultcode result;
   /* ptr to control block structure */
-  struct blCtrlBlk *cbp = blGetcbp(); 
+  struct blCtrlBlk *cbp = blGetcbp();
 
   if ((cwehdrp == NULL) || (cbp == NULL))
   {
@@ -1339,7 +1339,7 @@ _global enum blresultcode blprocessdldstart(
     if (!blpkgchkver((char *)cbp->blhd.version))
     {
       return blcallerror(BLRESULT_PKG_NOT_COMPATIBLE, BL_DLD_PREDLD_VERIFY);
-    }  
+    }
   }
 
   /* Initialize blflash */
@@ -1468,7 +1468,7 @@ _local uint8 *blSearchCWEImage(
  *
  * Parms:    buf      - pointer data buf to check
  *           len - buf length
- *           
+ *
  *
  * Return:   cwe file length(including cwe header header)
  *
@@ -1488,10 +1488,10 @@ _global boolean blGoCweFile(unsigned char *buf, unsigned int len)
     return FALSE;
   }
 
-  if (TRUE != cwe_image_validate(bl_temphdr, 
-                                                          buf + sizeof(struct cwe_header_s), 
-                                                          CWE_IMAGE_TYPE_FILE, 
-                                                          0, 
+  if (TRUE != cwe_image_validate(bl_temphdr,
+                                                          buf + sizeof(struct cwe_header_s),
+                                                          CWE_IMAGE_TYPE_FILE,
+                                                          0,
                                                           FALSE))
   {
     return FALSE;
@@ -1513,7 +1513,7 @@ _global boolean blGoCweFile(unsigned char *buf, unsigned int len)
  *           write_size - size of the bufp (may include CWE header which might
  *                        need to be skipped)
  *           bytesleft  - there will be another flash write to image if it is not 0
- *           
+ *
  *
  * Return:   result code (as defined in 'enum blresultcode')
  *
@@ -1521,8 +1521,8 @@ _global boolean blGoCweFile(unsigned char *buf, unsigned int len)
  *
  * Notes:    The same image_type may need to write several times to complete:
  *           - use flash_write_addr to set logical relative address to write in partition
- *           - if flash_write_addr = 0, need to call bl_do_flash_init 
- *           - use bytesleft to know if image write complete. 
+ *           - if flash_write_addr = 0, need to call bl_do_flash_init
+ *           - use bytesleft to know if image write complete.
  *             Need to bl_do_flash_finalize if it is 0
  *
  ************/
@@ -1533,7 +1533,7 @@ _local enum blresultcode blProgramFileImgToFlash(
   uint32 bytesleft)
 {
   uint8  *hdr_datap;
-  
+
   struct ptentry *ptn;
   struct ptable *ptable;
   unsigned extra = 0;
@@ -1570,7 +1570,7 @@ _local enum blresultcode blProgramFileImgToFlash(
       dprintf(CRITICAL, "blProgramFlash OK!\n");
     }
   }
-  
+
   return BLRESULT_OK;
 }
 
@@ -1587,7 +1587,7 @@ _local enum blresultcode blProgramFileImgToFlash(
  *           write_size - size of the bufp (may include CWE header which might
  *                        need to be skipped)
  *           bytesleft  - there will be another flash write to image if it is not 0
- *           
+ *
  *
  * Return:   result code (as defined in 'enum blresultcode')
  *
@@ -1595,8 +1595,8 @@ _local enum blresultcode blProgramFileImgToFlash(
  *
  * Notes:    The same image_type may need to write several times to complete:
  *           - use flash_write_addr to set logical relative address to write in partition
- *           - if flash_write_addr = 0, need to call bl_do_flash_init 
- *           - use bytesleft to know if image write complete. 
+ *           - if flash_write_addr = 0, need to call bl_do_flash_init
+ *           - use bytesleft to know if image write complete.
  *             Need to bl_do_flash_finalize if it is 0
  *
  ************/
@@ -1608,12 +1608,12 @@ _local enum blresultcode blProgramFlash(
 {
   uint8  *hdr_datap;
   int auth_hdr_size = 0;
-  
+
   struct ptentry *ptn;
   struct ptable *ptable;
   unsigned extra = 0;
 
-  if(image_type == FLASH_PROG_CUSTOM_IMG 
+  if(image_type == FLASH_PROG_CUSTOM_IMG
        || image_type == FLASH_PROG_SBL1_IMG
        || image_type == FLASH_PROG_DSP2_IMG
        || image_type == FLASH_PROG_USDATA_IMG
@@ -1630,7 +1630,7 @@ _local enum blresultcode blProgramFlash(
 
     hdr_datap = bufp;
   }
-    
+
   if (flash_write_addr == 0)
   {
     /* Skip CWE header and auth hdr, auth hdr size is 0 for most of images */
@@ -1646,7 +1646,7 @@ _local enum blresultcode blProgramFlash(
       /* complete image only */
       return BLRESULT_IMGSIZE_OUT_OF_RANGE;
     }
-    
+
     return blredundancy_sbl_program(bufp, write_size);
   }
 
@@ -1664,7 +1664,7 @@ _local enum blresultcode blProgramFlash(
 
   if (write_size > 0)
   {
-    dprintf(CRITICAL, "writing size:%d\n", write_size);
+    dprintf(CRITICAL, "Image: %s writing size:%d\n", hdr_datap, write_size);
     /* only write to flash if requested */
     if (image_type == FLASH_PROG_DSP2_IMG
        || image_type == FLASH_PROG_USDATA_IMG
@@ -1675,7 +1675,7 @@ _local enum blresultcode blProgramFlash(
       if (!memcmp((void *)(bufp), BL_UBI_MAGIC, BL_UBI_MAGIC_SIZE))
       {
         /* UBI image */
-        if (flash_ubi_img(ptn, (void *)bufp, (unsigned)write_size)) 
+        if (flash_ubi_img(ptn, (void *)bufp, (unsigned)write_size))
         {
           dprintf(CRITICAL, "flash_ubi_img failed!\n");
           return BLRESULT_FLASH_WRITE_ERROR;
@@ -1689,7 +1689,7 @@ _local enum blresultcode blProgramFlash(
       {
         /* YAFFS image */
         extra = 1;
-        if (flash_write_sierra(ptn, extra, (const void *)bufp, (unsigned)write_size)) 
+        if (flash_write_sierra(ptn, extra, (const void *)bufp, (unsigned)write_size))
         {
           dprintf(CRITICAL, "flash write failure\n");
           return BLRESULT_FLASH_WRITE_ERROR;
@@ -1702,7 +1702,7 @@ _local enum blresultcode blProgramFlash(
       else if (!memcmp((void *)(bufp), BL_SQH_MAGIC, BL_SQH_MAGIC_SIZE))
       {
         /* squashfs image */
-        if (flash_write_sierra(ptn, extra, (const void *)bufp, (unsigned)write_size)) 
+        if (flash_write_sierra(ptn, extra, (const void *)bufp, (unsigned)write_size))
         {
           dprintf(CRITICAL, "flash write failure\n");
           return BLRESULT_FLASH_WRITE_ERROR;
@@ -1718,7 +1718,7 @@ _local enum blresultcode blProgramFlash(
         dprintf(CRITICAL, "Image(DSP2, USER, UAPP, SYST) should be in format (yaffs2, UBI, squashfs)\n");
         return BLRESULT_IMAGE_TYPE_INVALID;
       }
-      
+
     }
     else
     {
@@ -1726,10 +1726,10 @@ _local enum blresultcode blProgramFlash(
       if((0 == strcmp(ptn->name, BL_TZ_PARTI_NAME))
          || (0 == strcmp(ptn->name, BL_RPM_PARTI_NAME)))
       {
-        if (0 != flash_write_sierra_tz_rpm(ptn, 
-                                           (void *)bufp, 
+        if (0 != flash_write_sierra_tz_rpm(ptn,
+                                           (void *)bufp,
                                            (unsigned)write_size,
-                                           (uint8_t)update_which_system)) 
+                                           (uint8_t)update_which_system))
         {
           dprintf(CRITICAL, "flash write dual TZ or RPM failure\n");
           return BLRESULT_FLASH_WRITE_ERROR;
@@ -1741,7 +1741,7 @@ _local enum blresultcode blProgramFlash(
       }
       else
       {
-        if (flash_write_sierra(ptn, extra, (const void *)bufp, (unsigned)write_size)) 
+        if (flash_write_sierra(ptn, extra, (const void *)bufp, (unsigned)write_size))
         {
           dprintf(CRITICAL, "flash write failure\n");
           return BLRESULT_FLASH_WRITE_ERROR;
@@ -1761,7 +1761,7 @@ _local enum blresultcode blProgramFlash(
     /* We need to reset the flash_write_addr for the next image */
     flash_write_addr = 0;
   }
-  
+
   return BLRESULT_OK;
 }
 
@@ -1784,7 +1784,7 @@ _local enum blresultcode blProgramFlash(
  *           - if not compressed, just write the buffer to flash
  *           - if compressed, need to:
  *             1. uncompress and check CRC since CRC in CWE header is for uncompressed
- *             2. Write the uncompressed image 
+ *             2. Write the uncompressed image
  *                (may need several writes if decompression buffer is not big enough)
  *
  ************/
@@ -1809,14 +1809,14 @@ _local enum blresultcode blProgramImage(
  * save time in SIERRA factory.
  * 1. There is already image validation in function blProcessFastbootImage().
  * 2. Integration team will make sure each sub image valid before SW update.
- * 3. MFT team will make sure system1 and system2 can works normally before module leave 
+ * 3. MFT team will make sure system1 and system2 can works normally before module leave
  *     SIERRA factory.
 */
 #if 0
-  if (TRUE != cwe_image_validate(&temphdr, 
-                                                          bufp + sizeof(struct cwe_header_s), 
-                                                          CWE_IMAGE_TYPE_ANY, 
-                                                          BL_PRODUCT_ID, 
+  if (TRUE != cwe_image_validate(&temphdr,
+                                                          bufp + sizeof(struct cwe_header_s),
+                                                          CWE_IMAGE_TYPE_ANY,
+                                                          BL_PRODUCT_ID,
                                                           TRUE))
   {
     dprintf(CRITICAL, "BLRESULT_CRC32_CHECK_ERROR\n");
@@ -1832,14 +1832,14 @@ _local enum blresultcode blProgramImage(
   } /* end if compressed image */
   else if (image_type != FLASH_PROG_FILE_IMG)
   {
-    result = blProgramFlash(bufp, image_type, 
-                            image_size + CWE_HEADER_SZ, 0); 
+    result = blProgramFlash(bufp, image_type,
+                            image_size + CWE_HEADER_SZ, 0);
   }
   else
   {
     /* program NVUP file here */
-    result = blProgramFileImgToFlash(bufp, image_type, 
-                            image_size + CWE_HEADER_SZ, 0); 
+    result = blProgramFileImgToFlash(bufp, image_type,
+                            image_size + CWE_HEADER_SZ, 0);
   }
 
   /* flash write completed, reset */
@@ -1883,7 +1883,7 @@ enum blresultcode blProgramModemImage(struct cwe_header_s *hdr, uint8 *startbufp
    *                    -------------------
    *  (all the images are optional)
    */
-     
+
   /* no partition given, apply the default one */
   /* erase RPM partition first so that device will stay in boot & hold if
    * one of the following image write failed
@@ -2501,11 +2501,11 @@ enum blresultcode blProgramBootImage(struct cwe_header_s *hdr, uint8 *startbufp)
    *                    -------------------
    *                    | Parti CWE hdr   |
    *                    -------------------
-   *                    | Parti image     |  
+   *                    | Parti image     |
    *                    -------------------
    *                    | SBL1 CWE hdr     |
    *                    -------------------
-   *                    | SBL1 image       | 
+   *                    | SBL1 image       |
    *                    -------------------
    *                    | TZ CWE hdr      |
    *                    -------------------
@@ -2522,13 +2522,13 @@ enum blresultcode blProgramBootImage(struct cwe_header_s *hdr, uint8 *startbufp)
    *  (All the images are optional)
    */
 
-  
+
   /*get cwe header buff*/
   bl_temphdr = bl_get_cwe_header_buf();
 
   bufp = blSearchCWEImage(CWE_IMAGE_TYPE_QPAR, startbufp, hdr->image_sz);
   if (bufp != NULL)
-  { 
+  {
     if (sierra_check_mibib_smart_update_allow())
     {
       /* MIBIB image(partition image) found. LK can't write MIBIB image. */
@@ -2827,7 +2827,7 @@ _global enum blresultcode blProgramCWEImage(
   uint32 dloadsize,
   uint32 bytesleft)
 {
-  uint8         *bufp, *startbufp, *startbuf_search_2nd_appl;
+  uint8 *bufp, *startbufp, *startbuf_search_2nd_appl, *max_bufp;
   enum cwe_image_type_e imagetype, flog_imgtype = CWE_IMAGE_TYPE_INVALID;
   enum blresultcode result = BLRESULT_FLASH_WRITE_ERROR;
   char flog_typestr[CWE_IMAGE_TYP_SZ+1];
@@ -2835,6 +2835,10 @@ _global enum blresultcode blProgramCWEImage(
   struct cwe_header_s spkg_sub_img_header;
   uint32 buflen_search_2nd_appl;
   struct cwe_header_s *bl_temphdr = NULL;
+
+
+  /*Get the CWE Image end address in DDR*/
+  max_bufp = dloadbufp + dloadsize;
 
   /*blprogram CWE Image,read out of sync flag, if out of sync flag set sync,set mask flag*/
   if(sierra_ds_check_if_ds_is_sync())
@@ -2983,15 +2987,22 @@ _global enum blresultcode blProgramCWEImage(
         {
           /* There may be 2nd APPL image in one SPKG file */
           startbuf_search_2nd_appl = bufp + sizeof(struct cwe_header_s) + spkg_sub_img_header.image_sz;
-          buflen_search_2nd_appl = hdr->image_sz - (startbuf_search_2nd_appl - startbufp);
-
-          bufp = blSearchCWEImage(CWE_IMAGE_TYPE_APPL, startbuf_search_2nd_appl, buflen_search_2nd_appl);
-          if (bufp != NULL)
+          /*If the 2nd APPL exist in SPKG file, it should meet two conditions.
+           *1.2nd APPL starts addr must be less than CWE package end address.
+           *   And APPL starts with CWE header.
+           *2. SPKG image_sz in CWE header should be bigger than sum of all programmed image.*/
+          if (startbuf_search_2nd_appl < (max_bufp - sizeof(struct cwe_header_s))&&
+              (hdr->image_sz > (uint32)(startbuf_search_2nd_appl - startbufp)))
           {
-            memcpy((void *)&spkg_sub_img_header, (void *)bl_temphdr, sizeof(struct cwe_header_s));
-            if (blProgramApplImage(&spkg_sub_img_header, bufp + sizeof(struct cwe_header_s)) != BLRESULT_OK)
+            buflen_search_2nd_appl = hdr->image_sz - (startbuf_search_2nd_appl - startbufp);
+            bufp = blSearchCWEImage(CWE_IMAGE_TYPE_APPL, startbuf_search_2nd_appl, buflen_search_2nd_appl);
+            if (bufp != NULL)
             {
-              break;
+              memcpy((void *)&spkg_sub_img_header, (void *)bl_temphdr, sizeof(struct cwe_header_s));
+              if (blProgramApplImage(&spkg_sub_img_header, bufp + sizeof(struct cwe_header_s)) != BLRESULT_OK)
+              {
+                break;
+              }
             }
           }
         }
@@ -3057,7 +3068,7 @@ _global enum blresultcode blProgramCWEImage(
   /* To make it easy, we make it out of sync if any FW image update */
   bl_dsflag_s.out_of_sync = DS_OUT_OF_SYNC;
   sierra_ds_update_ssdata(&bl_dsflag_s, NULL);
-  
+
   return result;
 
 }
@@ -3082,7 +3093,7 @@ _global enum blresultcode blprocessdldend(
 {
   enum blresultcode result = BLRESULT_OK;
   /* ptr to control block structure */
-  struct blCtrlBlk *cbp = blGetcbp(); 
+  struct blCtrlBlk *cbp = blGetcbp();
 
   /* ensure file size is ok */
   if (cbp->blbytesleft != 0)
@@ -3093,7 +3104,7 @@ _global enum blresultcode blprocessdldend(
   if ((cbp->blhd.misc_opts & CWE_MISC_OPTS_COMPRESS) == 0 &&
       cbp->blhd.image_crc != cbp->blcrc32)
   {
-    /* only check CRC for uncompressed image. Will check CRC after decompression */ 
+    /* only check CRC for uncompressed image. Will check CRC after decompression */
     return blcallerror(BLRESULT_CRC32_CHECK_ERROR, BL_DLD_VERIFY);
   }
 
@@ -3165,11 +3176,11 @@ _global uint32 blProgramCWERecoveryImage(
      * (Linux)            -------------------
      *                    | LRAM CWE hdr    |
      *                    -------------------
-     *                    | LRAM image      |   
+     *                    | LRAM image      |
      *                    -------------------
      *  (all the images can be optional)
      */
-    if ((imagetype == CWE_IMAGE_TYPE_APPL) || 
+    if ((imagetype == CWE_IMAGE_TYPE_APPL) ||
         (imagetype == CWE_IMAGE_TYPE_SPKG) ||
         (modulestate == BLSTATE_REQ_LINUX_RAM))
     {
@@ -3231,7 +3242,7 @@ uint32 blprocessrecoveryimage(enum blmodulestate modulestate)
 {
   uint32 ret = 0;
   /* ptr to control block structure */
-  struct blCtrlBlk *cbp = blGetcbp(); 
+  struct blCtrlBlk *cbp = blGetcbp();
 
   /* ensure file size is ok */
   if (cbp->blbytesleft != 0)
@@ -3243,7 +3254,7 @@ uint32 blprocessrecoveryimage(enum blmodulestate modulestate)
   if ((cbp->blhd.misc_opts & CWE_MISC_OPTS_COMPRESS) == 0 &&
       cbp->blhd.image_crc != cbp->blcrc32)
   {
-    /* only check CRC for uncompressed image. Will check CRC after decompression */ 
+    /* only check CRC for uncompressed image. Will check CRC after decompression */
     blcallerror(BLRESULT_CRC32_CHECK_ERROR, BL_DLD_VERIFY);
     return ret;
   }
@@ -3345,8 +3356,8 @@ _global enum blresultcode bldlend(enum blmodulestate modulestate)
  *
  * Abort:    none
  *
- * Notes:    
- *           
+ * Notes:
+ *
  *
  ************/
 _global enum blresultcode blProcessFastbootImage(unsigned char *bufp, unsigned int image_size)
@@ -3354,7 +3365,7 @@ _global enum blresultcode blProcessFastbootImage(unsigned char *bufp, unsigned i
 
   enum blresultcode result;
   /* ptr to control block structure */
-  struct blCtrlBlk *cbp = blGetcbp(); 
+  struct blCtrlBlk *cbp = blGetcbp();
 
   if ((bufp == NULL) || (image_size <= CWE_HEADER_SZ))
   {
@@ -3364,10 +3375,10 @@ _global enum blresultcode blProcessFastbootImage(unsigned char *bufp, unsigned i
 
   (void)cwe_header_load(bufp, &cbp->blhd); /* extract the header */
 
-  if (TRUE != cwe_image_validate(&cbp->blhd, 
-                                                          bufp + sizeof(struct cwe_header_s), 
-                                                          CWE_IMAGE_TYPE_ANY, 
-                                                          BL_PRODUCT_ID, 
+  if (TRUE != cwe_image_validate(&cbp->blhd,
+                                                          bufp + sizeof(struct cwe_header_s),
+                                                          CWE_IMAGE_TYPE_ANY,
+                                                          BL_PRODUCT_ID,
                                                           TRUE))
   {
     dprintf(CRITICAL, "BLRESULT_CRC32_CHECK_ERROR\n");
@@ -3382,7 +3393,7 @@ _global enum blresultcode blProcessFastbootImage(unsigned char *bufp, unsigned i
 
   /* Not used in this case, so set to 0 */
   cbp->blbytesleft = 0;
-  
+
   result = blProgramCWEImage(&cbp->blhd,
                                                      bufp,
                                                      image_size,
