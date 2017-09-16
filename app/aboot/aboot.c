@@ -110,6 +110,7 @@ extern void platform_uninit(void);
 extern void target_uninit(void);
 extern int get_target_boot_params(const char *cmdline, const char *part,
 				  char **buf);
+extern int qseecom_test_cmd_handler(const char *arg);
 
 void *info_buf;
 void write_device_info_mmc(device_info *dev);
@@ -1247,6 +1248,7 @@ int boot_linux_from_mmc(void)
 
 	kernel_actual  = ROUND_TO_PAGE(hdr->kernel_size,  page_mask);
 	ramdisk_actual = ROUND_TO_PAGE(hdr->ramdisk_size, page_mask);
+	second_actual  = ROUND_TO_PAGE(hdr->second_size, page_mask);
 
 	image_addr = (unsigned char *)target_get_scratch_address();
 	memcpy(image_addr, (void *)buf, page_size);
@@ -1259,17 +1261,17 @@ int boot_linux_from_mmc(void)
 	dt_size = hdr->dt_size;
 #endif
 	dt_actual = ROUND_TO_PAGE(dt_size, page_mask);
-	if (UINT_MAX < ((uint64_t)kernel_actual + (uint64_t)ramdisk_actual+ (uint64_t)dt_actual + page_size)) {
+	if (UINT_MAX < ((uint64_t)kernel_actual + (uint64_t)ramdisk_actual+ (uint64_t)second_actual + (uint64_t)dt_actual + page_size)) {
 		dprintf(CRITICAL, "Integer overflow detected in bootimage header fields at %u in %s\n",__LINE__,__FILE__);
 		return -1;
 	}
-	imagesize_actual = (page_size + kernel_actual + ramdisk_actual + dt_actual);
+	imagesize_actual = (page_size + kernel_actual + ramdisk_actual + second_actual + dt_actual);
 #else
-	if (UINT_MAX < ((uint64_t)kernel_actual + (uint64_t)ramdisk_actual + page_size)) {
+	if (UINT_MAX < ((uint64_t)kernel_actual + (uint64_t)ramdisk_actual + (uint64_t)second_actual + page_size)) {
 		dprintf(CRITICAL, "Integer overflow detected in bootimage header fields at %u in %s\n",__LINE__,__FILE__);
 		return -1;
 	}
-	imagesize_actual = (page_size + kernel_actual + ramdisk_actual);
+	imagesize_actual = (page_size + kernel_actual + ramdisk_actual + second_actual);
 #endif
 
 #if VERIFIED_BOOT
@@ -1660,6 +1662,7 @@ int boot_linux_from_flash(void)
 
 	kernel_actual  = ROUND_TO_PAGE(hdr->kernel_size,  page_mask);
 	ramdisk_actual = ROUND_TO_PAGE(hdr->ramdisk_size, page_mask);
+	second_actual  = ROUND_TO_PAGE(hdr->second_size, page_mask);
 
 	/* ensure commandline is terminated */
 	hdr->cmdline[BOOT_ARGS_SIZE-1] = 0;
@@ -1691,12 +1694,12 @@ int boot_linux_from_flash(void)
 
 #if DEVICE_TREE
 		dt_actual = ROUND_TO_PAGE(dt_size, page_mask);
-		if (UINT_MAX < ((uint64_t)kernel_actual + (uint64_t)ramdisk_actual+ (uint64_t)dt_actual + page_size)) {
+		if (UINT_MAX < ((uint64_t)kernel_actual + (uint64_t)ramdisk_actual+ (uint64_t)second_actual + (uint64_t)dt_actual + page_size)) {
 			dprintf(CRITICAL, "Integer overflow detected in bootimage header fields\n");
 			return -1;
 		}
 
-		imagesize_actual = (page_size + kernel_actual + ramdisk_actual + dt_actual);
+		imagesize_actual = (page_size + kernel_actual + ramdisk_actual + second_actual + dt_actual);
 
 		if (check_aboot_addr_range_overlap(hdr->tags_addr, dt_size))
 		{
@@ -1704,11 +1707,11 @@ int boot_linux_from_flash(void)
 			return -1;
 		}
 #else
-		if (UINT_MAX < ((uint64_t)kernel_actual + (uint64_t)ramdisk_actual+ page_size)) {
+		if (UINT_MAX < ((uint64_t)kernel_actual + (uint64_t)ramdisk_actual + (uint64_t)second_actual + page_size)) {
 			dprintf(CRITICAL, "Integer overflow detected in bootimage header fields\n");
 			return -1;
 		}
-		imagesize_actual = (page_size + kernel_actual + ramdisk_actual);
+		imagesize_actual = (page_size + kernel_actual + ramdisk_actual + second_actual);
 #endif
 
 		dprintf(INFO, "Loading (%s) image (%d): start\n",
@@ -2445,6 +2448,7 @@ void cmd_boot(const char *arg, void *data, unsigned sz)
 #endif /* MDTP_SUPPORT */
 	unsigned kernel_actual;
 	unsigned ramdisk_actual;
+	unsigned second_actual;
 	uint32_t image_actual;
 	uint32_t dt_actual = 0;
 	uint32_t sig_actual = 0;
@@ -2492,6 +2496,7 @@ void cmd_boot(const char *arg, void *data, unsigned sz)
 
 	kernel_actual = ROUND_TO_PAGE(hdr->kernel_size, page_mask);
 	ramdisk_actual = ROUND_TO_PAGE(hdr->ramdisk_size, page_mask);
+	second_actual = ROUND_TO_PAGE(hdr->second_size, page_mask);
 #if DEVICE_TREE
 #ifndef OSVERSION_IN_BOOTIMAGE
 	dt_size = hdr->dt_size;
@@ -2501,6 +2506,7 @@ void cmd_boot(const char *arg, void *data, unsigned sz)
 
 	image_actual = ADD_OF(page_size, kernel_actual);
 	image_actual = ADD_OF(image_actual, ramdisk_actual);
+	image_actual = ADD_OF(image_actual, second_actual);
 	image_actual = ADD_OF(image_actual, dt_actual);
 
 	/* Checking to prevent oob access in read_der_message_length */
@@ -3002,6 +3008,7 @@ void cmd_flash_mmc_sparse_img(const char *arg, void *data, unsigned sz)
 	uint64_t chunk_data_sz;
 	uint32_t *fill_buf = NULL;
 	uint32_t fill_val;
+	uint32_t blk_sz_actual = 0;
 	sparse_header_t *sparse_header;
 	chunk_header_t *chunk_header;
 	uint32_t total_blocks = 0;
@@ -3032,6 +3039,11 @@ void cmd_flash_mmc_sparse_img(const char *arg, void *data, unsigned sz)
 
 	/* Read and skip over sparse image header */
 	sparse_header = (sparse_header_t *) data;
+
+	if (!sparse_header->blk_sz || (sparse_header->blk_sz % 4)){
+		fastboot_fail("Invalid block size\n");
+		return;
+	}
 
 	if (((uint64_t)sparse_header->total_blks * (uint64_t)sparse_header->blk_sz) > size) {
 		fastboot_fail("size too large");
@@ -3089,11 +3101,6 @@ void cmd_flash_mmc_sparse_img(const char *arg, void *data, unsigned sz)
 			return;
 		}
 
-		if (!sparse_header->blk_sz ){
-			fastboot_fail("Invalid block size\n");
-			return;
-		}
-
 		chunk_data_sz = (uint64_t)sparse_header->blk_sz * chunk_header->chunk_sz;
 
 		/* Make sure that the chunk size calculated from sparse image does not
@@ -3146,7 +3153,15 @@ void cmd_flash_mmc_sparse_img(const char *arg, void *data, unsigned sz)
 				return;
 			}
 
-			fill_buf = (uint32_t *)memalign(CACHE_LINE, ROUNDUP(sparse_header->blk_sz, CACHE_LINE));
+			blk_sz_actual = ROUNDUP(sparse_header->blk_sz, CACHE_LINE);
+			/* Integer overflow detected */
+			if (blk_sz_actual < sparse_header->blk_sz)
+			{
+				fastboot_fail("Invalid block size");
+				return;
+			}
+
+			fill_buf = (uint32_t *)memalign(CACHE_LINE, blk_sz_actual);
 			if (!fill_buf)
 			{
 				fastboot_fail("Malloc failed for: CHUNK_TYPE_FILL");
@@ -3585,6 +3600,24 @@ void cmd_oem_select_display_panel(const char *arg, void *data, unsigned size)
 	fastboot_okay("");
 }
 
+#if QSEECOM_TEST_SUPPORT
+void cmd_oem_qseecom_test_cmd_handler(const char *arg, void *data, unsigned size)
+{
+	if (arg){
+		dprintf(INFO, "Validating qseecom app %s\n", arg);
+		qseecom_test_cmd_handler(arg);
+	} else {
+		dprintf(INFO, "Unsupported command\n");
+	}
+       fastboot_okay("");
+}
+#else
+void cmd_oem_qseecom_test_cmd_handler(const char *arg, void *data, unsigned size)
+{
+	return;
+}
+#endif
+
 void cmd_oem_unlock(const char *arg, void *data, unsigned sz)
 {
 	set_device_unlock(UNLOCK, TRUE);
@@ -4002,6 +4035,7 @@ void aboot_fastboot_register_commands(void)
 						{"oem disable-charger-screen", cmd_oem_disable_charger_screen},
 						{"oem off-mode-charge", cmd_oem_off_mode_charger},
 						{"oem select-display-panel", cmd_oem_select_display_panel},
+						{"oem qseecom-test", cmd_oem_qseecom_test_cmd_handler},
 #if UNITTEST_FW_SUPPORT
 						{"oem run-tests", cmd_oem_runtests},
 #endif
