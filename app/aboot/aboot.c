@@ -1338,12 +1338,16 @@ int boot_linux_from_flash(void)
 #if DEVICE_TREE
 		dt_actual = ROUND_TO_PAGE(hdr->dt_size, page_mask);
 
-		if (UINT_MAX < ((uint64_t)kernel_actual + (uint64_t)ramdisk_actual+ (uint64_t)second_actual + (uint64_t)dt_actual + page_size)) {
+		if (UINT_MAX < ((uint64_t)kernel_actual + (uint64_t)ramdisk_actual+ (uint64_t)dt_actual + page_size)) {
 			dprintf(CRITICAL, "Integer overflow detected in bootimage header fields\n");
 			return -ECORRUPTED_IMAGE;
 		}
 
-		imagesize_actual = (page_size + kernel_actual + ramdisk_actual + second_actual + dt_actual);
+		imagesize_actual = (page_size + kernel_actual + ramdisk_actual + dt_actual);
+		if (UINT_MAX < ((uint64_t)imagesize_actual + (uint64_t)second_actual)) {
+			dprintf(CRITICAL, "Integer overflow detected in bootimage header fields\n");
+			return -1;
+		}
 
 		if (check_aboot_addr_range_overlap(hdr->tags_addr, hdr->dt_size))
 		{
@@ -1351,11 +1355,17 @@ int boot_linux_from_flash(void)
 			return -ECORRUPTED_IMAGE;
 		}
 #else
-		if (UINT_MAX < ((uint64_t)kernel_actual + (uint64_t)second_actual + (uint64_t)ramdisk_actual + page_size)) {
+		if (UINT_MAX < ((uint64_t)kernel_actual + (uint64_t)ramdisk_actual+ page_size)) {
 			dprintf(CRITICAL, "Integer overflow detected in bootimage header fields\n");
 			return -1;
 		}
-		imagesize_actual = (page_size + kernel_actual + ramdisk_actual + second_actual);
+		imagesize_actual = (page_size + kernel_actual + ramdisk_actual);
+		if (UINT_MAX < ((uint64_t)imagesize_actual + (uint64_t)second_actual)) {
+			dprintf(CRITICAL, "Integer overflow detected in bootimage header fields\n");
+			return -1;
+		}
+        }
+
 #endif
 
 		dprintf(INFO, "Loading boot image (%d): start\n", imagesize_actual);
