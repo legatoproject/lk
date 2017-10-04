@@ -2650,11 +2650,16 @@ void cmd_boot(const char *arg, void *data, unsigned sz)
 	memmove((void*) hdr->kernel_addr, (char*) (kernel_start_addr), kernel_size);
 
 #if DEVICE_TREE
+/* SWISTART */
+/* The following check is not applicable when dtb is not copied */
+#ifndef SIERRA
 	if (check_aboot_addr_range_overlap(hdr->tags_addr, kernel_actual))
 	{
 		dprintf(CRITICAL, "Tags addresses overlap with aboot addresses.\n");
 		goto boot_failed;
 	}
+#endif /* SIERRA */
+/* SWISTOP */
 
 	/*
 	 * If dtb is not found look for appended DTB in the kernel.
@@ -2671,6 +2676,17 @@ void cmd_boot(const char *arg, void *data, unsigned sz)
 			fastboot_fail("dtb not found");
 			goto boot_failed;
 		}
+/* SWISTART */
+#ifdef SIERRA
+		/* If appended dev tree is found, but there is an overlap between kernel and
+		   ATAGS, tough luck, need to go out. */
+		if (check_aboot_addr_range_overlap(hdr->tags_addr, kernel_actual))
+		{
+			dprintf(CRITICAL, "Tags addresses overlap with aboot addresses.\n");
+			goto boot_failed;
+		}
+#endif /* SIERRA */
+/* SWISTOP */
 	}
 #endif
 
