@@ -214,6 +214,7 @@ void reboot_device(unsigned reboot_reason)
 {
 	/* Write the reboot reason */
 	writel(reboot_reason, RESTART_REASON_ADDR);
+	dprintf(CRITICAL, "reboot_reason:%x\n", reboot_reason);
 
 	/* Configure PMIC for warm reset */
 	/* PM 8019 v1 aligns with PM8941 v2.
