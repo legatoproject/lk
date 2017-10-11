@@ -124,7 +124,15 @@ static uint32_t
 qpic_nand_read_reg(uint32_t reg_addr,
 				   uint8_t flags)
 {
+/* SWISTART */
+/* QC sr 03110470 */
+#ifdef SIERRA
+	uint32_t val = 0;
+#else
 	uint32_t val;
+#endif
+/* SWISTOP */
+
 	struct cmd_element *cmd_list_read_ptr = ce_read_array;
 
 	bam_add_cmd_element(cmd_list_read_ptr, reg_addr, (uint32_t)PA((addr_t)&val), CE_READ_TYPE);
@@ -136,7 +144,16 @@ qpic_nand_read_reg(uint32_t reg_addr,
 					 BAM_CE_SIZE,
 					 BAM_DESC_CMD_FLAG| BAM_DESC_INT_FLAG | flags);
 
+/* SWISTART */
+/* QC sr 03110470 */
+#ifdef SIERRA
+	arch_clean_invalidate_cache_range((addr_t)&val, sizeof(uint32_t));
 	qpic_nand_wait_for_cmd_exec(1);
+	arch_clean_invalidate_cache_range((addr_t)&val, sizeof(uint32_t));
+#else
+	qpic_nand_wait_for_cmd_exec(1);
+#endif
+/* SWISTOP */
 
 	return val;
 }
@@ -852,7 +869,16 @@ qpic_nand_block_isbad_exec(struct cfg_params *params,
 				 4,
 				 BAM_DESC_INT_FLAG);
 
+/* SWISTART */
+/* QC sr 03110470 */
+#ifdef SIERRA
+	arch_clean_invalidate_cache_range((addr_t)bad_block, sizeof(uint32_t));
 	qpic_nand_wait_for_cmd_exec(num_desc);
+	arch_clean_invalidate_cache_range((addr_t)bad_block, sizeof(uint32_t));
+#else
+	qpic_nand_wait_for_cmd_exec(num_desc);
+#endif
+/* SWISTOP */
 
 	status = qpic_nand_read_reg(NAND_FLASH_STATUS, 0);
 
@@ -1030,7 +1056,17 @@ nand_result_t qpic_nand_blk_erase(uint32_t page)
 					 PA((uint32_t)cmd_list_ptr - (uint32_t)cmd_list_ptr_start),
 					 BAM_DESC_INT_FLAG | BAM_DESC_CMD_FLAG) ;
 	num_desc = 2;
+
+/* SWISTART */
+/* QC sr 03110470 */
+#ifdef SIERRA
+	arch_clean_invalidate_cache_range((addr_t)&status, sizeof(uint32_t));
 	qpic_nand_wait_for_cmd_exec(num_desc);
+	arch_clean_invalidate_cache_range((addr_t)&status, sizeof(uint32_t));
+#else
+	qpic_nand_wait_for_cmd_exec(num_desc);
+#endif
+/* SWISTOP */
 
 	status = qpic_nand_check_status(status);
 
@@ -1135,7 +1171,16 @@ qpic_nand_add_wr_page_cws_cmd_desc(struct cfg_params *cfg,
 						 int_flag | BAM_DESC_CMD_FLAG);
 		num_desc += 2;
 
+/* SWISTART */
+/* QC sr 03110470 */
+#ifdef SIERRA
+		arch_clean_invalidate_cache_range((addr_t)&status[i], sizeof(uint32_t));
 		qpic_nand_wait_for_cmd_exec(num_desc);
+		arch_clean_invalidate_cache_range((addr_t)&status[i], sizeof(uint32_t));
+#else
+		qpic_nand_wait_for_cmd_exec(num_desc);
+#endif
+/* SWISTOP */
 
 		status[i] = qpic_nand_check_status(status[i]);
 
@@ -1643,12 +1688,25 @@ static int qpic_nand_read_erased_page(uint32_t page)
 		num_cmd_desc++;
 
 		bam_add_cmd_element(cmd_list_ptr, NAND_FLASH_STATUS, (uint32_t)PA((addr_t)&(flash_sts[i])), CE_READ_TYPE);
+/* SWISTART */
+/* QC sr 03110470 */
+#ifdef SIERRA
+		arch_clean_invalidate_cache_range((addr_t)&(flash_sts[i]), sizeof(uint32_t));
+#endif
+/* SWISTOP */
 
 		cmd_list_temp = (uint32_t *)cmd_list_ptr;
 
 		cmd_list_ptr++;
 
 		bam_add_cmd_element(cmd_list_ptr, NAND_BUFFER_STATUS, (uint32_t)PA((addr_t)&(buffer_sts[i])), CE_READ_TYPE);
+/* SWISTART */
+/* QC sr 03110470 */
+#ifdef SIERRA
+		arch_clean_invalidate_cache_range((addr_t)&(buffer_sts[i]), sizeof(uint32_t));
+#endif
+/* SWISTOP */
+
 		cmd_list_ptr++;
 
 		if (i == flash.cws_per_page - 1)
@@ -1674,6 +1732,13 @@ static int qpic_nand_read_erased_page(uint32_t page)
 	}
 
 	qpic_nand_wait_for_data(DATA_PRODUCER_PIPE_INDEX);
+/* SWISTART */
+/* QC sr 03110470 */
+#ifdef SIERRA
+	arch_clean_invalidate_cache_range((addr_t)&(flash_sts[i]), sizeof(uint32_t));
+	arch_clean_invalidate_cache_range((addr_t)&(buffer_sts[i]), sizeof(uint32_t));
+#endif
+/* SWISTOP */
 
 	/* Find number of bit flips in the ecc & if there are more than "threshold" bit flips then
 	 * the page is bad otherwise the page is erased page
