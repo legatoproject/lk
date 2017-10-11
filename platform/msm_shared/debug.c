@@ -159,7 +159,14 @@ void platform_halt(void)
 	}
 	else
 	{
+/* SWISTART */
+#ifdef SIERRA
+		dprintf(CRITICAL, "HALT: reboot module instead of halt\n");
+		reboot_device(0);
+#else
 		dprintf(CRITICAL, "HALT: set_download_mode not supported\n");
+#endif
+/* SWISTOP */
 	}
 	dprintf(CRITICAL, "HALT: spinning forever...\n");
 	for (;;) ;
