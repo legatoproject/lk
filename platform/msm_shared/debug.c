@@ -151,8 +151,16 @@ void platform_halt(void)
 #if PON_VIB_SUPPORT
 	vib_turn_off();
 #endif
-	dprintf(CRITICAL, "HALT: reboot into dload mode...\n");
-	reboot_device(NORMAL_DLOAD);
+
+/* SWISTART */
+#ifdef SIERRA
+		dprintf(CRITICAL, "HALT: reboot module instead of halt\n");
+		reboot_device(0);
+#else
+		dprintf(CRITICAL, "HALT: reboot into dload mode...\n");
+		reboot_device(NORMAL_DLOAD);
+#endif
+/* SWISTOP */
 
 	dprintf(CRITICAL, "HALT: spinning forever...\n");
 	for (;;) ;
