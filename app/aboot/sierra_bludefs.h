@@ -419,4 +419,7 @@ extern unsigned int sierra_smem_reset_type_get(void);
 extern struct cwe_header_s *bl_get_cwe_header_buf(
   void);
 
+extern void sierra_smem_err_fatal_count_set(unsigned int err_fatal_cnt);
+extern unsigned int sierra_smem_err_fatal_count_get(void);
+
 #endif /* bludefs_h */
