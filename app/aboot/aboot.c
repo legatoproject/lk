@@ -4072,6 +4072,13 @@ void aboot_init(const struct app_descriptor *app)
 /* SWISTART */
 #ifdef SIERRA
 	unsigned int reset_type;
+	unsigned int err_fatal_count;
+
+	err_fatal_count = sierra_smem_err_fatal_count_get();
+	if (err_fatal_count != 0)
+	{
+		sierra_smem_err_fatal_count_set(0);
+	}
 #endif /* SIERRA */
 /* SWISTOP */
 
