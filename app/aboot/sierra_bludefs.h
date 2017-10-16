@@ -387,4 +387,7 @@ extern struct cwe_header_s *bl_get_cwe_header_buf(
   void);
 int8_t sierra_smem_bsuartfun_get(uint uart_num);
 
+extern void sierra_smem_err_fatal_count_set(unsigned int err_fatal_cnt);
+extern unsigned int sierra_smem_err_fatal_count_get(void);
+
 #endif /* bludefs_h */

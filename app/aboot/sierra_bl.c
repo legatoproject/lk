@@ -3474,3 +3474,76 @@ _package struct cwe_header_s *bl_get_cwe_header_buf(
   return &temphdr;
 }
 
+/************
+ *
+ * Name:     sierra_smem_err_fatal_count_set
+ *
+ * Purpose:  set err fatal count to SMEM
+ *
+ * Parms:    err fatal count
+ *
+ * Return:   none
+ *
+ * Abort:    none
+ *
+ * Notes:    none
+ *
+ ************/
+void sierra_smem_err_fatal_count_set(unsigned int err_fatal_cnt)
+{
+  struct bscoworkmsg *mp;
+  unsigned char *virtual_addr;
+
+  virtual_addr = sierra_smem_base_addr_get();
+  if (virtual_addr)
+  {
+    virtual_addr += BSMEM_COWORK_OFFSET;
+    mp = (struct bscoworkmsg *)virtual_addr;
+
+    mp->bserrorfatalcount = err_fatal_cnt;
+    mp->crc32 = crc32(~0, (void *)mp, BS_COWORK_CRC_SIZE);
+  }
+
+  return;
+}
+
+/************
+ *
+ * Name:     sierra_smem_err_fatal_count_get
+ *
+ * Purpose:  get err fatal count from SMEM
+ *
+ * Parms:    none
+ *
+ * Return:   err fatal count
+ *
+ * Abort:    none
+ *
+ * Notes:    none
+ *
+ ************/
+unsigned int sierra_smem_err_fatal_count_get(void)
+{
+  struct bscoworkmsg *mp;
+  unsigned char *virtual_addr;
+  unsigned int err_fatal_count = 0;
+
+  virtual_addr = sierra_smem_base_addr_get();
+  if (virtual_addr)
+  {
+    virtual_addr += BSMEM_COWORK_OFFSET;
+    mp = (struct bscoworkmsg *)virtual_addr;
+
+    if (mp->magic_beg == BS_SMEM_COWORK_MAGIC_BEG &&
+        mp->magic_end == BS_SMEM_COWORK_MAGIC_END &&
+        mp->crc32 == crc32(~0, (void *)mp, BS_COWORK_CRC_SIZE))
+    {
+      err_fatal_count = mp->bserrorfatalcount;
+    }
+  }
+
+  dprintf(CRITICAL, "sierra_smem_err_fatal_count_get: err_fatal_count=%d\n", err_fatal_count);
+
+  return err_fatal_count;
+}
+

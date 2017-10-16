@@ -3668,6 +3668,18 @@ void aboot_init(const struct app_descriptor *app)
 	bool boot_into_fastboot = false;
 	int ret = 0;
 
+/* SWISTART */
+#ifdef SIERRA
+	unsigned int err_fatal_count;
+
+	err_fatal_count = sierra_smem_err_fatal_count_get();
+	if (err_fatal_count != 0)
+	{
+		sierra_smem_err_fatal_count_set(0);
+	}
+#endif /* SIERRA */
+/* SWISTOP */
+
 	/* Setup page size information for nv storage */
 	if (target_is_emmc_boot())
 	{
