@@ -648,7 +648,13 @@ int fastboot_init(void *base, unsigned size)
 	fastboot_register("download:", cmd_download);
 	fastboot_publish("version", "0.5");
 
+/* SWISTART */
+#ifdef SIERRA
+	thr = thread_create("fastboot", fastboot_handler, 0, DEFAULT_PRIORITY, DEFAULT_STACK_SIZE);
+#else
 	thr = thread_create("fastboot", fastboot_handler, 0, DEFAULT_PRIORITY, 4096);
+#endif
+/* SWISTOP */
 	if (!thr)
 	{
 		goto fail_alloc_in;

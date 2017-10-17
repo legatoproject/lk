@@ -1542,6 +1542,15 @@ int boot_linux_from_flash(void)
 			dprintf(CRITICAL, "bootimage  size is greater than DDR can hold\n");
 			return -1;
 		}
+/* SWISTART */
+#ifdef SIERRA
+		/* Read image and verify data integrity and signature if need. */
+		if(!swi_lk_load_and_verify_kernel(ptn,image_addr,imagesize_actual))
+		{
+			dprintf(CRITICAL, "ERROR: LK verify kernel image failed\n");
+			return -1;
+		}
+#else
 		/* Read image without signature */
 		if (flash_read(ptn, offset, (void *)image_addr, imagesize_actual))
 		{
@@ -1554,14 +1563,6 @@ int boot_linux_from_flash(void)
 		bs_set_timestamp(BS_KERNEL_LOAD_DONE);
 
 		offset = imagesize_actual;
-/* SWISTART */
-#ifdef SIERRA
-		if(!boot_swi_lk_verify_kernel(ptn,image_addr,imagesize_actual))
-		{
-			dprintf(CRITICAL, "ERROR: LK verify kernel image failed\n");
-			return -1;
-		}
-#else
 		/* Read signature */
 		if (flash_read(ptn, offset, (void *)(image_addr + offset), page_size))
 		{
@@ -2412,6 +2413,19 @@ void cmd_boot(const char *arg, void *data, unsigned sz)
 	}
 #endif
 
+/* SWISTART */
+#ifdef SIERRA
+	/* verify kernel image, include at least check data integrity,
+	and authenticate signature if secure boot enalbed. */
+	if(sierra_lk_enable_kernel_verify() && (!device.is_unlocked))
+	{
+		if(!swi_lk_verify_kernel(data,image_actual))
+		{
+			fastboot_fail("LK verify kernel image failed\n");
+			return;
+		}
+	}
+#else
 	/* Verify the boot image
 	 * device & page_size are initialized in aboot_init
 	 */
@@ -2420,6 +2434,8 @@ void cmd_boot(const char *arg, void *data, unsigned sz)
 		 * access signature beyond its length
 		 */
 		verify_signed_bootimg((uint32_t)data, (image_actual - sig_actual));
+#endif
+/* SWISTOP */
 
 #ifdef MDTP_SUPPORT
 	else
