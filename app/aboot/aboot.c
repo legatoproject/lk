@@ -110,6 +110,9 @@ struct fastboot_cmd_desc {
 #define EXPAND(NAME) #NAME
 #define TARGET(NAME) EXPAND(NAME)
 
+/* Boot-image corrupted!! */
+#define ECORRUPTED_IMAGE	2
+
 #ifdef MEMBASE
 #define EMMC_BOOT_IMG_HEADER_ADDR (0xFF000+(MEMBASE))
 #else
@@ -777,6 +780,21 @@ BUF_DMA_ALIGN(buf, BOOT_IMG_MAX_PAGE_SIZE); //Equal to max-supported pagesize
 BUF_DMA_ALIGN(dt_buf, BOOT_IMG_MAX_PAGE_SIZE);
 #endif
 
+#if ENABLE_RECOVERY
+static void reboot_into_recovery_kernel(void)
+{
+	if (!boot_into_recovery) {
+		/* Set the cookie in misc partition to boot into recovery kernel */
+		if(set_recovery_cookie())
+			dprintf(CRITICAL, "Failed to set the cookie in misc partition\n");
+		else
+			reboot_device (0);
+	}
+}
+#else
+static inline void reboot_into_recovery_kernel(void) { }
+#endif
+
 static void verify_signed_bootimg(uint32_t bootimg_addr, uint32_t bootimg_size)
 {
 	int ret;
@@ -821,18 +839,8 @@ static void verify_signed_bootimg(uint32_t bootimg_addr, uint32_t bootimg_size)
 		auth_kernel_img = 1;
 	}
 
-#if ENABLE_RECOVERY
-	if (!ret) {
-		if (!boot_into_recovery) {
-			/* Set the cookie in misc partition to boot into recovery kernel */
-			if(set_recovery_cookie())
-				dprintf(CRITICAL, "Failed to set the cookie in misc partition\n");
-			else
-				reboot_device (0);
-		}
-
-	}
-#endif
+	if (!ret)
+		reboot_into_recovery_kernel();
 
 #if USE_PCOM_SECBOOT
 	set_tamper_flag(device.is_tampered);
@@ -1007,14 +1015,14 @@ int boot_linux_from_mmc(void)
 
 	if (memcmp(hdr->magic, BOOT_MAGIC, BOOT_MAGIC_SIZE)) {
 		dprintf(CRITICAL, "ERROR: Invalid boot image header\n");
-                return -1;
+                return -ECORRUPTED_IMAGE;
 	}
 
 	if (hdr->page_size && (hdr->page_size != page_size)) {
 
 		if (hdr->page_size > BOOT_IMG_MAX_PAGE_SIZE) {
 			dprintf(CRITICAL, "ERROR: Invalid page size\n");
-			return -1;
+			return -ECORRUPTED_IMAGE;
 		}
 		page_size = hdr->page_size;
 		page_mask = page_size - 1;
@@ -1043,13 +1051,14 @@ int boot_linux_from_mmc(void)
 
 	kernel_actual  = ROUND_TO_PAGE(hdr->kernel_size,  page_mask);
 	ramdisk_actual = ROUND_TO_PAGE(hdr->ramdisk_size, page_mask);
+	second_actual  = ROUND_TO_PAGE(hdr->second_size, page_mask);
 
 	/* Check if the addresses in the header are valid. */
 	if (check_aboot_addr_range_overlap(hdr->kernel_addr, kernel_actual) ||
 		check_aboot_addr_range_overlap(hdr->ramdisk_addr, ramdisk_actual))
 	{
 		dprintf(CRITICAL, "kernel/ramdisk addresses overlap with aboot addresses.\n");
-		return -1;
+		return -ECORRUPTED_IMAGE;
 	}
 
 #ifndef DEVICE_TREE
@@ -1079,15 +1088,23 @@ int boot_linux_from_mmc(void)
 
 #if DEVICE_TREE
 		dt_actual = ROUND_TO_PAGE(hdr->dt_size, page_mask);
-		imagesize_actual = (page_size + kernel_actual + ramdisk_actual + dt_actual);
+		if (UINT_MAX < ((uint64_t)kernel_actual + (uint64_t)ramdisk_actual+ (uint64_t)second_actual + (uint64_t)dt_actual + page_size)) {
+			dprintf(CRITICAL, "Integer overflow detected in bootimage header fields at %u in %s\n",__LINE__,__FILE__);
+			return -ECORRUPTED_IMAGE;
+		}
+		imagesize_actual = (page_size + kernel_actual + ramdisk_actual + second_actual + dt_actual);
 
 		if (check_aboot_addr_range_overlap(hdr->tags_addr, dt_actual))
 		{
 			dprintf(CRITICAL, "Device tree addresses overlap with aboot addresses.\n");
-			return -1;
+			return -ECORRUPTED_IMAGE;
 		}
 #else
-		imagesize_actual = (page_size + kernel_actual + ramdisk_actual);
+		if (UINT_MAX < ((uint64_t)kernel_actual + (uint64_t)ramdisk_actual+ (uint64_t)second_actual + page_size)) {
+			dprintf(CRITICAL, "Integer overflow detected in bootimage header fields at %u in %s\n",__LINE__,__FILE__);
+			return -ECORRUPTED_IMAGE;
+		}
+		imagesize_actual = (page_size + kernel_actual + second_actual + ramdisk_actual);
 
 #endif
 
@@ -1097,7 +1114,7 @@ int boot_linux_from_mmc(void)
 		if (check_aboot_addr_range_overlap((uintptr_t)image_addr, imagesize_actual))
 		{
 			dprintf(CRITICAL, "Boot image buffer address overlaps with aboot addresses.\n");
-			return -1;
+			return -ECORRUPTED_IMAGE;
 		}
 		offset = page_size;
 		/* Read image without signature and header*/
@@ -1115,7 +1132,7 @@ int boot_linux_from_mmc(void)
 		if (check_aboot_addr_range_overlap((uintptr_t)image_addr + offset, page_size))
 		{
 			dprintf(CRITICAL, "Signature read buffer address overlaps with aboot addresses.\n");
-			return -1;
+			return -ECORRUPTED_IMAGE;
 		}
 
 		/* Read signature */
@@ -1179,14 +1196,23 @@ int boot_linux_from_mmc(void)
 		image_addr = (unsigned char *)target_get_scratch_address();
 #if DEVICE_TREE
 		dt_actual = ROUND_TO_PAGE(hdr->dt_size, page_mask);
-		imagesize_actual = (page_size + kernel_actual + ramdisk_actual + dt_actual);
+		if (UINT_MAX < ((uint64_t)kernel_actual + (uint64_t)ramdisk_actual+ (uint64_t)second_actual + (uint64_t)dt_actual + page_size)) {
+                        dprintf(CRITICAL, "Integer overflow detected in bootimage header fields at %u in %s\n",__LINE__,__FILE__);
+                        return -ECORRUPTED_IMAGE;
+                }
+                imagesize_actual = (page_size + kernel_actual + ramdisk_actual + dt_actual);
 
 		if (check_aboot_addr_range_overlap(hdr->tags_addr, dt_actual))
 		{
 			dprintf(CRITICAL, "Device tree addresses overlap with aboot addresses.\n");
-			return -1;
+			return -ECORRUPTED_IMAGE;
 		}
-#else
+#else		
+		if (UINT_MAX < ((uint64_t)kernel_actual + (uint64_t)ramdisk_actual+ (uint64_t)second_actual + page_size)) {
+                        dprintf(CRITICAL, "Integer overflow detected in bootimage header fields at %u in %s\n",__LINE__,__FILE__);
+                        return -ECORRUPTED_IMAGE;
+                }
+
 		imagesize_actual = (page_size + kernel_actual + ramdisk_actual);
 
 #endif
@@ -1212,15 +1238,15 @@ int boot_linux_from_mmc(void)
 				imagesize_actual);
 		bs_set_timestamp(BS_KERNEL_LOAD_DONE);
 
-		#ifdef TZ_SAVE_KERNEL_HASH
+#ifdef TZ_SAVE_KERNEL_HASH
 		aboot_save_boot_hash_mmc((uint32_t) image_addr, imagesize_actual);
-		#endif /* TZ_SAVE_KERNEL_HASH */
+#endif /* TZ_SAVE_KERNEL_HASH */
 
 		/* Move kernel, ramdisk and device tree to correct address */
 		memmove((void*) hdr->kernel_addr, (char *)(image_addr + page_size), hdr->kernel_size);
 		memmove((void*) hdr->ramdisk_addr, (char *)(image_addr + page_size + kernel_actual), hdr->ramdisk_size);
 
-		#if DEVICE_TREE
+#if DEVICE_TREE
 		if(hdr->dt_size) {
 			dt_table_offset = ((uint32_t)image_addr + page_size + kernel_actual + ramdisk_actual + second_actual);
 			table = (struct dt_table*) dt_table_offset;
@@ -1272,7 +1298,7 @@ int boot_linux_from_mmc(void)
 				return -1;
 			}
 		}
-		#endif
+#endif
 	}
 
 	if (boot_into_recovery && !device.is_unlocked && !device.is_tampered)
@@ -1402,14 +1428,14 @@ int boot_linux_from_flash(void)
 
 	if (memcmp(hdr->magic, BOOT_MAGIC, BOOT_MAGIC_SIZE)) {
 		dprintf(CRITICAL, "ERROR: Invalid boot image header\n");
-		return -1;
+		return -ECORRUPTED_IMAGE;
 	}
 #endif
 /* SWISTOP */
 
 	if (hdr->page_size != page_size) {
 		dprintf(CRITICAL, "ERROR: Invalid boot image pagesize. Device pagesize: %d, Image pagesize: %d\n",page_size,hdr->page_size);
-		return -1;
+		return -ECORRUPTED_IMAGE;
 	}
 
 	image_addr = (unsigned char *)target_get_scratch_address();
@@ -1429,13 +1455,14 @@ int boot_linux_from_flash(void)
 
 	kernel_actual  = ROUND_TO_PAGE(hdr->kernel_size,  page_mask);
 	ramdisk_actual = ROUND_TO_PAGE(hdr->ramdisk_size, page_mask);
+	second_actual  = ROUND_TO_PAGE(hdr->second_size,  page_mask);
 
 	/* Check if the addresses in the header are valid. */
 	if (check_aboot_addr_range_overlap(hdr->kernel_addr, kernel_actual) ||
 		check_aboot_addr_range_overlap(hdr->ramdisk_addr, ramdisk_actual))
 	{
 		dprintf(CRITICAL, "kernel/ramdisk addresses overlap with aboot addresses.\n");
-		return -1;
+		return -ECORRUPTED_IMAGE;
 	}
 
 #ifndef DEVICE_TREE
@@ -1459,24 +1486,28 @@ int boot_linux_from_flash(void)
 #if DEVICE_TREE
 		dt_actual = ROUND_TO_PAGE(hdr->dt_size, page_mask);
 
-		if (UINT_MAX < ((uint64_t)kernel_actual + (uint64_t)ramdisk_actual+ (uint64_t)dt_actual + page_size)) {
-			dprintf(CRITICAL, "Integer overflow detected in bootimage header fields\n");
-			return -1;
-		}
+		if (UINT_MAX < ((uint64_t)kernel_actual + (uint64_t)ramdisk_actual+ (uint64_t)second_actual + (uint64_t)dt_actual + page_size)) {
+                        dprintf(CRITICAL, "Integer overflow detected in bootimage header fields\n");
+                        return -ECORRUPTED_IMAGE;
+                }
 
-		imagesize_actual = (page_size + kernel_actual + ramdisk_actual + dt_actual);
+                imagesize_actual = (page_size + kernel_actual + ramdisk_actual + second_actual + dt_actual);
 
-		if (check_aboot_addr_range_overlap(hdr->tags_addr, hdr->dt_size))
-		{
-			dprintf(CRITICAL, "Device tree addresses overlap with aboot addresses.\n");
-			return -1;
-		}
+                if (check_aboot_addr_range_overlap(hdr->tags_addr, hdr->dt_size))
+                {
+                        dprintf(CRITICAL, "Device tree addresses overlap with aboot addresses.\n");
+                        return -ECORRUPTED_IMAGE;
+                }
+
 #else
-		if (UINT_MAX < ((uint64_t)kernel_actual + (uint64_t)ramdisk_actual+ page_size)) {
-			dprintf(CRITICAL, "Integer overflow detected in bootimage header fields\n");
-			return -1;
-		}
-		imagesize_actual = (page_size + kernel_actual + ramdisk_actual);
+		if (UINT_MAX < ((uint64_t)kernel_actual + (uint64_t)ramdisk_actual+ (uint64_t)second_actual + page_size)) {
+                        dprintf(CRITICAL, "Integer overflow detected in bootimage header fields\n");
+                        return -ECORRUPTED_IMAGE;
+                }
+
+                imagesize_actual = (page_size + kernel_actual + ramdisk_actual + second_actual);
+
+
 #endif
 
 		dprintf(INFO, "Loading boot image (%d): start\n", imagesize_actual);
@@ -2117,6 +2148,7 @@ void cmd_boot(const char *arg, void *data, unsigned sz)
 {
 	unsigned kernel_actual;
 	unsigned ramdisk_actual;
+	unsigned second_actual;
 	uint32_t image_actual;
 	uint32_t dt_actual = 0;
 	uint32_t sig_actual = 0;
@@ -2156,12 +2188,14 @@ void cmd_boot(const char *arg, void *data, unsigned sz)
 
 	kernel_actual = ROUND_TO_PAGE(hdr->kernel_size, page_mask);
 	ramdisk_actual = ROUND_TO_PAGE(hdr->ramdisk_size, page_mask);
+	second_actual = ROUND_TO_PAGE(hdr->second_size, page_mask);
 #if DEVICE_TREE
 	dt_actual = ROUND_TO_PAGE(hdr->dt_size, page_mask);
 #endif
 
 	image_actual = ADD_OF(page_size, kernel_actual);
 	image_actual = ADD_OF(image_actual, ramdisk_actual);
+	image_actual = ADD_OF(image_actual, second_actual);
 	image_actual = ADD_OF(image_actual, dt_actual);
 
 	/* Checking to prevent oob access in read_der_message_length */
@@ -2456,6 +2490,7 @@ void cmd_flash_mmc_sparse_img(const char *arg, void *data, unsigned sz)
 	uint32_t *fill_buf = NULL;
 	uint32_t fill_val;
 	uint32_t chunk_blk_cnt = 0;
+	uint32_t blk_sz_actual = 0;
 	sparse_header_t *sparse_header;
 	chunk_header_t *chunk_header;
 	uint32_t total_blocks = 0;
@@ -2599,7 +2634,15 @@ void cmd_flash_mmc_sparse_img(const char *arg, void *data, unsigned sz)
 				return;
 			}
 
-			fill_buf = (uint32_t *)memalign(CACHE_LINE, ROUNDUP(sparse_header->blk_sz, CACHE_LINE));
+			blk_sz_actual = ROUNDUP(sparse_header->blk_sz, CACHE_LINE);
+			/* Integer overflow detected */
+			if (blk_sz_actual < sparse_header->blk_sz)
+			{
+				fastboot_fail("Invalid block size");
+				return;
+			}
+
+			fill_buf = (uint32_t *)memalign(CACHE_LINE, blk_sz_actual);
 			if (!fill_buf)
 			{
 				fastboot_fail("Malloc failed for: CHUNK_TYPE_FILL");
@@ -3623,6 +3666,7 @@ void aboot_init(const struct app_descriptor *app)
 {
 	unsigned reboot_mode = 0;
 	bool boot_into_fastboot = false;
+	int ret = 0;
 
 	/* Setup page size information for nv storage */
 	if (target_is_emmc_boot())
@@ -3737,7 +3781,7 @@ normal_boot:
 				#endif
 				}
 			}
-			boot_linux_from_mmc();
+			ret = boot_linux_from_mmc();
 		}
 		else
 		{
@@ -3746,9 +3790,8 @@ normal_boot:
 		if((device.is_unlocked) || (device.is_tampered))
 			set_tamper_flag(device.is_tampered);
 	#endif
-			boot_linux_from_flash();
+			ret = boot_linux_from_flash();
 		}
-
 /* SWISTART */
 #ifdef SIERRA
 		if(false == boot_into_fastboot_swi)
@@ -3760,9 +3803,12 @@ normal_boot:
 		}
 		boot_into_fastboot_swi = false;
 		bad_image_mask = DS_IMAGE_FLAG_NOT_SET;
-#endif
+		ret = ret; /* cheat the compiler */
+#else
+		if (ret == -ECORRUPTED_IMAGE)
+			reboot_into_recovery_kernel();
+#endif /* SIERRA */
 /* SWISTOP */
-
 		dprintf(CRITICAL, "ERROR: Could not do normal boot. Reverting "
 			"to fastboot mode.\n");
 	}
