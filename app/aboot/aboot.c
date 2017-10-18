@@ -4205,10 +4205,23 @@ void aboot_init(const struct app_descriptor *app)
 #ifdef SIERRA
 	if (sierra_ds_check_is_recovery_phase2())
 	{
-		dprintf(CRITICAL, "swi_ssdp_entry()");
-		swi_ssdp_entry();
+		if (SPI_RECOVERY_MODE == sierra_smem_recovery_mode_get())
+		{
+			dprintf(CRITICAL, "recovery_phase2, go to swi_ssdp_entry()");
+			swi_ssdp_entry();
+		}
+		else
+		{
+			/* For new design, recovery phase1 will always be in SBL, recovery phase2 will be in LK. */
+			dprintf(CRITICAL, "recovery_phase2, go to fastboot mode\n");
+			boot_into_fastboot = true;
+		}
 	}
 
+	/* To keep compatibility of recovery phase1 with old SBL, we still keep this branch here,
+		* However we must notice:
+		* For new design, recovery phase1 will always be in SBL, recovery phase2 will be in LK. 
+		*/
 	if (sierra_ds_check_is_recovery_phase1())
 	{
 		dprintf(CRITICAL, "recovery_phase1, go to fastboot mode\n");

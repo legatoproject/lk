@@ -332,6 +332,62 @@ void sierra_smem_fwupdate_status_set(uint32 err_code)
 
 /************
  *
+ * Name:     sierra_smem_recovery_mode_get
+ *
+ * Purpose:  get recovery mode
+ *
+ * Parms:    none
+ *
+ * Return:
+ *
+ * Abort:    none
+ *
+ * Notes:    none
+ *
+ ************/
+uint8 sierra_smem_recovery_mode_get(void)
+{
+  struct cnfg_feature_smem_s *sierra_bc_config = NULL;
+  unsigned char *virtual_addr;
+  uint32 cfg_smem_crc;
+  uint32 data_len;
+  uint8 ret = DEFAULT_RECOVERY_MODE;
+
+  virtual_addr = sierra_smem_base_addr_get();
+  if (virtual_addr)
+  {
+    virtual_addr += BSMEM_FTUR_CNFG_OFFSET;
+    sierra_bc_config = (struct cnfg_feature_smem_s *)virtual_addr;
+    
+    data_len = sizeof(struct cnfg_feature_smem_s) - sizeof(uint32_t);
+    cfg_smem_crc = crcrc32((void *)sierra_bc_config, data_len, CRSTART_CRC32);
+    
+    if((RELIABILITY_CNFG_FTUR_BEG == sierra_bc_config->magic_beg) 
+        && (RELIABILITY_CNFG_FTUR_END == sierra_bc_config->magic_end) 
+        && (cfg_smem_crc == sierra_bc_config->crc32))
+    {
+      ret = sierra_bc_config->cnfg_parameter[BC_FTURCNFG_RECOVERY_MODE - 1];
+    }
+    else
+    {
+      /* use default setting of AR758X/AR759X in following */
+      dprintf(CRITICAL, "sierra_smem_recovery_mode_get(), SM not valid\n");
+    }
+  }
+
+  if ((SPI_RECOVERY_MODE != ret) && (USB_RECOVERY_MODE != ret))
+  {
+    /* To Make it stronger */
+    /* use default setting of AR758X/AR759X */
+    ret = DEFAULT_RECOVERY_MODE;
+    dprintf(CRITICAL, "sierra_smem_recovery_mode_get(), recover mode invalid, use default setting:%d\n", ret);
+  }
+
+  return ret;
+}
+
+/************
+ *
  * Name:     sierra_smem_reset_type_set
  *
  * Purpose:  set reset type to SMEM
