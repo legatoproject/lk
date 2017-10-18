@@ -391,6 +391,7 @@ extern bool sierra_is_fastboot_disabled(void);
 extern unsigned int sierra_smem_err_count_get(void);
 extern void sierra_smem_err_count_set(unsigned int err_cnt);
 extern void sierra_smem_fwupdate_status_set(uint32 err_code);
+extern uint8 sierra_smem_recovery_mode_get(void);
 extern void sierra_smem_reset_type_set(unsigned int reset_type);
 extern boolean swipart_get_logical_partition_from_backup(
   uint32 block_size,
