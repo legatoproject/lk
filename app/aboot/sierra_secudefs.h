@@ -131,9 +131,9 @@ extern boolean image_authenticate(secboot_image_info_type* secboot_info_ptr, sec
 
 /************
  *
- * Name:     boot_swi_lk_auth_kernel
+ * Name:     boot_swi_lk_verify_kernel
  *
- * Purpose:  get image data and call image_authenticate to auth kernel image.
+ * Purpose:  verify image hash and authenticate signature if secure boot enabled.
  *
  * Parms:    ptn  --- struct ptentry for kernel iamge
  *
@@ -146,10 +146,36 @@ extern boolean image_authenticate(secboot_image_info_type* secboot_info_ptr, sec
  *
  * Abort:    none
  *
- * Notes:    none
+ * Notes:    For secure boot disabled device, just check image hash(if ENABLE_HASH_CHECK defined);
+ *           For seucre boot enabled device, authenticate signature and check image hash.
  *
  ************/
-extern boolean boot_swi_lk_verify_kernel(struct ptentry *ptn,unsigned char *image_addr,unsigned imagesize);
+extern boolean swi_lk_verify_kernel(unsigned char *image_addr,unsigned imagesize);
+
+/************
+ *
+ * Name:     swi_lk_load_and_verify_kernel
+ *
+ * Purpose:  verify image hash and authenticate signature if secure boot enabled.
+ *
+ * Parms:    ptn  --- struct ptentry for read kernel iamge from NAND flash
+ *
+ *           image_addr  --- Kernel image start address in RAM.
+ *
+ *           imagesize  ---- Andriod image size, which don't include "mbn header","image hash",...
+ *
+ * Return:   TRUE if load and verify succeed.
+ *           FALSE if load and verify failed.
+ *
+ * Abort:    none
+ *
+ * Notes:    SWI appended "mbn header" and "kernel hash" to kernel image for data integrity check;
+ *           If kernel image is signed, "signature" and "certificate chain" also been appended to
+ *           part of the image. Load all these data to RAM and then verify it.
+ *
+ ************/
+extern boolean swi_lk_load_and_verify_kernel(struct ptentry *ptn,unsigned char *image_addr,unsigned imagesize);
+
 /************
  *
  * Name:     sierra_lk_enable_kernel_verify

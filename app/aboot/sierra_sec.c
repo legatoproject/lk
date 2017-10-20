@@ -16,6 +16,7 @@
 #include <lib/ptable.h>
 #include <dev/flash.h>
 #include <debug.h>
+#include <boot_stats.h>
 
 #include <crypto_hash.h>
 
@@ -25,6 +26,8 @@
 #include "sierra_secudefs.h"
 
 #define ROUND_TO_PAGE(x,y) (((x) + (y)) & (~(y)))
+
+extern unsigned boot_into_recovery;
 
 /************
  *
@@ -168,116 +171,69 @@ boolean sierra_lk_enable_kernel_verify(void)
 
 /************
  *
- * Name:     boot_swi_lk_verify_kernel
+ * Name:     swi_lk_verify_kernel
  *
  * Purpose:  verify image hash and authenticate signature if secure boot enabled.
  *
- * Parms:    ptn  --- struct ptentry for kernel iamge
+ * Parms:    image_addr  --- Kernel image start address in RAM.
  *
- *           image_addr  --- Kernel image start address in RAM.
+ *           imagesize  ---- Andriod image size, which don't include "mbn header","image hash",[signature + cert chain]
  *
- *           imagesize  ---- Kernel image size
- *
- * Return:   TRUE if auth succeed.
- *           FALSE if auth failed.
+ * Return:   TRUE if verify succeed.
+ *           FALSE if verify failed.
  *
  * Abort:    none
  *
- * Notes:    For secure boot disabled device, just check image hash(if ENABLE_HASH_CHECK defined);
+ * Notes:    Please make sure all image data include "mbn header","image hash",... has been load to image_addr
+ *           For secure boot disabled device, just check image hash(if ENABLE_HASH_CHECK defined);
  *           For seucre boot enabled device, authenticate signature and check image hash.
  *
  ************/
-boolean boot_swi_lk_verify_kernel(struct ptentry *ptn,unsigned char *image_addr,unsigned imagesize)
+boolean swi_lk_verify_kernel(unsigned char *image_addr,unsigned imagesize)
 {
-  unsigned offset = 0;
-  unsigned read_size = 0;
-  mi_boot_image_header_type *mbn_header_ptr = 0;
+  mi_boot_image_header_type *mbn_hdr_ptr = NULL;
   secboot_image_info_type secboot_image_info;
   secboot_verified_info_type verified_info;
-  unsigned page_size = 0;
-  unsigned page_mask = 0;
   uint8* kernel_hash = NULL;
 
-  if(NULL == ptn || NULL == image_addr )
+  if((NULL == image_addr)||(!imagesize))
   {
-    dprintf(CRITICAL, "boot_swi_lk_auth_kernel: wrong input params.\n");
+    dprintf(CRITICAL, "ERROR: lk verify kernel, image_addr is NULL or imagesize is 0.\n");
     return FALSE;
   }
-
-  page_size = flash_page_size();
-  page_mask = page_size - 1;
-
   memset((void*)&secboot_image_info, 0, sizeof(secboot_image_info));
+  memset((void*)&verified_info, 0, sizeof(verified_info));
   secboot_image_info.sw_type = SECBOOT_SWI_APPS_SW_TYPE;
 
-  mbn_header_ptr = (mi_boot_image_header_type *)(image_addr + imagesize);
-
-  offset = imagesize;
-
-  /* Read MBN head page and hash of kernel image which in first page after kernel data */
-  if(0 != flash_read(ptn, offset,(void *)mbn_header_ptr, page_size)) 
-  {
-    dprintf(CRITICAL, "ERROR: Cannot read mbn header, mbn_hdrp = 0x%x\n",(unsigned int)mbn_header_ptr);
-    return FALSE;
-  }
-
-  dprintf(INFO, "mbn header offset:0x%x, code_szie:0x%x, sig_size:0x%x, certs_size:0x%x\n",
-      offset, mbn_header_ptr->code_size, mbn_header_ptr->signature_size, mbn_header_ptr->cert_chain_size);
+  /* MBN header follow kernel image data */
+  mbn_hdr_ptr = (mi_boot_image_header_type *)(image_addr + imagesize);
+  /*Kernel hash is closed to mbn header */
+  kernel_hash = ( uint8* )mbn_hdr_ptr + sizeof(mi_boot_image_header_type);
 
   /* Check whether have MBN header; and santiy check MBN header data */
-  if((APPS_IMG == mbn_header_ptr->image_id)&&(mbn_header_ptr->image_size == 
-      mbn_header_ptr->code_size+ mbn_header_ptr->signature_size + mbn_header_ptr->cert_chain_size)
-      &&(mbn_header_ptr->code_size > 0))
-  { /* have MBN header*/
-    dprintf(INFO, "Sanity check kernel image format ok.\n");
-  }
-  else /* have not MBN header, we treat it as illegal image or bad image */
+  if((NULL == mbn_hdr_ptr)
+    ||(NULL == kernel_hash)
+    ||(APPS_IMG != mbn_hdr_ptr->image_id)
+    ||(mbn_hdr_ptr->image_size != mbn_hdr_ptr->code_size+ mbn_hdr_ptr->signature_size + mbn_hdr_ptr->cert_chain_size))
   {
-    dprintf(CRITICAL, "Bad kernel image format, MBN header is NULL\n");
-    return FALSE;
-  }
-  /* Check kernel hash size is right. The size must be 32 bytes */
-  if(SHA256_SIZE != mbn_header_ptr->code_size)
-  {
-    dprintf(CRITICAL, "Bad kernel image format, wrong hash size: 0x%d.\n",mbn_header_ptr->code_size);
+    dprintf(CRITICAL, "%s_%d: Image format is illegal\n",__func__,__LINE__);
     return FALSE;
   }
 
-  /*Kernel hash is closed to mbn header */
-  kernel_hash = ( uint8* )mbn_header_ptr + sizeof(mi_boot_image_header_type);
-
-  /* auth image signature */
+  /* auth image signature and cert chain */
   if(sierra_sec_get_auth_en())
   {
-    /* we have read one page before, read rest part of signature +certchain */
-    read_size = sizeof(mi_boot_image_header_type) + mbn_header_ptr->code_size 
-              + mbn_header_ptr->signature_size + mbn_header_ptr->cert_chain_size;
-    if(read_size > page_size)
-    {
-      read_size -= page_size;
-
-      read_size = ROUND_TO_PAGE(read_size, page_mask);
-      offset += page_size;  /*we have read out one page data for mbn header.*/
-
-      if(0 != flash_read(ptn, offset,(void *)(image_addr + offset), read_size))
-      {
-        dprintf(CRITICAL, "ERROR: Cannot read rest of sign + cert chain.\n");
-        return FALSE;
-      }
-    }
-
-    secboot_image_info.header_ptr_1 = (const uint8*)mbn_header_ptr;
-    secboot_image_info.header_len_1 = sizeof(mi_boot_image_header_type);
-    secboot_image_info.code_ptr_1 = kernel_hash;
-    secboot_image_info.code_len_1 = mbn_header_ptr->code_size;
-    secboot_image_info.signature_ptr = secboot_image_info.code_ptr_1 + secboot_image_info.code_len_1;
-    secboot_image_info.signature_len = mbn_header_ptr->signature_size;
-    secboot_image_info.x509_chain_ptr = secboot_image_info.signature_ptr + secboot_image_info.signature_len;
-    secboot_image_info.x509_chain_len = mbn_header_ptr->cert_chain_size;
-
+     secboot_image_info.header_ptr_1 = (const uint8*)mbn_hdr_ptr;
+     secboot_image_info.header_len_1 = sizeof(mi_boot_image_header_type);
+     secboot_image_info.code_ptr_1 = kernel_hash;
+     secboot_image_info.code_len_1 = mbn_hdr_ptr->code_size;
+     secboot_image_info.signature_ptr = secboot_image_info.code_ptr_1 + secboot_image_info.code_len_1;
+     secboot_image_info.signature_len = mbn_hdr_ptr->signature_size;
+     secboot_image_info.x509_chain_ptr = secboot_image_info.signature_ptr + secboot_image_info.signature_len;
+     secboot_image_info.x509_chain_len = mbn_hdr_ptr->cert_chain_size;
     if(!image_authenticate(&secboot_image_info,&verified_info))
     {
-      dprintf(CRITICAL, "ERROR: authenticate image failed\n");
+      dprintf(CRITICAL, "ERROR: authenticate image signature and cert chain failed\n");
       return FALSE;
     }
   }
@@ -288,7 +244,84 @@ boolean boot_swi_lk_verify_kernel(struct ptentry *ptn,unsigned char *image_addr,
     dprintf(CRITICAL, "ERROR: Check andriod image hash failed\n");
     return FALSE;
   }
-  dprintf(CRITICAL,"Auth kernel image succeeded.\n");
+  dprintf(CRITICAL,"LK verify kernel image succeeded.\n");
   return TRUE;
+}
+
+/************
+ *
+ * Name:     swi_lk_load_and_verify_kernel
+ *
+ * Purpose:  verify image hash and authenticate signature if secure boot enabled.
+ *
+ * Parms:    ptn  --- struct ptentry for read kernel iamge from NAND flash
+ *
+ *           image_addr  --- Kernel image start address in RAM.
+ *
+ *           imagesize  ---- Andriod image size, which don't include "mbn header","image hash",...
+ *
+ * Return:   TRUE if load and verify succeed.
+ *           FALSE if load and verify failed.
+ *
+ * Abort:    none
+ *
+ * Notes:    SWI appended "mbn header" and "kernel hash" to kernel image for data integrity check;
+ *           If kernel image is signed, "signature" and "certificate chain" also been appended to
+ *           part of the image. Load all these data to RAM and then verify it.
+ *
+ ************/
+boolean swi_lk_load_and_verify_kernel(struct ptentry *ptn,unsigned char *image_addr,unsigned imagesize)
+{
+  unsigned offset = 0;
+  unsigned read_size = 0;
+  mi_boot_image_header_type *mbn_header_ptr = 0;
+  unsigned page_size = 0;
+  unsigned page_mask = 0;
+
+  if(NULL == ptn || NULL == image_addr )
+  {
+    dprintf(CRITICAL, "boot_swi_lk_auth_kernel: wrong input params.\n");
+    return FALSE;
+  }
+
+  page_size = flash_page_size();
+  page_mask = page_size - 1;
+
+  /* Read kernel(Andriod) image and one more page to include MBN head */
+  if(0 != flash_read(ptn, offset,(void *)image_addr, imagesize + page_size))
+  {
+    dprintf(CRITICAL, "ERROR: Cannot read mbn header, mbn_hdrp = 0x%x\n",(unsigned int)mbn_header_ptr);
+    return FALSE;
+  }
+
+  mbn_header_ptr = (mi_boot_image_header_type *)(image_addr + imagesize);
+  /* Check kernel hash size is right. The size must be 32 bytes */
+  if(NULL == mbn_header_ptr ||SHA256_SIZE != mbn_header_ptr->code_size)
+  {
+    dprintf(CRITICAL, "Bad kernel image format, wrong hash size: 0x%d.\n",mbn_header_ptr->code_size);
+    return FALSE;
+  }
+
+  /* Check whether need to read rest part of signature +certchain */
+  read_size = sizeof(mi_boot_image_header_type) + mbn_header_ptr->code_size
+            + mbn_header_ptr->signature_size + mbn_header_ptr->cert_chain_size;
+  if(read_size > page_size)
+  {
+    read_size -= page_size;
+
+    read_size = ROUND_TO_PAGE(read_size, page_mask);
+    offset = imagesize + page_size;
+    if(0 != flash_read(ptn, offset,(void *)(image_addr + offset), read_size))
+    {
+      dprintf(CRITICAL, "ERROR: Cannot read rest of sign + cert chain.\n");
+      return FALSE;
+    }
+  }
+  dprintf(INFO, "Loading (%s) image (%d): done\n",
+    (!boot_into_recovery ? "boot" : "recovery"), imagesize);
+  bs_set_timestamp(BS_KERNEL_LOAD_DONE);
+
+  /* separate verification part, then "fastboot continue" can call it directly. */
+  return swi_lk_verify_kernel(image_addr,imagesize);
 }
 
