@@ -39,6 +39,12 @@
 #include <arch/arm.h>
 #endif
 
+/* SWISTART */
+#ifdef SIERRA
+extern int in_panic;
+#endif
+/* SWISTOP */
+
 void __attribute__ ((noreturn))
 __stack_chk_fail (void)
 {
@@ -74,6 +80,12 @@ void _panic(void *caller, const char *fmt, ...)
 	dprintf(ALWAYS, "panic (frame %p): \n", __GET_FRAME());
 	dump_frame(__GET_FRAME());
 	dprintf(ALWAYS, "panic (caller %p): ", caller);
+
+/* SWISTART */
+#ifdef SIERRA
+	in_panic = 1;
+#endif
+/* SWISTOP */
 
 	va_list ap;
 	va_start(ap, fmt);
