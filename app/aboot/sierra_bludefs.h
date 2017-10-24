@@ -383,6 +383,7 @@ void sierra_check_mibib_state_clear(void);
 enum blresultcode blredundancy_sbl_program(
   uint8 * bufp,
   unsigned int write_size);
+extern unsigned int sierra_smem_reset_type_flag_get(void);
 extern struct cwe_header_s *bl_get_cwe_header_buf(
   void);
 int8_t sierra_smem_bsuartfun_get(uint uart_num);
