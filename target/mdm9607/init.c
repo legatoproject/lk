@@ -57,6 +57,7 @@
 /* SWISTART */
 #ifdef SIERRA
 #include "sierra_dsudefs.h"
+#include "sierra_bludefs.h"
 #endif /* SIERRA */
 /* SWISTOP */
 
@@ -103,6 +104,12 @@ static struct ptable flash_ptable;
 #define SUB_TYPE_SKUT           0x0A
 
 struct qpic_nand_init_config config;
+
+/* SWISTART */
+#ifdef SIERRA
+int in_panic = 0;
+#endif
+/* SWISTOP */
 
 void update_ptable_names(void)
 {
@@ -356,6 +363,26 @@ void reboot_device(unsigned reboot_reason)
 {
 	uint8_t reset_type = 0;
 	struct board_pmic_data pmic_info;
+
+/* SWISTART */
+#ifdef SIERRA
+	if(!in_panic)
+	{
+		/* clear error reset count */
+		sierra_smem_err_count_set(0);
+		if(BS_BCMSG_RTYPE_IS_CLEAR == sierra_smem_reset_type_flag_get())
+		{
+			/* set reset type to BS_BCMSG_RTYPE_LINUX_SOFTWARE */
+			sierra_smem_reset_type_set(BS_BCMSG_RTYPE_LINUX_SOFTWARE);
+		}
+	}
+	else
+	{
+		/* set reset type to BS_BCMSG_RTYPE_LINUX_CRASH */
+		sierra_smem_reset_type_set(BS_BCMSG_RTYPE_LINUX_CRASH);
+	}
+#endif
+/* SWISTOP */
 
 	 /* Write the reboot reason */
 	writel(reboot_reason, RESTART_REASON_ADDR);

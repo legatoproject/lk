@@ -415,6 +415,7 @@ void sierra_smem_reset_type_set(unsigned int reset_type)
 
     b2amsgp->out.reset_type = reset_type;
     b2amsgp->out.brstsetflg = BS_BCMSG_RTYPE_IS_SET;
+    b2amsgp->in.brstsetflg  = BS_BCMSG_RTYPE_IS_SET;
     b2amsgp->crc32 = crc32(~0, (void *)b2amsgp, BC_MSG_CRC_SZ);
   }
 
@@ -3565,6 +3566,47 @@ unsigned int sierra_smem_reset_type_get(void)
 
 /************
  *
+ * Name:     sierra_smem_reset_type_flag_get
+ *
+ * Purpose:  get reset type flag from SMEM
+ *
+ * Parms:    none
+ *
+ * Return:   reset type flag
+ *
+ * Abort:    none
+ *
+ * Notes:    none
+ *
+ ************/
+unsigned int sierra_smem_reset_type_flag_get(void)
+{
+  struct bc_smem_message_s *b2amsgp;
+  unsigned char *virtual_addr;
+  unsigned int reset_type_flag = 0;
+
+  virtual_addr = sierra_smem_base_addr_get();
+  if (virtual_addr)
+  {
+    /*  APPL mailbox */
+    virtual_addr += BSMEM_MSG_APPL_MAILBOX_OFFSET;
+
+    b2amsgp = (struct bc_smem_message_s *)virtual_addr;
+
+    if (b2amsgp->magic_beg == BC_SMEM_MSG_MAGIC_BEG &&
+        b2amsgp->magic_end == BC_SMEM_MSG_MAGIC_END &&
+        (b2amsgp->version < BC_SMEM_MSG_CRC32_VERSION_MIN ||
+         b2amsgp->crc32 == crc32(~0, (void *)b2amsgp, BC_MSG_CRC_SZ)))
+    {
+      reset_type_flag = b2amsgp->in.brstsetflg;
+    }
+  }
+
+  return reset_type_flag;
+}
+
+/************
+ *
  * Name:     sierra_smem_bcfuntions_get
  *
  * Purpose:  get bcfunctions from SMEM
@@ -3735,7 +3777,7 @@ unsigned int sierra_smem_err_fatal_count_get(void)
     }
   }
 
-  dprintf(CRITICAL, "sierra_smem_err_fatal_count_get: err_fatal_count=%d\n", err_fatal_count);
+  dprintf(INFO, "sierra_smem_err_fatal_count_get: err_fatal_count=%d\n", err_fatal_count);
 
   return err_fatal_count;
 }
