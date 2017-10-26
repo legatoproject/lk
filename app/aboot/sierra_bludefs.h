@@ -183,6 +183,8 @@ typedef enum {
 #define BLPRIMAGE_MASK_SYS  0x00000040   /* Processed Recovery Image mask for System */
 #define BLPRIMAGE_MASK_LG   0x00000080   /* Processed Recovery Image mask for Legato */
 
+#define MAX_PART_NUM 8
+
 /************
  *
  * Name:     blresultcode - list of BL error/result codes
@@ -423,5 +425,6 @@ extern struct cwe_header_s *bl_get_cwe_header_buf(
 
 extern void sierra_smem_err_fatal_count_set(unsigned int err_fatal_cnt);
 extern unsigned int sierra_smem_err_fatal_count_get(void);
+extern bool is_sierra_factory_mode(struct ptable *ptable, uint32 blks);
 
 #endif /* bludefs_h */

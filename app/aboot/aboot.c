@@ -107,6 +107,7 @@
 
 /* Sense service pin to decide whether enter fastboot mode */
 #define NO_KEYPAD_DRIVER 1
+#define CHECK_BLOCKS 3
 #endif
 /* SWISTOP */
 
@@ -1691,8 +1692,19 @@ int boot_linux_from_flash(void)
 			/* Regard it as emergency download mode if both kernel images not exist */
 			if ((flash_read(ptn, offset, buf, page_size)) || (memcmp(hdr->magic, BOOT_MAGIC, BOOT_MAGIC_SIZE))){
 				dprintf(CRITICAL, "ERROR: Invalid image header of both kernel images\n");
-				boot_into_fastboot_swi = true;
-				return -1;
+
+				/*LK should go to fastboot only in sierra factory, otherwise Revert to dual system processing.*/
+				if (is_sierra_factory_mode(ptable, CHECK_BLOCKS))
+				{
+					boot_into_fastboot_swi = true;
+					return -1;
+				}
+				else
+				{
+					dprintf(CRITICAL, "ERROR: This is not SWI factory. Reverting to dual system processing.\n");
+					return -1;
+				}
+
 			}
 	
 			dprintf(CRITICAL, "ERROR: Cannot read boot image header or invalid boot image header\n");
