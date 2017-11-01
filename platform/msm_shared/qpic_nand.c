@@ -1959,7 +1959,7 @@ boolean block_is_erased_sierra(
 		}
 	}
 
-	dprintf(CRITICAL, "block_no %d is_erased\n", block_no);
+	dprintf(INFO, "block_no %d is_erased\n", block_no);
 	return TRUE;
 }
 
@@ -2981,6 +2981,31 @@ void nand_int_sierra()
 	qpic_nand_save_config(&flash);
 }
 
+int flash_partition_is_erased(unsigned int startblock, unsigned int endblock)
+{
+	uint32 block_no, page_no;
+	boolean retval = TRUE;
+
+	for (block_no = startblock; block_no <= endblock; block_no++)
+	{
+		/* Check if the block is bad block */
+		page_no = block_no * flash.num_pages_per_blk;
+		if (qpic_nand_block_isbad(page_no))
+		{
+			continue;
+		}
+
+		/* Check if there is valid data in block */
+		if (!block_is_erased_sierra(block_no))
+		{
+			dprintf(CRITICAL, "There is valid data in block %d\n", block_no);
+			retval = FALSE;
+			break;
+		}
+	}/* end for ... */
+
+	return retval;
+}
 #endif
 /* SWISTOP */
 

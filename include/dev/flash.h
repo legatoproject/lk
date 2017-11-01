@@ -85,6 +85,10 @@ int flash_write_sierra_file_img(struct ptentry *ptn,
 			unsigned write_extra_bytes,
 			const void *data,
 			unsigned bytes);
+
+int flash_partition_is_erased(unsigned int startblock,
+			unsigned int endblock);
+
 /* SWISTOP */
 
 static inline int flash_read(struct ptentry *ptn, unsigned offset, void *data,

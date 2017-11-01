@@ -3645,3 +3645,63 @@ unsigned int sierra_smem_err_fatal_count_get(void)
   return err_fatal_count;
 }
 
+/************
+ *
+ * Name:    is_sierra_factory_mode
+ *
+ * Purpose:  Check whether this sierra factory mode
+ *
+ * Parms:   none
+ *
+ * Return:   TRUE this is sierra factory mode
+ *               FALSE otherwise
+ *
+ * Abort:    None
+ *
+ * Notes: If it is sierra factory mode, all partitions behind
+ *           LK are empty.
+ *
+ *
+ ************/
+bool is_sierra_factory_mode(struct ptable *ptable, uint32 blks)
+{
+  int i;
+  struct ptentry *ptn = NULL;
+  bool result = TRUE;
+  uint32 end_blk, check_blks;
+  const char * const ds_part_name[] = {
+  BL_LINUX_BOOT_PARTI_NAME,
+  BL_LINUX_BOOT2_PARTI_NAME,
+  BL_LINUX_SYSTEM_PARTI_NAME,
+  BL_LINUX_SYSTEM2_PARTI_NAME,
+  BL_MODEM_PARTI_NAME,
+  BL_MODEM2_PARTI_NAME,
+  BL_LINUX_UDATA_PARTI_NAME,
+  BL_LINUX_UDATA2_PARTI_NAME,
+  };
+
+  /*Only can not find any valid data in the partition that include in partition list, it is factory mode.*/
+  for (i = 0; i < MAX_PART_NUM; i++)
+  {
+    ptn = ptable_find(ptable, ds_part_name[i]);
+    if(ptn)
+    {
+      /*Find valid data in partition*/
+      check_blks = (blks > ptn->length)?ptn->length:blks;
+      end_blk = ptn->start + check_blks -1;
+      if (!flash_partition_is_erased(ptn->start, end_blk))
+      {
+        result = FALSE;
+        break;
+      }
+    }
+    else
+    {
+      result = TRUE;
+      break;
+    }
+  }
+
+  return result;
+}
+

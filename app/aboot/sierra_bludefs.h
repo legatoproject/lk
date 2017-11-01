@@ -154,6 +154,7 @@ typedef enum {
 #define SPKG_IMAGE_MODEM                       (1 << 5)   /* MODEM of dual system */
 #define SPKG_IMAGE_LEGATO                      (1 << 6)   /* LEFWKRO of dual system */
 
+#define MAX_PART_NUM 8
 /************
  *
  * Name:     blresultcode - list of BL error/result codes
@@ -391,5 +392,6 @@ int8_t sierra_smem_bsuartfun_get(uint uart_num);
 
 extern void sierra_smem_err_fatal_count_set(unsigned int err_fatal_cnt);
 extern unsigned int sierra_smem_err_fatal_count_get(void);
+extern bool is_sierra_factory_mode(struct ptable *ptable, uint32 blks);
 
 #endif /* bludefs_h */
