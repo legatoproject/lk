@@ -87,6 +87,7 @@
 #include "sierra_secudefs.h"
 
 #define CHECK_BLOCKS 3
+extern int reboot_swap;
 #endif /* SIERRA */
 /* SWISTOP */
 
@@ -3849,6 +3850,7 @@ normal_boot:
 		if(false == boot_into_fastboot_swi)
 		{
 			sierra_ds_smem_write_bad_image_and_swap(bad_image_mask);
+			reboot_swap = 1;
 			/* Swap system after kernel image load failed or bad kernel detected*/
 			dprintf(CRITICAL, "ERROR: Could not do normal boot. Rebooting and swap system.\n");
 			reboot_device(0);

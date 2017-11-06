@@ -109,6 +109,7 @@ struct qpic_nand_init_config config;
 /* SWISTART */
 #ifdef SIERRA
 int in_panic = 0;
+int reboot_swap = 0;
 #endif
 /* SWISTOP */
 
@@ -281,7 +282,8 @@ void reboot_device(unsigned reboot_reason)
 
 	/* Write the reboot reason */
 	writel(reboot_reason, RESTART_REASON_ADDR);
-	dprintf(CRITICAL, "reboot_reason:%x\n", reboot_reason);
+	dprintf(CRITICAL, "reboot_reason:%x, in_panic: %d, reboot_swap: %d\n",
+		reboot_reason, in_panic, reboot_swap);
 
 	/* Configure PMIC for warm reset */
 	/* PM 8019 v1 aligns with PM8941 v2.
@@ -300,7 +302,7 @@ void reboot_device(unsigned reboot_reason)
 
 	mdelay(5000);
 #else
-	if (reboot_reason)
+	if (reboot_reason || in_panic || reboot_swap)
 	{
 		pm8x41_v2_reset_configure(PON_PSHOLD_WARM_RESET);
 		dprintf(CRITICAL, "reboot the device by PMIC watchdog\n");
