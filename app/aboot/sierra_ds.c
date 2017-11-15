@@ -19,6 +19,7 @@
 #include <qpic_nand.h>
 #include "mach/sierra_smem.h"
 #include "sierra_dsudefs.h"
+#include "sierra_bludefs.h"
 
 /*
  *  externs
@@ -2151,6 +2152,8 @@ bool sierra_ds_set_ssid(uint8 ssid_modem_idx, uint8 ssid_lk_idx, uint8 ssid_linu
     ds_flag.ssid_lk_idx = ssid_lk_idx;
     ds_flag.ssid_linux_idx = ssid_linux_idx;
     sierra_ds_update_ssdata(&ds_flag, swapreset);
+    /* set reset type to BS_BCMSG_RTYPE_SYSTEM_SWAP */
+    sierra_smem_reset_type_set(BS_BCMSG_RTYPE_SYSTEM_SWAP);
     return TRUE;
   }
 }
