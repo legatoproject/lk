@@ -77,6 +77,8 @@ struct __attribute__ ((packed)) ubifs_sb_node {
 
 /* Erase counter header magic number (ASCII "UBI#") */
 #define UBI_EC_HDR_MAGIC  0x55424923
+/* Volume identifier header magic number (ASCII "UBI!") */
+#define UBI_VID_HDR_MAGIC 0x55424921
 
 #define UBI_MAGIC      "UBI#"
 #define UBI_MAGIC_SIZE 0x04
@@ -87,6 +89,12 @@ struct __attribute__ ((packed)) ubifs_sb_node {
 #define UBI_DEF_ERACE_COUNTER 0
 #define UBI_CRC32_INIT 0xFFFFFFFFU
 #define UBIFS_CRC32_INIT 0xFFFFFFFFU
+
+/* SWISTART */
+#ifdef SIERRA
+#define UBIFS_MAGIC 0x31181006
+#endif /* SIERRA */
+/* SWISTOP */
 
 /* Erase counter header fields */
 struct __attribute__ ((packed)) ubi_ec_hdr {
@@ -129,30 +137,130 @@ struct __attribute__ ((packed)) ubi_vid_hdr {
 #define UBI_MAX_VOLUMES 128
 #define UBI_INTERNAL_VOL_START (0x7FFFFFFF - 4096)
 #define UBI_LAYOUT_VOLUME_ID     UBI_INTERNAL_VOL_START
+#define UBI_VID_DYNAMIC 1
+#define UBI_LAYOUT_VOLUME_TYPE UBI_VID_DYNAMIC
 #define UBI_FM_SB_VOLUME_ID	(UBI_INTERNAL_VOL_START + 1)
+#define UBI_COMPAT_REJECT 5
+
+
+/**
+ * struct ubi_vtbl_record - a record in the volume table.
+ * @reserved_pebs: how many physical eraseblocks are reserved for this volume
+ * @alignment: volume alignment
+ * @data_pad: how many bytes are unused at the end of the each physical
+ * eraseblock to satisfy the requested alignment
+ * @vol_type: volume type (%UBI_DYNAMIC_VOLUME or %UBI_STATIC_VOLUME)
+ * @upd_marker: if volume update was started but not finished
+ * @name_len: volume name length
+ * @name: the volume name
+ * @flags: volume flags (%UBI_VTBL_AUTORESIZE_FLG)
+ * @padding: reserved, zeroes
+ * @crc: a CRC32 checksum of the record
+ *
+ * The volume table records are stored in the volume table, which is stored in
+ * the layout volume. The layout volume consists of 2 logical eraseblock, each
+ * of which contains a copy of the volume table (i.e., the volume table is
+ * duplicated). The volume table is an array of &struct ubi_vtbl_record
+ * objects indexed by the volume ID.
+ *
+ * If the size of the logical eraseblock is large enough to fit
+ * %UBI_MAX_VOLUMES records, the volume table contains %UBI_MAX_VOLUMES
+ * records. Otherwise, it contains as many records as it can fit (i.e., size of
+ * logical eraseblock divided by sizeof(struct ubi_vtbl_record)).
+ *
+ * The @upd_marker flag is used to implement volume update. It is set to %1
+ * before update and set to %0 after the update. So if the update operation was
+ * interrupted, UBI knows that the volume is corrupted.
+ *
+ * The @alignment field is specified when the volume is created and cannot be
+ * later changed. It may be useful, for example, when a block-oriented file
+ * system works on top of UBI. The @data_pad field is calculated using the
+ * logical eraseblock size and @alignment. The alignment must be multiple to the
+ * minimal flash I/O unit. If @alignment is 1, all the available space of
+ * the physical eraseblocks is used.
+ *
+ * Empty records contain all zeroes and the CRC checksum of those zeroes.
+ */
+struct __attribute__ ((packed)) ubi_vtbl_record {
+	uint32_t  reserved_pebs;
+	uint32_t  alignment;
+	uint32_t  data_pad;
+	uint8_t    vol_type;
+	uint8_t    upd_marker;
+	uint16_t  name_len;
+#define UBI_VOL_NAME_MAX 127
+	uint8_t    name[UBI_VOL_NAME_MAX+1];
+	uint8_t    flags;
+	uint8_t    padding[23];
+	uint32_t  crc;
+};
+#define UBI_VTBL_RECORD_SIZE sizeof(struct ubi_vtbl_record)
+
+/* Size of the volume table record without the ending CRC */
+#define UBI_VTBL_RECORD_SIZE_CRC (UBI_VTBL_RECORD_SIZE - sizeof(uint32_t))
+
+/* PEB status */
+enum {
+	UBI_UNKNOWN = 0,
+	UBI_BAD_PEB,
+	UBI_FREE_PEB,
+	UBI_USED_PEB,
+	UBI_EMPTY_PEB
+};
+
+/**
+ * struct peb_info - In RAM info on a PEB
+ * @ec: erase counter
+ * @status: status of this PEB: UBI_BAD_PEB/USED/FREE/EMPTY
+ * @volume: if status = UBI_USED_PEB this is the volume
+ * 		ID this PEB belongs to -1 for any other status
+ */
+struct peb_info {
+	uint64_t ec;
+	int status;
+	int volume;
+};
 
 /**
  * struct ubi_scan_info - UBI scanning information.
- * @ec: erase counters or eraseblock status for all eraseblocks
+ * @pebs_data: info on all of partition PEBs
  * @mean_ec: mean erase counter
+ * @vtbl_peb1: number of the first PEB holding the volume table
+ * 			 (relative to the beginning of the partition)
+ * @vtbl_peb1: number of the second PEB holding the volume table
+ * 			 (relative to the beginning of the partition)
  * @bad_cnt: count of bad eraseblocks
- * @good_cnt: count of non-bad eraseblocks
  * @empty_cnt: count of empty eraseblocks
+ * @free_cnt: count of free eraseblocks
+ * @used_cnt: count of used eraseblocks
+ * @fastmap_sb: PEB number holding FM superblock. If FM is not present: -1
  * @vid_hdr_offs: volume ID header offset from the found EC headers (%-1 means
  *                undefined)
  * @data_offs: data offset from the found EC headers (%-1 means undefined)
  * @image_seq: image sequence
+ * @read_image_seq: image sequence read from NAND while scanning
  */
 struct ubi_scan_info {
-	uint64_t *ec;
+	struct peb_info *pebs_data;
 	uint64_t mean_ec;
+	int vtbl_peb1;
+	int vtbl_peb2;
 	int bad_cnt;
-	int good_cnt;
 	int empty_cnt;
+	int free_cnt;
+	int used_cnt;
+	int fastmap_sb;
 	unsigned vid_hdr_offs;
 	unsigned data_offs;
 	uint32_t  image_seq;
+	uint32_t  read_image_seq;
 };
 
+
+
 int flash_ubi_img(struct ptentry *ptn, void *data, unsigned size);
+int update_ubi_vol(struct ptentry *ptn, const char* vol_name,
+				void *data, unsigned size);
+int get_ubi_vol_data(struct ptentry *ptn, const char* vol_name,
+				void *data, unsigned *size);
 #endif

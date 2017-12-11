@@ -360,5 +360,22 @@ nand_result_t qpic_nand_write(uint32_t start_page, uint32_t num_pages,
 		unsigned char* buffer, unsigned  write_extra_bytes);
 nand_result_t qpic_nand_block_isbad(unsigned page);
 nand_result_t qpic_nand_blk_erase(uint32_t page);
+/* SWISTART */
+#ifdef SIERRA
+extern unsigned flash_page_size_sierra(void);
+extern unsigned flash_num_pages_per_block_sierra(void);
+extern nand_result_t qpic_nand_write_page_sierra(uint32_t page, unsigned char* buffer);
+extern int qpic_nand_read_page_sierra(uint32_t page, unsigned char* buffer);
+extern nand_result_t qpic_nand_write_page_spare_sierra(uint32_t page,
+	unsigned char* buffer,
+	unsigned write_extra_bytes);
+extern nand_result_t nand_read_page_reset_sierra(uint32_t page_num,
+			unsigned char* buffer, unsigned char* spareaddr);
+
+void nand_int_sierra(void);
+extern struct qpic_nand_init_config config;
+
+#endif
+/* SWISTOP */
 
 #endif

@@ -10,3 +10,5 @@ target/*/tools/mkheader
 cscope.*
 ncscope.*
 
+app/aboot/sierra_lkversion.h
+

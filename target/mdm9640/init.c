@@ -55,6 +55,13 @@
 #include <uart_dm.h>
 #include <boot_device.h>
 #include <crypto5_wrapper.h>
+/* SWISTART */
+#ifdef SIERRA
+#include "sierra_bludefs.h"
+#include "sierra_dsudefs.h"
+#include "mach/sierra_smem.h"
+#endif /* SIERRA */
+/* SWISTOP */
 
 extern void smem_ptable_init(void);
 extern void smem_add_modem_partitions(struct ptable *flash_ptable);
@@ -99,6 +106,13 @@ static struct ptable flash_ptable;
 
 struct qpic_nand_init_config config;
 
+/* SWISTART */
+#ifdef SIERRA
+int in_panic = 0;
+int reboot_swap = 0;
+#endif
+/* SWISTOP */
+
 void update_ptable_names(void)
 {
 	uint32_t ptn_index;
@@ -132,7 +146,20 @@ void update_ptable_names(void)
 void target_early_init(void)
 {
 #if WITH_DEBUG_UART
-	uart_dm_init(3, 0, BLSP1_UART2_BASE);
+/* SWISTART */
+#ifndef SIERRA
+	uart_dm_init(2, 0, BLSP1_UART1_BASE);
+#else /* SIERRA */
+	if(BS_UART_SRV_LINUX_CONSOLE == sierra_smem_bsuartfun_get(1))
+	{
+		uart_dm_init(2, 0, BLSP1_UART1_BASE);
+	}
+	else if(BS_UART_SRV_LINUX_CONSOLE == sierra_smem_bsuartfun_get(0))
+	{
+		uart_dm_init(1, 0, BLSP1_UART0_BASE);
+	}
+#endif /* SIERRA */
+/* SWISTOP */
 #endif
 }
 
@@ -182,22 +209,89 @@ void target_init(void)
 		update_ptable_names();
 		flash_set_ptable(&flash_ptable);
 	}
-
+/* SWISTART */
+#ifndef SIERRA /*SWI set up params to enable HW crypte engine  */
 	if (target_use_signed_kernel())
+#endif
+/* SWISTOP */
 		target_crypto_init_params();
 }
+
+/* SWISTART */
+#ifdef SIERRA
+#define addr_w(port, val) (*((volatile unsigned int *)(port)) = ((unsigned int)(val)))
+#define addr_r(val, port) (val = *((volatile unsigned int *)(port)))
+#define MPM2_WDOG_RESET_REG     0x004aa000
+#define MPM2_WDOG_CTL_REG       0x004aa004
+#define MPM2_WDOG_BARK_VAL_REG  0x004aa00c
+#define MPM2_WDOG_BITE_VAL_REG  0x004aa010
+#define WDT0_EN                 0  /* 0 bit */
+#define WDT0_CLK_EN             31 /* the 31th bit */
+
+void mdm_pmic_watchdog_reset(void)
+{
+	unsigned int wdog_en = 0;
+	unsigned int wdog_clk_en = 0;
+
+	addr_w(MPM2_WDOG_RESET_REG, 1);
+	mdelay(10);
+
+	addr_w(MPM2_WDOG_CTL_REG, 0);
+	mdelay(10);
+
+	addr_w(MPM2_WDOG_BARK_VAL_REG, 0x100);
+	mdelay(10);
+
+	addr_w(MPM2_WDOG_BITE_VAL_REG, 0x200);
+	mdelay(10);
+
+	addr_r(wdog_en, MPM2_WDOG_CTL_REG);
+	wdog_en = wdog_en | (1 << WDT0_EN);
+	addr_w(MPM2_WDOG_CTL_REG, wdog_en);
+	mdelay(10);
+
+	addr_r(wdog_clk_en, MPM2_WDOG_CTL_REG);
+	wdog_clk_en = wdog_clk_en | (1 << WDT0_CLK_EN);
+	addr_w(MPM2_WDOG_CTL_REG, wdog_clk_en);
+}
+#endif /* SIERRA */
+/* SWISTOP */
 
 /* reboot */
 void reboot_device(unsigned reboot_reason)
 {
+/* SWISTART */
+#ifdef SIERRA
+	if(!in_panic)
+	{
+		/* clear error reset count */
+		sierra_smem_err_count_set(0);
+		if(BS_BCMSG_RTYPE_IS_CLEAR == sierra_smem_reset_type_flag_get())
+		{
+			/* set reset type to BS_BCMSG_RTYPE_LINUX_SOFTWARE */
+			sierra_smem_reset_type_set(BS_BCMSG_RTYPE_LINUX_SOFTWARE);
+		}
+	}
+	else
+	{
+		/* set reset type to BS_BCMSG_RTYPE_LINUX_CRASH */
+		sierra_smem_reset_type_set(BS_BCMSG_RTYPE_LINUX_CRASH);
+	}
+#endif
+/* SWISTOP */
+
 	/* Write the reboot reason */
 	writel(reboot_reason, RESTART_REASON_ADDR);
+	dprintf(CRITICAL, "reboot_reason:%x, in_panic: %d, reboot_swap: %d\n",
+		reboot_reason, in_panic, reboot_swap);
 
 	/* Configure PMIC for warm reset */
 	/* PM 8019 v1 aligns with PM8941 v2.
 	 * This call should be based on the pmic version
 	 * when PM8019 v2 is available.
 	 */
+/* SWISTART */
+#ifndef SIERRA
 	if (reboot_reason)
 		pm8x41_v2_reset_configure(PON_PSHOLD_WARM_RESET);
 	else
@@ -207,8 +301,23 @@ void reboot_device(unsigned reboot_reason)
 	writel(0x00, MPM2_MPM_PS_HOLD);
 
 	mdelay(5000);
-
-	dprintf(CRITICAL, "Rebooting failed\n");
+#else
+	if (reboot_reason || in_panic || reboot_swap)
+	{
+		pm8x41_v2_reset_configure(PON_PSHOLD_WARM_RESET);
+		dprintf(CRITICAL, "reboot the device by PMIC watchdog\n");
+		mdm_pmic_watchdog_reset();
+		while(1);
+	}
+	else
+	{
+		pm8x41_v2_reset_configure(PON_PSHOLD_HARD_RESET);
+		/* Drop PS_HOLD for MSM */
+		writel(0x00, MPM2_MPM_PS_HOLD);
+		mdelay(5000);
+		dprintf(CRITICAL, "Rebooting failed\n");
+	}
+#endif
 	return;
 }
 

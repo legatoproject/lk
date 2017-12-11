@@ -169,7 +169,7 @@ void clock_config_uart_dm(uint8_t id)
 	ret = clk_get_set_enable(str, 0, 1);
     	if(ret)
 	{
-		dprintf(CRITICAL, "failed to set uart2_iface_clk ret = %d\n", ret);
+		dprintf(CRITICAL, "failed to set %s ret = %d\n", str, ret);
 		ASSERT(0);
 	}
 
@@ -177,7 +177,7 @@ void clock_config_uart_dm(uint8_t id)
 	ret = clk_get_set_enable(str, 7372800, 1);
 	if(ret)
 	{
-		dprintf(CRITICAL, "failed to set uart1_core_clk ret = %d\n", ret);
+		dprintf(CRITICAL, "failed to set %s ret = %d\n", str, ret);
 		ASSERT(0);
 	}
 }

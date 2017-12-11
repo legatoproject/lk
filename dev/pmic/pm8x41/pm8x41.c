@@ -339,6 +339,7 @@ void pm8x41_v2_reset_configure(uint8_t reset_type)
 
 	/* disable PS_HOLD_RESET */
 	REG_WRITE(PON_PS_HOLD_RESET_CTL, 0x0);
+	dprintf(CRITICAL, "Disable PS_HOLD, reset_type:%d\n", reset_type );
 
 	/* Delay needed for disable to kick in. */
 	udelay(300);
@@ -347,10 +348,15 @@ void pm8x41_v2_reset_configure(uint8_t reset_type)
 	REG_WRITE(PON_PS_HOLD_RESET_CTL, reset_type);
 
 	val = REG_READ(PON_PS_HOLD_RESET_CTL);
+	dprintf(CRITICAL, "Read PON_PS_HOLD_RESET_CTL=%x\n", val);
 
 	/* enable PS_HOLD_RESET */
 	val |= BIT(S2_RESET_EN_BIT);
 	REG_WRITE(PON_PS_HOLD_RESET_CTL, val);
+	dprintf(CRITICAL, "Enable PS_HOLD\n");
+
+	val = REG_READ(PON_PS_HOLD_RESET_CTL);
+	dprintf(CRITICAL, "Read the result of PON_PS_HOLD_RESET_CTL =%x\n", val);
 }
 
 void pm8x41_reset_configure(uint8_t reset_type)

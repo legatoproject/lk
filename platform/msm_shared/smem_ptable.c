@@ -308,6 +308,8 @@ uint32_t get_ddr_start()
 	return 0;
 }
 
+/* SWISTART */
+#ifdef SIERRA
 uint64_t smem_get_ddr_size()
 {
 	uint32_t i;
@@ -329,3 +331,6 @@ uint64_t smem_get_ddr_size()
 
 	return size;
 }
+#endif
+/* SWISTOP */
+

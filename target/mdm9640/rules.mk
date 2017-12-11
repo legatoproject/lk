@@ -10,8 +10,15 @@ BASE_ADDR                           := 0x80000000
 SCRATCH_ADDR                        := 0x80000000
 SCRATCH_REGION1                     := 0x81800000 # This needs to align with nonhlos start address
 SCRATCH_REGION1_SIZE                := 0x06400000 # 100MB
-SCRATCH_REGION2                     := 0x88000000
-SCRATCH_REGION2_SIZE                := 0x08000000 # 128MB
+# SWISTART
+#SCRATCH_REGION2                     := 0x88000000
+#SCRATCH_REGION2_SIZE                := 0x08000000 # 128MB
+SCRATCH_REGION2                     := 0x89100000
+SCRATCH_REGION2_SIZE                := 0x06F00000 # 111MB
+SCRATCH_ADDR_512                    := 0x90000000
+SCRATCH_REGION_512                  := 0x90000000
+SCRATCH_REGION_SIZE_512             := 0x10000000  # 256MB
+# SWISTOP
 KERNEL_REGION                       := 0x80000000
 KERNEL_REGION_SIZE                  := 0x01800000 # 24MB
 
@@ -39,6 +46,12 @@ DEFINES += \
 	KERNEL_REGION=$(KERNEL_REGION) \
 	KERNEL_REGION_SIZE=$(KERNEL_REGION_SIZE) \
 
+# SWISTART
+DEFINES += \
+	SCRATCH_ADDR_512=$(SCRATCH_ADDR_512) \
+	SCRATCH_REGION_512=$(SCRATCH_REGION_512) \
+	SCRATCH_REGION_SIZE_512=$(SCRATCH_REGION_SIZE_512) \
+# SWISTOP
 
 OBJS += \
 	$(LOCAL_DIR)/init.o \

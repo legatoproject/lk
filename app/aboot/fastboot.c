@@ -68,11 +68,21 @@ static void fastboot_notify(struct udc_gadget *gadget, unsigned event);
 static struct udc_endpoint *fastboot_endpoints[2];
 
 static struct udc_device surf_udc_device = {
+/* SWISTART */
+#ifdef SIERRA
+	.vendor_id    = 0x1199,
+	.product_id   = 0x9110,
+	.version_id   = 0x0100,
+	.manufacturer = "Sierra Wireless, Incorporated",
+	.product      = "AR759x",
+#else /* SIERRA */
 	.vendor_id    = 0x18d1,
 	.product_id   = 0xD00D,
 	.version_id   = 0x0100,
 	.manufacturer = "Google",
 	.product      = "Android",
+#endif /* SIERRA */
+/* SWISTOP */
 };
 
 static struct udc_gadget fastboot_gadget = {
@@ -612,7 +622,13 @@ int fastboot_init(void *base, unsigned size)
 	fastboot_register("download:", cmd_download);
 	fastboot_publish("version", "0.5");
 
+/* SWISTART */
+#ifdef SIERRA
+	thr = thread_create("fastboot", fastboot_handler, 0, DEFAULT_PRIORITY, DEFAULT_STACK_SIZE);
+#else
 	thr = thread_create("fastboot", fastboot_handler, 0, DEFAULT_PRIORITY, 4096);
+#endif
+/* SWISTOP */
 	if (!thr)
 	{
 		goto fail_alloc_in;

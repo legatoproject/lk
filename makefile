@@ -18,6 +18,8 @@ do-nothing := 1
 $(MAKECMDGOALS) _all: make-make
 make-make:
 	@PROJECT=$(project-name) $(MAKE) $(filter-out $(project-name), $(MAKECMDGOALS))
+	@PROJECT=$(project-name) $(MAKE) clean
+	@PROJECT=$(project-name) $(MAKE) $(filter-out $(project-name), $(MAKECMDGOALS)) ROOTFS_RW=true
 endif
 endif
 
@@ -41,6 +43,20 @@ OUTELF_STRIP := $(BUILDDIR)/lk_s.elf
 
 CONFIGHEADER := $(BUILDDIR)/config.h
 
+# SWISTART
+ifeq ($(ROOTFS_RW),true)
+OUTBIN := $(BUILDDIR)/lk_rw.bin
+OUTELF := $(BUILDDIR)/lk_rw
+OUTELF_STRIP := $(BUILDDIR)/lk_s_rw.elf
+CONFIGHEADER := $(BUILDDIR)/config_rw.h
+endif
+
+SWISSDPLIB := lib/libswi/libswissdp.a
+LIBS := $(SWISSDPLIB)
+SECBOOTLIB := lib/libswi/libsecboot.a
+LIBS += $(SECBOOTLIB)
+# SWISTOP
+
 #Initialize the command-line flag ENABLE_TRUSTZONE. Value for flag passed in at command-line will take precedence
 ENABLE_TRUSTZONE := 0
 
@@ -55,6 +71,15 @@ CFLAGS := -O2 -g -fno-builtin -finline -W -Wall -Wno-multichar -Wno-unused-param
 ifeq ($(EMMC_BOOT),1)
   CFLAGS += -D_EMMC_BOOT=1
 endif
+
+# SWISTART
+CFLAGS += -DSIERRA
+CFLAGS += -DSSDP_OVER_SPI
+CFLAGS += -DENABLE_HASH_CHECK
+ifeq ($(ROOTFS_RW),true)
+CFLAGS += -DFUDGE_ROOTFS
+endif
+# SWISTOP
 
 ifeq ($(SIGNED_KERNEL),1)
   CFLAGS += -D_SIGNED_KERNEL=1
@@ -75,6 +100,17 @@ LDFLAGS :=
 
 CFLAGS += -ffunction-sections -fdata-sections
 LDFLAGS += -gc-sections
+
+# Provide sysroot option to compilers/linker
+ifneq ($(PKG_CONFIG_SYSROOT_DIR),)
+  CFLAGS += --sysroot=$(PKG_CONFIG_SYSROOT_DIR)
+  CPPFLAGS += --sysroot=$(PKG_CONFIG_SYSROOT_DIR)
+  LDFLAGS += --sysroot=$(PKG_CONFIG_SYSROOT_DIR)
+endif
+
+# SWISTART
+LDFLAGS += $(LIBS)
+# SWISTOP
 
 # top level rule
 all:: $(OUTBIN) $(OUTELF).lst $(OUTELF).debug.lst $(OUTELF).sym $(OUTELF).size $(OUTELF_STRIP) APPSBOOTHEADER

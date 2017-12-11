@@ -9,3 +9,22 @@ OBJS += \
 	$(LOCAL_DIR)/fastboot.o \
 	$(LOCAL_DIR)/recovery.o
 
+# SWISTART 
+ifndef LINUX_KERNEL_DIR
+  ifdef WORKSPACE
+    LINUX_KERNEL_DIR="$(WORKSPACE)/../../kernel"
+  else
+    $(error "LINUX_KERNEL_DIR needs to point to kernel sources")
+  endif
+endif
+
+INCLUDES += -I${LINUX_KERNEL_DIR}/arch/arm/mach-msm/include
+
+OBJS += \
+	$(LOCAL_DIR)/sierra_swipart.o \
+	$(LOCAL_DIR)/sierra_blredundancy.o \
+	$(LOCAL_DIR)/sierra_cwe.o \
+	$(LOCAL_DIR)/sierra_ds.o \
+	$(LOCAL_DIR)/sierra_bl.o \
+	$(LOCAL_DIR)/sierra_sec.o
+# SWISTOP

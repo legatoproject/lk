@@ -157,7 +157,7 @@ static void heap_test(void)
 static struct free_heap_chunk *heap_insert_free_chunk(struct free_heap_chunk *chunk)
 {
 #if DEBUGLEVEL > INFO
-	vaddr_t chunk_end = (vaddr_t)chunk + chunk->len;
+//	vaddr_t chunk_end = (vaddr_t)chunk + chunk->len;
 #endif
 
 //	dprintf("%s: chunk ptr %p, size 0x%lx, chunk_end 0x%x\n", __FUNCTION__, chunk, chunk->len, chunk_end);
