@@ -49,5 +49,7 @@ ifeq ($(ENABLE_SMD_SUPPORT),1)
 DEFINES += SMD_SUPPORT=1
 endif
 
-# Turn on Werror
-CFLAGS += -Werror
+# SWISTART
+# Turn off Werror
+# CFLAGS += -Werror
+# SWISTOP
