@@ -321,25 +321,26 @@ static bool is_cmd_fastboot_allowed(const char *arg, int cmd)
 			 * common partition will allow to be flashed
 			 * critical partition will not allow to flash image.
 			 */
-			if (VB_V2 == target_get_vb_version() &&
-				!device.is_unlock_critical &&
+			#if !VBOOT_MOTA
+			if (!device.is_unlock_critical &&
 				critical_flash_allowed(arg)) {
 				fastboot_fail("Critical partition flashing is not allowed");
 				return false;
 			}
+			#endif
 			break;
 		case CMD_META:
 			if (!device.is_unlocked) {
 				fastboot_fail("Device is locked, meta image flashing is not allowed");
 				return false;
 			}
-
-			if (VB_V2 == target_get_vb_version() &&
-				!device.is_unlock_critical)
+			#if !VBOOT_MOTA
+			if (!device.is_unlock_critical)
 			{
 				fastboot_fail("Device is critical locked, Meta image flashing is not allowed");
 				return false;
 			}
+			#endif
 			break;
 		case CMD_ERASE:
 		case CMD_BOOT:
