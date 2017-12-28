@@ -217,46 +217,6 @@ void target_init(void)
 		target_crypto_init_params();
 }
 
-/* SWISTART */
-#ifdef SIERRA
-#define addr_w(port, val) (*((volatile unsigned int *)(port)) = ((unsigned int)(val)))
-#define addr_r(val, port) (val = *((volatile unsigned int *)(port)))
-#define MPM2_WDOG_RESET_REG     0x004aa000
-#define MPM2_WDOG_CTL_REG       0x004aa004
-#define MPM2_WDOG_BARK_VAL_REG  0x004aa00c
-#define MPM2_WDOG_BITE_VAL_REG  0x004aa010
-#define WDT0_EN                 0  /* 0 bit */
-#define WDT0_CLK_EN             31 /* the 31th bit */
-
-void mdm_pmic_watchdog_reset(void)
-{
-	unsigned int wdog_en = 0;
-	unsigned int wdog_clk_en = 0;
-
-	addr_w(MPM2_WDOG_RESET_REG, 1);
-	mdelay(10);
-
-	addr_w(MPM2_WDOG_CTL_REG, 0);
-	mdelay(10);
-
-	addr_w(MPM2_WDOG_BARK_VAL_REG, 0x100);
-	mdelay(10);
-
-	addr_w(MPM2_WDOG_BITE_VAL_REG, 0x200);
-	mdelay(10);
-
-	addr_r(wdog_en, MPM2_WDOG_CTL_REG);
-	wdog_en = wdog_en | (1 << WDT0_EN);
-	addr_w(MPM2_WDOG_CTL_REG, wdog_en);
-	mdelay(10);
-
-	addr_r(wdog_clk_en, MPM2_WDOG_CTL_REG);
-	wdog_clk_en = wdog_clk_en | (1 << WDT0_CLK_EN);
-	addr_w(MPM2_WDOG_CTL_REG, wdog_clk_en);
-}
-#endif /* SIERRA */
-/* SWISTOP */
-
 /* reboot */
 void reboot_device(unsigned reboot_reason)
 {
@@ -293,6 +253,10 @@ void reboot_device(unsigned reboot_reason)
 /* SWISTART */
 #ifndef SIERRA
 	if (reboot_reason)
+#else
+	if (reboot_reason || in_panic || reboot_swap)
+#endif
+/* SWISTOP */
 		pm8x41_v2_reset_configure(PON_PSHOLD_WARM_RESET);
 	else
 		pm8x41_v2_reset_configure(PON_PSHOLD_HARD_RESET);
@@ -301,23 +265,8 @@ void reboot_device(unsigned reboot_reason)
 	writel(0x00, MPM2_MPM_PS_HOLD);
 
 	mdelay(5000);
-#else
-	if (reboot_reason || in_panic || reboot_swap)
-	{
-		pm8x41_v2_reset_configure(PON_PSHOLD_WARM_RESET);
-		dprintf(CRITICAL, "reboot the device by PMIC watchdog\n");
-		mdm_pmic_watchdog_reset();
-		while(1);
-	}
-	else
-	{
-		pm8x41_v2_reset_configure(PON_PSHOLD_HARD_RESET);
-		/* Drop PS_HOLD for MSM */
-		writel(0x00, MPM2_MPM_PS_HOLD);
-		mdelay(5000);
-		dprintf(CRITICAL, "Rebooting failed\n");
-	}
-#endif
+
+	dprintf(CRITICAL, "Rebooting failed\n");
 	return;
 }
 
