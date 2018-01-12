@@ -1,5 +1,4 @@
-/* Copyright (c) 2010-2015, The Linux Foundation. All rights reserved.
-
+/* Copyright (c) 2010-2015,2017 The Linux Foundation. All rights reserved.
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
  * met:
@@ -130,90 +129,12 @@ int set_recovery_message(const struct recovery_message *in)
 	return 0;
 }
 
-int read_update_header_for_bootloader(struct update_header *header)
-{
-	struct ptentry *ptn;
-	struct ptable *ptable;
-	unsigned offset = 0;
-	unsigned pagesize = flash_page_size();
-
-	ptable = flash_get_ptable();
-	if (ptable == NULL) {
-		dprintf(CRITICAL, "ERROR: Partition table not found\n");
-		return -1;
-	}
-	ptn = ptable_find(ptable, "cache");
-
-	if (ptn == NULL) {
-		dprintf(CRITICAL, "ERROR: No cache partition found\n");
-		return -1;
-	}
-	if (flash_read(ptn, offset, buf, pagesize)) {
-		dprintf(CRITICAL, "ERROR: Cannot read recovery_header\n");
-		return -1;
-	}
-	memcpy(header, buf, sizeof(*header));
-
-	if (strncmp((char *) header->MAGIC, UPDATE_MAGIC, UPDATE_MAGIC_SIZE))
-	{
-		return -1;
-	}
-	return 0;
-}
-
-int update_firmware_image (struct update_header *header, char *name)
-{
-	struct ptentry *ptn;
-	struct ptable *ptable;
-	unsigned offset = 0;
-	unsigned pagesize = flash_page_size();
-	unsigned pagemask = pagesize -1;
-	unsigned n = 0;
-	void *scratch_addr = target_get_scratch_address();
-
-	ptable = flash_get_ptable();
-	if (ptable == NULL) {
-		dprintf(CRITICAL, "ERROR: Partition table not found\n");
-		return -1;
-	}
-
-	ptn = ptable_find(ptable, "cache");
-	if (ptn == NULL) {
-		dprintf(CRITICAL, "ERROR: No cache partition found\n");
-		return -1;
-	}
-
-	offset += header->image_offset;
-	n = (header->image_length + pagemask) & (~pagemask);
-
-	if (flash_read(ptn, offset, scratch_addr, n)) {
-		dprintf(CRITICAL, "ERROR: Cannot read radio image\n");
-		return -1;
-	}
-
-	ptn = ptable_find(ptable, name);
-	if (ptn == NULL) {
-		dprintf(CRITICAL, "ERROR: No %s partition found\n", name);
-		return -1;
-	}
-
-	if (flash_write(ptn, 0, scratch_addr, n)) {
-		dprintf(CRITICAL, "ERROR: flash write fail!\n");
-		return -1;
-	}
-
-	dprintf(INFO, "Partition writen successfully!");
-	return 0;
-}
-
 static int set_ssd_radio_update (char *name)
 {
 	struct ptentry *ptn;
 	struct ptable *ptable;
-	unsigned int ssd_cookie[2] = {0x53534443, 0x4F4F4B49};
+	unsigned int *ssd_cookie;
 	unsigned pagesize = flash_page_size();
-	unsigned pagemask = pagesize -1;
-	unsigned n = 0;
 
 	ptable = flash_get_ptable();
 	if (ptable == NULL) {
@@ -221,21 +142,32 @@ static int set_ssd_radio_update (char *name)
 		return -1;
 	}
 
-	n = (sizeof(ssd_cookie) + pagemask) & (~pagemask);
+	ssd_cookie = malloc(pagesize);
+	if (!ssd_cookie){
+		dprintf(CRITICAL, "ERROR: Memory allocation failure\n");
+		return -1;
+	}
+	memset(ssd_cookie, 0, pagesize);
+	ssd_cookie[0] = 0x53534443;
+	ssd_cookie[1] = 0x4F4F4B49;
 
 	ptn = ptable_find(ptable, name);
 	if (ptn == NULL) {
 		dprintf(CRITICAL, "ERROR: No %s partition found\n", name);
-		return -1;
+		goto out;
 	}
 
-	if (flash_write(ptn, 0, ssd_cookie, n)) {
+	if (flash_write(ptn, 0, ssd_cookie, pagesize)) {
 		dprintf(CRITICAL, "ERROR: flash write fail!\n");
-		return -1;
+		goto out;
 	}
 
+	free(ssd_cookie);
 	dprintf(INFO, "FOTA partition written successfully!");
 	return 0;
+out:
+	free(ssd_cookie);
+	return -1;
 }
 
 int get_boot_info_apps (char type, unsigned int *status)
@@ -353,17 +285,6 @@ int recovery_init (void)
 		return 0; // Boot in normal mode
 	}
 
-#ifdef OLD_FOTA_UPGRADE
-	if (read_update_header_for_bootloader(&header)) {
-		strlcpy(msg.status, "invalid-update", sizeof(msg.status));
-		goto SEND_RECOVERY_MSG;
-	}
-
-	if (update_firmware_image (&header, partition_name)) {
-		strlcpy(msg.status, "failed-update", sizeof(msg.status));
-		goto SEND_RECOVERY_MSG;
-	}
-#else
 	if (set_ssd_radio_update(partition_name)) {
 		/* If writing to FOTA partition fails */
 		strlcpy(msg.command, "", sizeof(msg.command));
@@ -376,7 +297,6 @@ int recovery_init (void)
 		strlcpy(msg.status, "RADIO", sizeof(msg.status));
 		goto SEND_RECOVERY_MSG;
 	}
-#endif
 	strlcpy(msg.status, "OKAY", sizeof(msg.status));
 
 SEND_RECOVERY_MSG:
@@ -390,23 +310,39 @@ static int emmc_set_recovery_msg(struct recovery_message *out)
 {
 	char *ptn_name = "misc";
 	unsigned long long ptn = 0;
-	unsigned int size = ROUND_TO_PAGE(sizeof(*out),511);
-	unsigned char data[size];
+	unsigned blocksize = mmc_get_device_blocksize();
+	unsigned int size = ROUND_TO_PAGE(sizeof(*out), (unsigned)blocksize - 1);
+	unsigned char *data = NULL;
+	int ret = 0;
 	int index = INVALID_PTN;
+
+	data = malloc(size);
+	if(!data)
+	{
+		dprintf(CRITICAL,"memory allocation error \n");
+		ret = -1;
+		goto out;
+	}
 
 	index = partition_get_index((const char *) ptn_name);
 	ptn = partition_get_offset(index);
 	mmc_set_lun(partition_get_lun(index));
 	if(ptn == 0) {
 		dprintf(CRITICAL,"partition %s doesn't exist\n",ptn_name);
-		return -1;
+		ret = -1;
+		goto out;
 	}
+	memset(data, 0, size);
 	memcpy(data, out, sizeof(*out));
 	if (mmc_write(ptn , size, (unsigned int*)data)) {
 		dprintf(CRITICAL,"mmc write failure %s %d\n",ptn_name, sizeof(*out));
-		return -1;
+		ret = -1;
+		goto out;
 	}
-	return 0;
+out:
+	if (data)
+		free(data);
+	return ret;
 }
 
 static int emmc_get_recovery_msg(struct recovery_message *in)
