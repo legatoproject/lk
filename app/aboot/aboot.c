@@ -190,6 +190,8 @@ static uint64 bad_image_mask = DS_IMAGE_FLAG_NOT_SET;
 static bool boot_into_fastboot_swi = false;
 #endif /* SIERRA */
 /* SWISTOP */
+static unsigned long long int blank_img_header_flash = ULLONG_MAX;
+static unsigned long long int blank_img_header_mmc;
 
 /* Assuming unauthorized kernel image by default */
 static int auth_kernel_img = 0;
@@ -799,7 +801,6 @@ int check_ddr_addr_range_bound(uintptr_t start, uint32_t size)
         else
                 return 0;
 }
-#define ROUND_TO_PAGE(x,y) (((x) + (y)) & (~(y)))
 
 BUF_DMA_ALIGN(buf, BOOT_IMG_MAX_PAGE_SIZE); //Equal to max-supported pagesize
 #if DEVICE_TREE
@@ -1038,6 +1039,11 @@ int boot_linux_from_mmc(void)
 		dprintf(CRITICAL, "ERROR: Cannot read boot image header\n");
                 return -1;
 	}
+
+        if (!memcmp(buf, &blank_img_header_mmc, BLANK_PARTITION_MAGIC_SIZE)) {
+                dprintf(CRITICAL, "ERROR: No boot image present in boot partition\n");
+                return -1;
+        }
 
 	if (memcmp(hdr->magic, BOOT_MAGIC, BOOT_MAGIC_SIZE)) {
 		dprintf(CRITICAL, "ERROR: Invalid boot image header\n");
@@ -1475,6 +1481,10 @@ int boot_linux_from_flash(void)
 		return -1;
 	}
 
+	if (!memcmp(buf, &blank_img_header_flash, BLANK_PARTITION_MAGIC_SIZE)) {
+		dprintf(CRITICAL, "ERROR: No boot image present in boot partition\n");
+		return -1;
+	}
 	if (memcmp(hdr->magic, BOOT_MAGIC, BOOT_MAGIC_SIZE)) {
 		dprintf(CRITICAL, "ERROR: Invalid boot image header\n");
 		return -ECORRUPTED_IMAGE;
@@ -1896,6 +1906,7 @@ void write_device_info_flash(device_info *dev)
 			return;
 	}
 
+	memset(info, 0, BOOT_IMG_MAX_PAGE_SIZE);
 	memcpy(info, dev, sizeof(device_info));
 
 	if (flash_write(ptn, 0, (void *)info_buf, page_size))
