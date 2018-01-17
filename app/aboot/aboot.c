@@ -172,6 +172,8 @@ static const char *warmboot_cmdline = " qpnp-power-on.warm_boot=1";
 static const char *lkquiet          = " quiet";
 #ifdef FUDGE_ROOTFS
 static const char *rootfs_rw        = " fudge_ro_rootfs=true";
+#else
+static const char *rootfs_ro        = " fudge_ro_rootfs=false";
 #endif /* FUDGE_ROOTFS */
 #endif /* SIERRA */
 
@@ -393,6 +395,8 @@ unsigned char *update_cmdline(const char * cmdline)
 	}
 #ifdef FUDGE_ROOTFS
 	cmdline_len += strlen(rootfs_rw);
+#else
+	cmdline_len += strlen(rootfs_ro);
 #endif /* SIERRA */
 #endif
 /* SWISTOP */
@@ -492,6 +496,13 @@ unsigned char *update_cmdline(const char * cmdline)
 		}
 #ifdef FUDGE_ROOTFS
 		src = rootfs_rw;
+		if (have_cmdline)
+		{
+			--dst;
+		}
+		while ((*dst++ = *src++) != '\0');
+#else
+		src = rootfs_ro;
 		if (have_cmdline)
 		{
 			--dst;
