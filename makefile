@@ -18,7 +18,7 @@ do-nothing := 1
 $(MAKECMDGOALS) _all: make-make
 make-make:
 	@PROJECT=$(project-name) $(MAKE) $(filter-out $(project-name), $(MAKECMDGOALS))
-	@PROJECT=$(project-name) $(MAKE) clean
+	@PROJECT=$(project-name) $(MAKE) clean_obj
 	@PROJECT=$(project-name) $(MAKE) $(filter-out $(project-name), $(MAKECMDGOALS)) ROOTFS_RW=true
 endif
 endif
@@ -216,6 +216,9 @@ include make/build.mk
 
 clean: $(EXTRA_CLEANDEPS)
 	rm -f $(ALLOBJS) $(DEPS) $(GENERATED) $(OUTBIN) $(OUTELF) $(OUTELF).lst $(OUTELF_STRIP)
+
+clean_obj: $(EXTRA_CLEANDEPS)
+	rm -f $(ALLOBJS) $(DEPS) $(GENERATED) $(OUTELF) $(OUTELF).lst $(OUTELF_STRIP)
 
 install: all
 	scp $(OUTBIN) 192.168.0.4:/tftproot
