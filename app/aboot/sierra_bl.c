@@ -2996,6 +2996,17 @@ _global enum blresultcode blProgramCWEImage(
         break;
       }
     }
+    /* Program CEFS image, RAW image for EFS2 parition */
+    else if (imagetype == CWE_IMAGE_TYPE_CEFS)
+    {
+      bufp = dloadbufp;
+      blsetcustompartition(BL_EFS2_PARTI_NAME);
+      if (blProgramImage(bufp, FLASH_PROG_CUSTOM_IMG, hdr->image_sz) != BLRESULT_OK)
+      {
+        dprintf(CRITICAL, "blProgramCWEImage CWE_IMAGE_TYPE_CEFS failed, ret:%d\n", result);
+        break;
+      }
+    }
     /* Sierra package processing */
     else if (imagetype == CWE_IMAGE_TYPE_SPKG)
     {
