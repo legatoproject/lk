@@ -95,6 +95,8 @@ typedef enum {
 #define BL_CUSTOMER0_PARTI_NAME "customer0"
 #define BL_CUSTOMER1_PARTI_NAME "customer1"
 #define BL_CUSTOMER2_PARTI_NAME "customer2"
+#define BL_EFS2_PARTI_NAME "efs2"
+
 
 #define BL_PRODUCT_ID                  0x39583430       /* "9X40" */
 #define BL_HW_COMPAT_MASK   0x000000FFU
@@ -144,7 +146,7 @@ typedef enum {
 #define BLPRIMAGE_MASK_LG   0x00000080   /* Processed Recovery Image mask for Legato */
 
 /*
-  update FW in lk,spkg use tz,rpm,lk,kernel,system,modem,lefwkro bit to show image.
+  Sub image bit mask of SPKG, for tz,rpm,lk,kernel,system,modem,lefwkro.
 */
 #define SPKG_IMAGE_TZ                          (1 << 0)   /* TZ of dual system */
 #define SPKG_IMAGE_RPM                         (1 << 1)   /* RPM of dual system */
@@ -155,6 +157,7 @@ typedef enum {
 #define SPKG_IMAGE_LEGATO                      (1 << 6)   /* LEFWKRO of dual system */
 
 #define MAX_PART_NUM 8
+
 /************
  *
  * Name:     blresultcode - list of BL error/result codes

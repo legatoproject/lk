@@ -651,8 +651,6 @@ bool sierra_smem_mibib_set_flag_addr(uint32 update_flag, uint32 addr)
   }
 }
 
-
-
 /************
  *
  * Name:     swipart_get_logical_partition_from_backup
@@ -727,7 +725,6 @@ boolean swipart_get_logical_partition_from_backup(
 
   return TRUE;
 }
-
 
 /************
  *
@@ -1929,7 +1926,7 @@ enum blresultcode blProgramModemImage(struct cwe_header_s *hdr, uint8 *startbufp
   struct cwe_header_s *bl_temphdr = NULL;
 
   /*get cwe header buff*/
-    bl_temphdr = bl_get_cwe_header_buf();
+  bl_temphdr = bl_get_cwe_header_buf();
 
   /*                    -------------------
    * MODM image format: | MODM CWE header |
@@ -2080,6 +2077,7 @@ enum blresultcode blProgramApplImage(struct cwe_header_s *hdr, uint8 *startbufp)
    *                    -------------------
    *  (all the images can be optional)
    */
+
   /*get cwe header buff*/
   bl_temphdr = bl_get_cwe_header_buf();
 
@@ -2368,7 +2366,7 @@ enum blresultcode blProgramApplImage(struct cwe_header_s *hdr, uint8 *startbufp)
         if (result != BLRESULT_OK)
         {
           bl_dsflag_s.bad_image |= (DS_IMAGE_CUSTOMERAPP_1);
-          dprintf(CRITICAL, "blProgramApplImage sierra-dual-system CWE_IMAGE_TYPE_CUS0 to customer0 failed, ret:%d\n", result);
+          dprintf(CRITICAL, "blProgramApplImage sierra-dual-system CWE_IMAGE_TYPE_CUS1 to customer0 failed, ret:%d\n", result);
           return result;
         }
         else
@@ -2578,7 +2576,6 @@ enum blresultcode blProgramBootImage(struct cwe_header_s *hdr, uint8 *startbufp)
    *                    -------------------
    *  (All the images are optional)
    */
-
 
   /*get cwe header buff*/
   bl_temphdr = bl_get_cwe_header_buf();
@@ -2995,6 +2992,17 @@ _global enum blresultcode blProgramCWEImage(
       if (blProgramImage(bufp, FLASH_PROG_USAPP_IMG, hdr->image_sz) != BLRESULT_OK)
       {
         dprintf(CRITICAL, "blProgramApplImage CWE_IMAGE_TYPE_UAPP failed, ret:%d\n", result);
+        break;
+      }
+    }
+    /* Program CEFS image, RAW image for EFS2 parition */
+    else if (imagetype == CWE_IMAGE_TYPE_CEFS)
+    {
+      bufp = dloadbufp;
+      blsetcustompartition(BL_EFS2_PARTI_NAME);
+      if (blProgramImage(bufp, FLASH_PROG_CUSTOM_IMG, hdr->image_sz) != BLRESULT_OK)
+      {
+        dprintf(CRITICAL, "blProgramCWEImage CWE_IMAGE_TYPE_CEFS failed, ret:%d\n", result);
         break;
       }
     }

@@ -74,7 +74,6 @@
 #define CWE_VER_SUBFIELD_PKGVER_M       0x00000080
 #define CWE_VER_SUBFIELD_PARENT_SKUID_M 0x00000100
 
-
 #define CWE_SIGNATURE_APP               0x00000001
 
 #define CWE_ADDR_UNINIT                 0xFFFFFFFF   /* address field uninitialized */
@@ -139,7 +138,8 @@ enum cwe_image_type_e
   CWE_IMAGE_TYPE_CUS0,                          /* User image image 0, for coustomer0 partition*/
   CWE_IMAGE_TYPE_CUS1,                          /* User image image 1, for coustomer1 partition*/
   CWE_IMAGE_TYPE_CUS2,                          /* User image image 2, for coustomer2 partition*/
-  CWE_IMAGE_TYPE_MAX  = CWE_IMAGE_TYPE_CUS2,    /* End of list               */
+  CWE_IMAGE_TYPE_CEFS,                          /* CEFS image, for EFS2 partition */
+  CWE_IMAGE_TYPE_MAX  = CWE_IMAGE_TYPE_CEFS,    /* End of list               */
   CWE_IMAGE_TYPE_COUNT,                         /* Number of entries in list */
   CWE_IMAGE_TYPE_ANY = 0xFE,                    /* any image type            */
   CWE_IMAGE_TYPE_INVALID = 0xFF,                /* invalid image type        */
