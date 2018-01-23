@@ -96,6 +96,7 @@ typedef enum {
 #define BL_CUSTOMER0_PARTI_NAME "customer0"
 #define BL_CUSTOMER1_PARTI_NAME "customer1"
 #define BL_CUSTOMER2_PARTI_NAME "customer2"
+#define BL_EFS2_PARTI_NAME "efs2"
 
 #define BL_PRODUCT_ID                  0x39583238       /* "9X28" */
 #define BL_HW_COMPAT_MASK   0x000000FFU
@@ -158,18 +159,6 @@ typedef enum {
 
 #define BS_BCMSG_RTYPE_IS_SET                  ((uint32_t)(0x00534554))  /* SET */
 #define BS_BCMSG_RTYPE_IS_CLEAR                ((uint32_t)(0x00434C52))  /* CLR */
-
-/*
-  update FW in lk,spkg tz,rpm,lk,kernel,system,modem,lefwkro bit.
-*/
-#define SPKG_IMAGE_TZ                          (1 << 0)   /* TZ of dual system */
-#define SPKG_IMAGE_RPM                         (1 << 1)   /* RPM of dual system */
-#define SPKG_IMAGE_LK                          (1 << 2)   /* LK of dual system */
-#define SPKG_IMAGE_KERNEL                      (1 << 3)   /* KERNEL of dual system */
-#define SPKG_IMAGE_SYSTEM                      (1 << 4)   /* SYSTEM of dual system */
-#define SPKG_IMAGE_MODEM                       (1 << 5)   /* MODEM of dual system */
-#define SPKG_IMAGE_LEGATO                      (1 << 6)   /* LEFWKRO of dual system */
-
 /*
   Reset type defination end
 */
@@ -182,6 +171,17 @@ typedef enum {
 #define BLPRIMAGE_MASK_KN   0x00000020   /* Processed Recovery Image mask for Linux_Kernel */
 #define BLPRIMAGE_MASK_SYS  0x00000040   /* Processed Recovery Image mask for System */
 #define BLPRIMAGE_MASK_LG   0x00000080   /* Processed Recovery Image mask for Legato */
+
+/*
+  Sub image bit mask of SPKG, for tz,rpm,lk,kernel,system,modem,lefwkro.
+*/
+#define SPKG_IMAGE_TZ                          (1 << 0)   /* TZ of dual system */
+#define SPKG_IMAGE_RPM                         (1 << 1)   /* RPM of dual system */
+#define SPKG_IMAGE_LK                          (1 << 2)   /* LK of dual system */
+#define SPKG_IMAGE_KERNEL                      (1 << 3)   /* KERNEL of dual system */
+#define SPKG_IMAGE_SYSTEM                      (1 << 4)   /* SYSTEM of dual system */
+#define SPKG_IMAGE_MODEM                       (1 << 5)   /* MODEM of dual system */
+#define SPKG_IMAGE_LEGATO                      (1 << 6)   /* LEFWKRO of dual system */
 
 #define MAX_PART_NUM 8
 

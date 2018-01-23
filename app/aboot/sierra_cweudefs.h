@@ -97,7 +97,7 @@ typedef  unsigned char      boolean;     /* Boolean value type. */
 #define CWE_TRAILER_SIGNATURE_UINT32    0x77735753
 #define CWE_TRAILER_SIGNATURE_SIZE      4
 /* "SBL1" in uint32 format for ARM */
-#define CWE_IMAGE_TYPE_SBL1_UINT32      0x314C4253          
+#define CWE_IMAGE_TYPE_SBL1_UINT32      0x314C4253
 
 /* Special SKU ID strings for SPKG and NVUP files */
 #define CWE_VER_SKUID_INTERNAL          "INTERNAL"
@@ -153,7 +153,8 @@ enum cwe_image_type_e
   CWE_IMAGE_TYPE_CUS0,                          /* User image image 0, for coustomer0 partition*/
   CWE_IMAGE_TYPE_CUS1,                          /* User image image 1, for coustomer1 partition*/
   CWE_IMAGE_TYPE_CUS2,                          /* User image image 2, for coustomer2 partition*/
-  CWE_IMAGE_TYPE_MAX  = CWE_IMAGE_TYPE_CUS2,    /* End of list               */
+  CWE_IMAGE_TYPE_CEFS,                          /* CEFS image, for EFS2 partition */
+  CWE_IMAGE_TYPE_MAX  = CWE_IMAGE_TYPE_CEFS,    /* End of list               */
   CWE_IMAGE_TYPE_COUNT,                         /* Number of entries in list */
   CWE_IMAGE_TYPE_ANY = 0xFE,                    /* any image type            */
   CWE_IMAGE_TYPE_INVALID = 0xFF,                /* invalid image type        */
