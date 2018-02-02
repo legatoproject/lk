@@ -940,9 +940,23 @@ nand_result_t qpic_nand_block_isbad(unsigned page)
 
 		if (qpic_nand_block_isbad_exec(&params, bad_block))
 		{
+/* SWISTART */
+#ifdef SIERRA
+			dprintf(CRITICAL,
+					"Could not read block value, reset nand status then to read again\n");
+			nand_int_sierra();
+			if (qpic_nand_block_isbad_exec(&params, bad_block))
+			{
+				dprintf(CRITICAL,
+						"Could not read real bad block value\n");
+				return NANDC_RESULT_FAILURE;
+			}
+#else
 			dprintf(CRITICAL,
 					"Could not read bad block value\n");
 			return NANDC_RESULT_FAILURE;
+#endif
+/* SWISTOP */
 		}
 
 		if (flash.widebus)
@@ -964,6 +978,116 @@ nand_result_t qpic_nand_block_isbad(unsigned page)
 		return nand_ret;
 	}
 }
+
+/* SWISTART */
+#ifdef SIERRA
+nand_result_t qpic_nand_blk_erase_sierra_retry(uint32_t page)
+{
+	struct cfg_params cfg;
+	struct cmd_element *cmd_list_ptr = ce_array;
+	struct cmd_element *cmd_list_read_ptr = ce_read_array;
+	struct cmd_element *cmd_list_ptr_start = ce_array;
+	struct cmd_element *cmd_list_read_ptr_start = ce_read_array;
+	uint32_t status;
+	int num_desc = 0;
+	uint32_t blk_addr = page / flash.num_pages_per_blk;
+
+	/* Erase only if the block is not bad */
+	if (qpic_nand_block_isbad(page))
+	{
+		dprintf(CRITICAL,
+				"NAND Erase error: Block address belongs to bad block: %d\n",
+				blk_addr);
+		return NANDC_RESULT_FAILURE;
+	}
+
+	/* Fill in params for the erase flash cmd */
+	cfg.addr0 = page;
+	cfg.addr1 = 0;
+	/* Clear CW_PER_PAGE in cfg0 */
+	cfg.cfg0 = cfg0 & ~(7U << NAND_DEV0_CFG0_CW_PER_PAGE_SHIFT);
+	cfg.cfg1 = cfg1;
+	cfg.cmd = NAND_CMD_BLOCK_ERASE;
+	cfg.exec = 1;
+
+	cmd_list_ptr = qpic_nand_add_cmd_ce(&cfg, cmd_list_ptr);
+
+	/* Enqueue the desc for the above commands */
+	bam_add_one_desc(&bam,
+					 CMD_PIPE_INDEX,
+					 (unsigned char*)cmd_list_ptr_start,
+					 PA((uint32_t)cmd_list_ptr - (uint32_t)cmd_list_ptr_start),
+					 BAM_DESC_NWD_FLAG | BAM_DESC_CMD_FLAG | BAM_DESC_INT_FLAG | BAM_DESC_LOCK_FLAG);
+
+	cmd_list_ptr_start = cmd_list_ptr;
+	num_desc++;
+
+	qpic_nand_wait_for_cmd_exec(num_desc);
+
+	status = qpic_nand_read_reg(NAND_FLASH_STATUS, 0);
+
+	cmd_list_ptr_start = cmd_list_ptr;
+	cmd_list_read_ptr_start = cmd_list_read_ptr;
+
+	/* QPIC controller automatically sends
+	 * GET_STATUS cmd to the nand card because
+	 * of the configuration programmed.
+	 * Read the result of GET_STATUS cmd.
+	 */
+	cmd_list_read_ptr = qpic_nand_add_read_ce(cmd_list_read_ptr, &status);
+
+	/* Enqueue the desc for the NAND_FLASH_STATUS read command */
+	bam_add_one_desc(&bam,
+					 CMD_PIPE_INDEX,
+					 (unsigned char*)cmd_list_read_ptr_start,
+					 PA((uint32_t)cmd_list_read_ptr - (uint32_t)cmd_list_read_ptr_start),
+					 BAM_DESC_CMD_FLAG) ;
+
+	cmd_list_ptr = qpic_nand_reset_status_ce(cmd_list_ptr, 1);
+
+	/* Enqueue the desc for NAND_FLASH_STATUS and NAND_READ_STATUS write commands */
+	bam_add_one_desc(&bam,
+					 CMD_PIPE_INDEX,
+					 (unsigned char*)cmd_list_ptr_start,
+					 PA((uint32_t)cmd_list_ptr - (uint32_t)cmd_list_ptr_start),
+					 BAM_DESC_INT_FLAG | BAM_DESC_CMD_FLAG) ;
+	num_desc = 2;
+
+/* SWISTART */
+/* QC sr 03110470 */
+#ifdef SIERRA
+	arch_clean_invalidate_cache_range((addr_t)&status, sizeof(uint32_t));
+	qpic_nand_wait_for_cmd_exec(num_desc);
+	arch_clean_invalidate_cache_range((addr_t)&status, sizeof(uint32_t));
+#else
+	qpic_nand_wait_for_cmd_exec(num_desc);
+#endif
+/* SWISTOP */
+
+	status = qpic_nand_check_status(status);
+
+	/* Dummy read to unlock pipe. */
+	qpic_nand_read_reg(NAND_FLASH_STATUS, BAM_DESC_UNLOCK_FLAG);
+
+	/* Check for status errors*/
+	if (status)
+	{
+		dprintf(CRITICAL,
+				"NAND Erase error: Block address belongs to bad block: %d\n",
+				blk_addr);
+		qpic_nand_mark_badblock(page);
+		return NANDC_RESULT_FAILURE;
+	}
+
+	/* Check for PROG_ERASE_OP_RESULT bit for the result of erase operation. */
+	if (!(status & PROG_ERASE_OP_RESULT))
+		return NANDC_RESULT_SUCCESS;
+
+	qpic_nand_mark_badblock(page);
+	return NANDC_RESULT_FAILURE;
+}
+#endif
+/* SWISTOP */
 
 /* Function to erase a block on the nand.
  * page: Starting page address for the block.
@@ -1052,6 +1176,17 @@ nand_result_t qpic_nand_blk_erase(uint32_t page)
 /* SWISTOP */
 
 	status = qpic_nand_check_status(status);
+
+/* SWISTART */
+#ifdef SIERRA
+	if (status)
+	{
+		dprintf(CRITICAL, "qpic_nand_blk_erase: Reinit nand controller\n");
+		nand_int_sierra();
+		return qpic_nand_blk_erase_sierra_retry(page);
+	}
+#endif
+/* SWISTOP */
 
 	/* Dummy read to unlock pipe. */
 	qpic_nand_read_reg(NAND_FLASH_STATUS, BAM_DESC_UNLOCK_FLAG);
@@ -1229,6 +1364,60 @@ qpic_add_wr_page_cws_data_desc(const void *buffer,
 	bam_sys_gen_event(&bam, DATA_CONSUMER_PIPE_INDEX, num_desc);
 }
 
+/* SWISTART */
+#ifdef SIERRA
+static nand_result_t
+qpic_nand_write_page_sierra_retry(uint32_t pg_addr,
+                     enum nand_cfg_value cfg_mode,
+                     const void* buffer,
+                     const void* spareaddr)
+{
+	struct cfg_params cfg;
+	uint32_t status[QPIC_NAND_MAX_CWS_IN_PAGE];
+	int nand_ret = NANDC_RESULT_SUCCESS;
+
+	if (cfg_mode == NAND_CFG_RAW)
+	{
+		cfg.cfg0 = cfg0_raw;
+		cfg.cfg1 = cfg1_raw;
+	}
+	else
+	{
+		cfg.cfg0 = cfg0;
+		cfg.cfg1 = cfg1;
+	}
+
+	cfg.cmd = NAND_CMD_PRG_PAGE;
+	cfg.exec = 1;
+
+	cfg.addr0 = pg_addr << 16;
+	cfg.addr1 = (pg_addr >> 16) & 0xff;
+
+	qpic_add_wr_page_cws_data_desc(buffer, cfg_mode, spareaddr);
+
+	qpic_nand_add_wr_page_cws_cmd_desc(&cfg, status, cfg_mode);
+
+	/* Check for errors */
+	for(unsigned i = 0; i < flash.cws_per_page; i++)
+	{
+		nand_ret = qpic_nand_check_status(status[i]);
+		if (nand_ret)
+		{
+			dprintf(CRITICAL,
+					"Failed to write CW %d for page: %d\n",
+					i, pg_addr);
+			break;
+		}
+	}
+
+	/* Wait for data to be available */
+	qpic_nand_wait_for_data(DATA_CONSUMER_PIPE_INDEX);
+
+	return nand_ret;
+}
+#endif
+/* SWISTOP */
+
 static nand_result_t
 qpic_nand_write_page(uint32_t pg_addr,
                      enum nand_cfg_value cfg_mode,
@@ -1275,6 +1464,17 @@ qpic_nand_write_page(uint32_t pg_addr,
 
 	/* Wait for data to be available */
 	qpic_nand_wait_for_data(DATA_CONSUMER_PIPE_INDEX);
+
+/* SWISTART */
+#ifdef SIERRA
+	if (nand_ret)
+	{
+		dprintf(CRITICAL, "qpic_nand_write_page: Reinit nand controller\n");
+		nand_int_sierra();
+		return qpic_nand_write_page_sierra_retry(pg_addr, cfg_mode, buffer, spareaddr);
+	}
+#endif
+/* SWISTOP */
 
 	return nand_ret;
 }
