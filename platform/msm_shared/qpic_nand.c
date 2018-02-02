@@ -43,6 +43,7 @@
 
 /* SWISTART */
 #ifdef SIERRA
+#include <platform/timer.h>
 #include "sierra_bludefs.h"
 #endif
 /* SWISTOP */
@@ -1102,6 +1103,13 @@ nand_result_t qpic_nand_blk_erase(uint32_t page)
 	uint32_t status;
 	int num_desc = 0;
 	uint32_t blk_addr = page / flash.num_pages_per_blk;
+
+/* SWISTART */
+#ifdef SIERRA
+	/*Delay 10 ms to optimize erasure timing sequence */
+	mdelay(10);
+#endif
+/* SWISTOP */
 
 	/* Erase only if the block is not bad */
 	if (qpic_nand_block_isbad(page))
