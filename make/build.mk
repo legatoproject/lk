@@ -4,7 +4,7 @@ NOECHO ?= @
 $(OUTBIN): $(OUTELF)
 	@echo generating image: $@
 	$(NOECHO)$(SIZE) $<
-	$(NOCOPY)$(OBJCOPY) -O binary $< $@
+	$(NOECHO)$(OBJCOPY) -O binary $< $@
 
 ifeq ($(ENABLE_TRUSTZONE), 1)
 $(OUTELF): $(ALLOBJS) $(LINKER_SCRIPT) $(OUTPUT_TZ_BIN)
