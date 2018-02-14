@@ -29,6 +29,9 @@
 #include <debug.h>
 #include <reg.h>
 #include <platform/iomap.h>
+#ifdef TARGET_FX30
+#include <platform/gpio.h>
+#endif
 #include <qgic.h>
 #include <qtimer.h>
 #include <mmu.h>
@@ -54,6 +57,10 @@
 #define SCRATCH_REGION2_VIRT_START_128            (SCRATCH_REGION1_VIRT_START_128 + SCRATCH_REGION1_SIZE_128)
 
 #define SCRATCH_REGION2_VIRT_START_256 (SCRATCH_REGION_256 + SCRATCH_REGION_SIZE_256)
+
+#ifdef TARGET_FX30
+extern int reset_to_factory;
+#endif
 
 static void ddr_based_mmu_mappings(mmu_section_t *table, uint32_t table_size);
 static uint64_t ddr_size;
@@ -131,11 +138,27 @@ void platform_early_init(void)
 	scm_init();
 	board_ddr_detect();
 	platform_init_mmu_mappings_9206();
+
+#ifdef TARGET_FX30
+        /* GPIO23 - for Ultra Low Power Mode, MDM9x15 internal pin GPIO54 */
+        gpio_tlmm_config(10, 0, GPIO_OUTPUT, GPIO_PULL_UP, GPIO_16MA, GPIO_ENABLE);
+
+        /* GPIO7 - for Push button, MDM9x15 internal pin GPIO16 */
+        gpio_tlmm_config(16, 0, GPIO_INPUT, GPIO_PULL_UP, 0, GPIO_ENABLE);
+#endif
 }
 
 void platform_init(void)
 {
 	dprintf(INFO, "platform_init()\n");
+
+#ifdef TARGET_FX30
+        /* Reminder: Low=Button is pushed / High:Button is released */
+        if (gpio_get(16) == 0)
+        {
+                reset_to_factory = 1;
+        }
+#endif
 }
 
 void platform_uninit(void)
