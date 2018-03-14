@@ -17,6 +17,8 @@
 /* Constants and enumerated types */
 //#define SIERRA_DUAL_SYSTEM_TEST  /* Only used for internal test */
 
+//#define SIERRA_IM_SM_TEST  /* Only used for internal test */
+
 /* Default value for flags */
 #define DS_MAX_EVT_BUFS              8          /* Max number of queued event requests    */
 #define DS_MAX_PAGE_SIZE             4096       /* Support 2K page and 4K page */

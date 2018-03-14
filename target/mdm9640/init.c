@@ -253,13 +253,24 @@ void reboot_device(unsigned reboot_reason)
 /* SWISTART */
 #ifndef SIERRA
 	if (reboot_reason)
-#else
-	if (reboot_reason || in_panic || reboot_swap)
-#endif
-/* SWISTOP */
 		pm8x41_v2_reset_configure(PON_PSHOLD_WARM_RESET);
 	else
 		pm8x41_v2_reset_configure(PON_PSHOLD_HARD_RESET);
+
+#else
+	if (reboot_reason || in_panic || reboot_swap)
+	{
+		/*Before do warm reset, save DDR SM to IM SM. */
+		bl_save_ddr_sm_to_im_sm();
+		pm8x41_v2_reset_configure(PON_PSHOLD_WARM_RESET);
+	}
+	else
+	{
+		pm8x41_v2_reset_configure(PON_PSHOLD_HARD_RESET);
+	}
+#endif
+/* SWISTOP */
+
 
 	/* Drop PS_HOLD for MSM */
 	writel(0x00, MPM2_MPM_PS_HOLD);

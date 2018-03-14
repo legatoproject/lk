@@ -3713,3 +3713,130 @@ bool is_sierra_factory_mode(struct ptable *ptable, uint32 blks)
   return result;
 }
 
+/************
+ *
+ * Name:     bl_latest_err_count_get
+ *
+ * Purpose:  get latest error counter from outbox in DDR SMEM
+ *
+ * Parms:    err_count error conuter array pointer
+ *
+ * Return:   none
+ *
+ * Abort:    none
+ *
+ * Notes:    none
+ *
+ ************/
+
+_local void bl_latest_err_count_get(uint32 *err_count)
+{
+  struct bc_smem_message_s *b2amsgp;
+  unsigned int i;
+  unsigned char *virtual_addr;
+  unsigned int offset[BCMSG_MBOX_MAX + 1] = {
+  BSMEM_MSG_BOOT_MAILBOX_OFFSET,
+  BSMEM_MSG_MODM_MAILBOX_OFFSET,
+  BSMEM_MSG_APPL_MAILBOX_OFFSET,
+  };
+
+  *err_count = BC_MSG_RECOVER_CNT_INVALID;
+
+  virtual_addr = sierra_smem_base_addr_get();
+  if (virtual_addr)
+  {
+    for (i = BCMSG_MBOX_MIN; i <= BCMSG_MBOX_MAX; i++)
+    {
+      b2amsgp = (struct bc_smem_message_s *)(virtual_addr + offset[i]);
+      if (b2amsgp->magic_beg == BC_SMEM_MSG_MAGIC_BEG &&
+          b2amsgp->magic_end == BC_SMEM_MSG_MAGIC_END &&
+          (b2amsgp->version >= BC_SMEM_MSG_CRC32_VERSION_MIN ||
+           b2amsgp->crc32 == crc32(~0, (void *)b2amsgp, BC_MSG_CRC_SZ)) &&
+           BC_MSG_RECOVER_CNT_INVALID != b2amsgp->out.recover_cnt)
+      {
+        *err_count = b2amsgp->out.recover_cnt;
+      }
+
+#ifdef SIERRA_IM_SM_TEST
+      dprintf(INFO, "bl_latest_err_count_get: DDR err_count=%u IM err_count=%u\n", b2amsgp->out.recover_cnt, *err_count);
+#endif
+    }
+  }
+
+  return;
+}
+
+/************
+ *
+ * Name:     bl_im_smem_base_addr_get
+ *
+ * Purpose:  get IM SMEM base address
+ *
+ * Parms:    none
+ *
+ * Return:   IM SMEM base address
+ *
+ * Abort:    none
+ *
+ * Notes:    none
+ *
+ ************/
+_local struct im_swap_data_s *bl_im_smem_base_addr_get(void)
+{
+  return (struct im_swap_data_s *)IM_SMEM_BASE;
+}
+
+/************
+ *
+ * Name:     bl_save_ddr_sm_to_im_sm
+ *
+ * Purpose:  Save the DDR SMEM data to IM SMEM
+ *
+ * Parms:    None
+ *
+ * Return:   None
+ *
+ * Abort:    None
+ *
+ * Notes:    
+ *
+ ************/
+void bl_save_ddr_sm_to_im_sm(
+  void)
+{
+  struct im_swap_data_s *smem_p = NULL;
+  struct ds_smem_message_s ds_smem;
+  struct ds_smem_erestore_info efs_restore;
+  uint32_t len = sizeof(struct im_swap_data_s) - sizeof(uint32_t);
+
+  /*1. Get IM SMEM pointer */
+  smem_p = bl_im_smem_base_addr_get();
+
+  /*2. Save Dual system info to IM*/
+  sierra_ds_smem_get(&ds_smem);
+
+  smem_p->ssid_modem_idx = ds_smem.ssid_modem_idx;
+  smem_p->ssid_lk_idx = ds_smem.ssid_lk_idx;
+  smem_p->ssid_linux_idx = ds_smem.ssid_linux_idx;
+  smem_p->is_changed = ds_smem.is_changed;
+  smem_p->bad_image = ds_smem.bad_image;
+
+
+  /*3. Save EFS restore info to IM */
+  sierra_ds_smem_erestore_info_get(&efs_restore);
+
+  smem_p->erestore_t = efs_restore.erestore_t;
+  smem_p->errorcount = efs_restore.errorcount;
+  smem_p->restored_flag = efs_restore.restored_flag;
+  smem_p->beroption = efs_restore.beroption;
+
+
+  /*4. Save error counter to IM */
+  bl_latest_err_count_get(&(smem_p->recover_cnt));
+
+  /*5. Update CRC */
+  smem_p->crc32 = crcrc32((void *)smem_p, len, CRSTART_CRC32);
+
+}
+
+
