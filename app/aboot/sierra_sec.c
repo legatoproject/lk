@@ -31,9 +31,9 @@ extern unsigned boot_into_recovery;
 
 /************
  *
- * Name:     sierra_smem_get_auth_en
+ * Name:     sierra_sec_get_auth_en
  *
- * Purpose:  get AUTH_EN flag
+ * Purpose:  get AUTH_EN flag and check whether auth with hybrid way
  *
  * Parms:    NONE
  *
@@ -47,10 +47,27 @@ extern unsigned boot_into_recovery;
  ************/
 boolean sierra_sec_get_auth_en(void)
 {
-  return *(uint32*)HWIO_QFPROM_CORR_OEM_SEC_BOOT_ROW0_LSB_V2_ADDR
-      &HWIO_SECURE_BOOTn_V2_AUTH_EN_BMSK;
-}
+  boolean auth_en = FALSE;
+  boolean hybrid_auth_en = FALSE;
+  uint32 auth_level = 0;
 
+  auth_en = *(uint32*)HWIO_QFPROM_CORR_OEM_SEC_BOOT_ROW0_LSB_V2_ADDR
+      &HWIO_SECURE_BOOTn_V2_AUTH_EN_BMSK;
+  hybrid_auth_en = (*(uint32*)HWIO_QFPROM_CORR_CUST_SEC_BOOT_ROW_LSB_ADDR 
+      & HWIO_SECURE_BOOT_HYBRID_AUTH_EN_BMSK) >> HWIO_SECURE_BOOT_HYBRID_AUTH_EN_SHFT;
+
+  auth_level = (*(uint32*)HWIO_QFPROM_CORR_CUST_SEC_BOOT_ROW_LSB_ADDR 
+      & HWIO_SECURE_BOOT_HYBRID_AUTH_LEVEL_BMSK) >> HWIO_SECURE_BOOT_HYBRID_AUTH_LEVEL_SHFT;
+
+  if((auth_en && !hybrid_auth_en)||(hybrid_auth_en && (auth_level >= SECBOOT_HYBRID_KERNEL_AUTH_LEVEL)))
+  {
+    return TRUE;
+  }
+  else 
+  {
+    return FALSE;
+  }
+}
 /************
  *
  * Name:     sierra_lk_enable_hash_check
