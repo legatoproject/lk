@@ -383,6 +383,10 @@ struct blCtrlBlk
   uint8 dload_reason;              /* reason for going to bootloader */
 };
 
+/*IM SMEM address*/
+#define IM_SMEM_BASE 0x08600A94
+#define IM_SMEM_SIZE 100
+
 extern bool to_update_mibib;
 extern enum bl_update_system_e update_which_system;
 extern uint8 *second_ubi_images;
@@ -426,5 +430,6 @@ extern struct cwe_header_s *bl_get_cwe_header_buf(
 extern void sierra_smem_err_fatal_count_set(unsigned int err_fatal_cnt);
 extern unsigned int sierra_smem_err_fatal_count_get(void);
 extern bool is_sierra_factory_mode(struct ptable *ptable, uint32 blks);
+extern void bl_save_ddr_sm_to_im_sm(void);
 
 #endif /* bludefs_h */
