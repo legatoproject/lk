@@ -395,10 +395,27 @@ void reboot_device(unsigned reboot_reason)
 	* This call should be based on the pmic version
 	* when PM8019 v2 is available.
 	*/
+/* SWISTART */
+#ifdef SIERRA
+
 	if(reboot_reason || in_panic || reboot_swap)
 		reset_type = PON_PSHOLD_WARM_RESET;
 	else
 		reset_type = PON_PSHOLD_HARD_RESET;
+#else
+	if(reboot_reason || in_panic || reboot_swap)
+	{
+		reset_type = PON_PSHOLD_WARM_RESET;
+		/*Before do warm reset, save DDR SM to IM SM. */
+		bl_save_ddr_sm_to_im_sm();
+	}
+	else
+	{
+		reset_type = PON_PSHOLD_HARD_RESET;
+	}
+
+#endif
+/* SWISTOP */
 
 	if (board_pmic_info(&pmic_info, SMEM_V7_SMEM_MAX_PMIC_DEVICES))
 	{
