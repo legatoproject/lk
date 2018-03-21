@@ -20,6 +20,13 @@ make-make:
 	@PROJECT=$(project-name) $(MAKE) $(filter-out $(project-name), $(MAKECMDGOALS))
 	@PROJECT=$(project-name) $(MAKE) clean
 	@PROJECT=$(project-name) $(MAKE) $(filter-out $(project-name), $(MAKECMDGOALS)) ROOTFS_RW=true
+
+# IMA_KERNEL_CMDLINE_OPTIONS are usually coming from ima.conf file.
+ifeq ($(ENABLE_IMA),1)
+	@PROJECT=$(project-name) $(MAKE) clean
+	@PROJECT=$(project-name) $(MAKE) $(filter-out $(project-name), $(MAKECMDGOALS)) ROOTFS_RW=true IMA_ENFORCE=true
+endif
+
 endif
 endif
 
@@ -45,9 +52,15 @@ CONFIGHEADER := $(BUILDDIR)/config.h
 
 # SWISTART
 ifeq ($(ROOTFS_RW),true)
+ifeq ($(IMA_ENFORCE),true)
+OUTBIN := $(BUILDDIR)/lk_rw_ima.bin
+OUTELF := $(BUILDDIR)/lk_rw_ima
+OUTELF_STRIP := $(BUILDDIR)/lk_s_rw_ima.elf
+else
 OUTBIN := $(BUILDDIR)/lk_rw.bin
 OUTELF := $(BUILDDIR)/lk_rw
 OUTELF_STRIP := $(BUILDDIR)/lk_s_rw.elf
+endif
 CONFIGHEADER := $(BUILDDIR)/config_rw.h
 endif
 
@@ -90,6 +103,10 @@ CFLAGS += -DSSDP_OVER_SPI
 CFLAGS += -DENABLE_HASH_CHECK
 ifeq ($(ROOTFS_RW),true)
 CFLAGS += -DFUDGE_ROOTFS
+ifeq ($(IMA_ENFORCE),true)
+CFLAGS += -DENABLE_IMA=${ENABLE_IMA}
+CFLAGS += -DIMA_KERNEL_CMDLINE_OPTIONS="\"$(IMA_KERNEL_CMDLINE_OPTIONS)\""
+endif
 endif
 # SWISTOP
 

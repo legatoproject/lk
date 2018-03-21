@@ -201,6 +201,13 @@ static const char *lkquiet          = " quiet";
 #ifdef FUDGE_ROOTFS
 static const char *rootfs_rw        = " fudge_ro_rootfs=true";
 #endif /* FUDGE_ROOTFS */
+
+#ifdef ENABLE_IMA
+static const char *ima_enforce      = " "IMA_KERNEL_CMDLINE_OPTIONS;
+#else
+static const char *ima_enforce      = "";
+#endif
+
 #endif /* SIERRA */
 
 #if VERIFIED_BOOT
@@ -520,8 +527,9 @@ unsigned char *update_cmdline(const char * cmdline)
 	     cmdline_len += strlen(lkquiet);
 	 }
 #ifdef FUDGE_ROOTFS
-	 cmdline_len += strlen(rootfs_rw);
+	cmdline_len += strlen(rootfs_rw);
 #endif
+	cmdline_len += strlen(ima_enforce);
 #endif
 
 	 if (cmdline_len > 0) {
@@ -657,6 +665,12 @@ unsigned char *update_cmdline(const char * cmdline)
 		}
 		while ((*dst++ = *src++) != '\0');
 #endif
+		src = ima_enforce;
+		if (NULL != have_cmdline)
+		{
+		    --dst;
+		}
+		while ((*dst++ = *src++) != '\0');
 #endif
 
 		switch(target_baseband())
