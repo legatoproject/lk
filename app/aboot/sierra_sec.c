@@ -56,20 +56,20 @@ boolean sierra_sec_get_auth_en(void)
   hybrid_auth_en = (*(uint32*)HWIO_QFPROM_CORR_CUST_SEC_BOOT_ROW_LSB_ADDR 
       & HWIO_SECURE_BOOT_HYBRID_AUTH_EN_BMSK) >> HWIO_SECURE_BOOT_HYBRID_AUTH_EN_SHFT;
 
-  dprintf(CRITICAL,"%s_%d: spare reg18 fuse:0x%x\n",__func__,__LINE__,*(uint32*)HWIO_QFPROM_CORR_CUST_SEC_BOOT_ROW_LSB_ADDR);
+  dprintf(INFO,"%s_%d: spare reg18 fuse:0x%x\n",__func__,__LINE__,*(uint32*)HWIO_QFPROM_CORR_CUST_SEC_BOOT_ROW_LSB_ADDR);
 
   auth_level = (*(uint32*)HWIO_QFPROM_CORR_CUST_SEC_BOOT_ROW_LSB_ADDR 
       & HWIO_SECURE_BOOT_HYBRID_AUTH_LEVEL_BMSK) >> HWIO_SECURE_BOOT_HYBRID_AUTH_LEVEL_SHFT;
 
-  dprintf(CRITICAL,"%s_%d: auth_en=%d, hybrid_en=%d,auth_level=%d\n",__func__,__LINE__,auth_en,hybrid_auth_en,auth_level);
+  dprintf(INFO,"%s_%d: auth_en=%d, hybrid_en=%d,auth_level=%d\n",__func__,__LINE__,auth_en,hybrid_auth_en,auth_level);
   if((auth_en && !hybrid_auth_en)||(hybrid_auth_en && (auth_level >= SECBOOT_HYBRID_KERNEL_AUTH_LEVEL)))
   {
-    dprintf(CRITICAL,"%s_%d: auth_level=%d, return TRUE.\n",__func__,__LINE__,auth_level);
+    dprintf(INFO,"%s_%d: auth_level=%d, return TRUE.\n",__func__,__LINE__,auth_level);
     return TRUE;
   }
   else 
   {
-    dprintf(CRITICAL,"%s_%d: return FALSE.\n",__func__,__LINE__);
+    dprintf(INFO,"%s_%d: return FALSE.\n",__func__,__LINE__);
     return FALSE;
   }
 }
