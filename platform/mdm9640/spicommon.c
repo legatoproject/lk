@@ -397,13 +397,15 @@ boolean spi_init(void)
   outpdw(QUP_REGISTER_BASE + QUP_MX_OUTPUT_COUNT, 0x0);
 
   /* SPI_CFG_INPUT_FIRST */
-  outpdw(QUP_REGISTER_BASE + SPI_CONFIG, SPI_CFG_INPUT_FIRST);
+  /* Customer request CHPA = 1, so we remove it */
+  /* outpdw(QUP_REGISTER_BASE + SPI_CONFIG, SPI_CFG_INPUT_FIRST); */
   
   /* SPI core, xBytes_Bits transfer */
   outpdw(QUP_REGISTER_BASE + QUP_CONFIG, SPI_MINI_CORE | (SPI_BYTES_PER_WORD * SPI_BITS_PER_BYTE - 1));
 
   /* FORCE_CS, MX_CS_MODE, NO_TRI_STATE */
-  outpdw(QUP_REGISTER_BASE + SPI_IO_CONTROL, SPI_IO_C_FORCE_CS | SPI_IO_C_MX_CS_MODE | SPI_IO_C_NO_TRI_STATE);
+  /* Customer reqeust not to force CS low, so we remove SPI_IO_C_FORCE_CS | SPI_IO_C_MX_CS_MODE | */
+  outpdw(QUP_REGISTER_BASE + SPI_IO_CONTROL, SPI_IO_C_NO_TRI_STATE);
 
   /* Enable INPUT_SERVICE_MASK, OUTPUT_SERVICE_MASK */
   outpdw(QUP_REGISTER_BASE + QUP_OPERATIONAL_MASK, 0x0);
