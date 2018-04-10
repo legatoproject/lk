@@ -92,7 +92,9 @@ struct tlmm_cfgs {
 /* GPIO SPI CNF ID */
 #define GPIO_BLSP_QUP1_GPIO_CNF_ID  0
 #define GPIO_BLSP_QUP2_GPIO_CNF_ID  1  /* SPI1 module */
-#define GPIO_BLSP_QUP3_GPIO_CNF_ID  2  /* SPI2 module */
+#define GPIO_BLSP_QUP3_GPIO_CNF_ID  2
+#define GPIO_BLSP_QUP4_GPIO_CNF_ID  3
+#define GPIO_BLSP_QUP5_GPIO_CNF_ID  4  /* SPI2 module */
 #endif
 /* SWISTOP */
 

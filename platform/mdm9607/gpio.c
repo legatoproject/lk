@@ -53,9 +53,11 @@ typedef struct {
 } spi_gpio_pair_t;
 
 static const spi_gpio_pair_t spi_pair[] = {
-	{{0x00, 0x00}, {0x00, 0x00}, {0x00, 0x00}, {0x00, 0x00}}, /* For BLSP_QUP1_SPI */
+	{{0x00, 0x00}, {0x00, 0x00}, {0x00, 0x00}, {0x00, 0x00}}, /* For BLSP_QUP1_SPI */ /* For BLSP_QUP1_SPI, not supported yet */
 	{{0x00, 0x02}, {0x01, 0x02}, {0x02, 0x03}, {0x03, 0x03}}, /* For BLSP_QUP2_SPI */ 
-	{{0x10, 0x03}, {0x11, 0x03}, {0x12, 0x03}, {0x13, 0x03}}, /* For BLSP_QUP3_SPI */ 
+	{{0x00, 0x00}, {0x00, 0x00}, {0x00, 0x00}, {0x00, 0x00}}, /* For BLSP_QUP3_SPI */ /* For BLSP_QUP3_SPI, not supported yet */
+	{{0x00, 0x00}, {0x00, 0x00}, {0x00, 0x00}, {0x00, 0x00}}, /* For BLSP_QUP4_SPI */ /* For BLSP_QUP4_SPI, not supported yet */
+	{{0x14, 0x01}, {0x15, 0x01}, {0x16, 0x01}, {0x17, 0x01}}, /* For BLSP_QUP5_SPI */ 
 };
 #endif
 /* SWISTOP */
@@ -149,7 +151,7 @@ void gpio_config_spi(uint8_t id)
 	const spi_gpio_pair_t *p;
 
 	/* check for array out of bound */
-	if ((GPIO_BLSP_QUP2_GPIO_CNF_ID > id) || (id > GPIO_BLSP_QUP3_GPIO_CNF_ID)) {
+	if ((GPIO_BLSP_QUP2_GPIO_CNF_ID > id) || (id > GPIO_BLSP_QUP5_GPIO_CNF_ID)) {
 		dprintf(CRITICAL, "GPIOs for SPI%d not supported.\n", id);
 		ASSERT(0);
 		/* should never be here, but anyway... */
