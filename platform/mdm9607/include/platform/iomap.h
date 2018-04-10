@@ -145,12 +145,12 @@
 #define BLSP1_QUP3_SPI_APPS_N                     (CLK_CTL_BASE + 0x4030)
 #define BLSP1_QUP3_SPI_APPS_D                     (CLK_CTL_BASE + 0x4034)
 
-#define BLSP1_QUP4_SPI_APPS_CBCR                  (CLK_CTL_BASE + 0x501C)
-#define BLSP1_QUP4_SPI_APPS_CMD_RCGR              (CLK_CTL_BASE + 0x5024)
-#define BLSP1_QUP4_SPI_APPS_CFG_RCGR              (CLK_CTL_BASE + 0x5028)
-#define BLSP1_QUP4_SPI_APPS_M                     (CLK_CTL_BASE + 0x502C)
-#define BLSP1_QUP4_SPI_APPS_N                     (CLK_CTL_BASE + 0x5030)
-#define BLSP1_QUP4_SPI_APPS_D                     (CLK_CTL_BASE + 0x5034)
+#define BLSP1_QUP6_SPI_APPS_CBCR                  (CLK_CTL_BASE + 0x701C)
+#define BLSP1_QUP6_SPI_APPS_CMD_RCGR              (CLK_CTL_BASE + 0x7024)
+#define BLSP1_QUP6_SPI_APPS_CFG_RCGR              (CLK_CTL_BASE + 0x7028)
+#define BLSP1_QUP6_SPI_APPS_M                     (CLK_CTL_BASE + 0x702C)
+#define BLSP1_QUP6_SPI_APPS_N                     (CLK_CTL_BASE + 0x7030)
+#define BLSP1_QUP6_SPI_APPS_D                     (CLK_CTL_BASE + 0x7034)
 #endif
 /* SWISTOP */
 

@@ -143,7 +143,9 @@ enum msm_spi_state {
 /* SPI driver globe configuration begin:
   * Developer should modify these item to adapt SPI register and clock of MDM9x28 */
 
+#if 0
 #define SPI_USE_BLSP_QUP2
+#endif
 
 #ifdef SPI_USE_BLSP_QUP2
 /* We use QUP2 config, real index is 3 in QC's HW document*/
@@ -160,6 +162,21 @@ unsigned int qup_register = 0x78B7000;  /* Now we use BLSP_QUP2_QUP_CONFIG: 0x78
 #define GPIO_BLSP_QUP_GPIO_CNF_ID GPIO_BLSP_QUP2_GPIO_CNF_ID
 
 #define SPI_CLOCK_ID 1
+#else
+/* We use QUP5 config, real index is 6 in QC's HW document */
+
+/* Range of BLSP_QUP_QUP_CONFIG: 
+  * BLSP_QUP0_QUP_CONFIG,
+  * BLSP_QUP1_QUP_CONFIG,
+  * BLSP_QUP2_QUP_CONFIG,
+  * BLSP_QUP3_QUP_CONFIG */
+unsigned int qup_register = 0x78BA000;  /* Now we use BLSP_QUP5_QUP_CONFIG: 0x78BA000, real index 6 */
+
+/* GPIOs configuration for SPI */
+/* Real index for BLSP_QUP5_QUP_CONFIG is index 6 */
+#define GPIO_BLSP_QUP_GPIO_CNF_ID GPIO_BLSP_QUP5_GPIO_CNF_ID
+
+#define SPI_CLOCK_ID 2
 #endif
 
 #define QUP_REGISTER_BASE qup_register
@@ -383,13 +400,15 @@ boolean spi_init(void)
   outpdw(QUP_REGISTER_BASE + QUP_IO_MODES, 0x000100A5);
 
   /* SPI_CFG_INPUT_FIRST */
-  outpdw(QUP_REGISTER_BASE + SPI_CONFIG, SPI_CFG_INPUT_FIRST);
+  /* Customer request CHPA = 1, so we remove it */
+  /* outpdw(QUP_REGISTER_BASE + SPI_CONFIG, SPI_CFG_INPUT_FIRST); */
   
   /* SPI core, xBytes_Bits transfer */
   outpdw(QUP_REGISTER_BASE + QUP_CONFIG, SPI_MINI_CORE | (SPI_BYTES_PER_WORD * SPI_BITS_PER_BYTE - 1));
 
   /* FORCE_CS, MX_CS_MODE, NO_TRI_STATE */
-  outpdw(QUP_REGISTER_BASE + SPI_IO_CONTROL, SPI_IO_C_FORCE_CS | SPI_IO_C_MX_CS_MODE | SPI_IO_C_NO_TRI_STATE);
+  /* Customer reqeust not to force CS low, so we remove SPI_IO_C_FORCE_CS | SPI_IO_C_MX_CS_MODE | */
+  outpdw(QUP_REGISTER_BASE + SPI_IO_CONTROL, SPI_IO_C_NO_TRI_STATE);
 
   /* Enable INPUT_SERVICE_MASK, OUTPUT_SERVICE_MASK */
   outpdw(QUP_REGISTER_BASE + QUP_OPERATIONAL_MASK, 0x0);

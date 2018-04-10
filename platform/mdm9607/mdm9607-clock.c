@@ -421,11 +421,11 @@ static struct branch_clk gcc_blsp1_spi1_apps_clk =
 
 static struct rcg_clk blsp1_spi2_apps_clk_src =
 {
-	.cmd_reg      = (uint32_t *) BLSP1_QUP4_SPI_APPS_CMD_RCGR,
-	.cfg_reg      = (uint32_t *) BLSP1_QUP4_SPI_APPS_CFG_RCGR,
-	.m_reg        = (uint32_t *) BLSP1_QUP4_SPI_APPS_M,
-	.n_reg        = (uint32_t *) BLSP1_QUP4_SPI_APPS_N,
-	.d_reg        = (uint32_t *) BLSP1_QUP4_SPI_APPS_D,
+	.cmd_reg      = (uint32_t *) BLSP1_QUP6_SPI_APPS_CMD_RCGR,
+	.cfg_reg      = (uint32_t *) BLSP1_QUP6_SPI_APPS_CFG_RCGR,
+	.m_reg        = (uint32_t *) BLSP1_QUP6_SPI_APPS_M,
+	.n_reg        = (uint32_t *) BLSP1_QUP6_SPI_APPS_N,
+	.d_reg        = (uint32_t *) BLSP1_QUP6_SPI_APPS_D,
 
 	.set_rate     = clock_lib2_rcg_set_rate_mnd,
 	.freq_tbl     = ftbl_gcc_blsp_spi_apps_clk,
@@ -439,7 +439,7 @@ static struct rcg_clk blsp1_spi2_apps_clk_src =
 
 static struct branch_clk gcc_blsp1_spi2_apps_clk =
 {
-	.cbcr_reg     = (uint32_t *) BLSP1_QUP4_SPI_APPS_CBCR,
+	.cbcr_reg     = (uint32_t *) BLSP1_QUP6_SPI_APPS_CBCR,
 	.parent       = &blsp1_spi2_apps_clk_src.c,
 
 	.c = {
@@ -470,8 +470,8 @@ static struct clk_lookup mdm_clocks_9607[] =
 	CLK_LOOKUP("spi1_iface_clk", gcc_blsp1_ahb_clk.c),
 	CLK_LOOKUP("spi1_core_clk",  gcc_blsp1_spi1_apps_clk.c),
 
-	CLK_LOOKUP("uart2_iface_clk", gcc_blsp1_ahb_clk.c),
-	CLK_LOOKUP("uart2_core_clk",  gcc_blsp1_uart2_apps_clk.c),
+	CLK_LOOKUP("spi2_iface_clk", gcc_blsp1_ahb_clk.c),
+	CLK_LOOKUP("spi2_core_clk",  gcc_blsp1_spi2_apps_clk.c),
 
 #endif
 /* SWISTOP */
