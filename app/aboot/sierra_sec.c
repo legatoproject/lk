@@ -59,8 +59,8 @@ boolean sierra_sec_get_auth_en(void)
   auth_level = (*(uint32*)HWIO_QFPROM_CORR_CUST_SEC_BOOT_ROW_LSB_ADDR 
       & HWIO_SECURE_BOOT_HYBRID_AUTH_LEVEL_BMSK) >> HWIO_SECURE_BOOT_HYBRID_AUTH_LEVEL_SHFT;
 
-  if((auth_en && !hybrid_auth_en)||(hybrid_auth_en && (auth_level >= SECBOOT_HYBRID_KERNEL_AUTH_LEVEL)))
-  {
+  if((auth_en && !hybrid_auth_en)||(auth_en && hybrid_auth_en && (auth_level >= SECBOOT_HYBRID_KERNEL_AUTH_LEVEL)))
+  { /* auth kernel when just Auth enalbed, or both Auth and Hybrid auth enalbed with level not less */
     return TRUE;
   }
   else 
