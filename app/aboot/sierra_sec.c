@@ -62,8 +62,8 @@ boolean sierra_sec_get_auth_en(void)
       & HWIO_SECURE_BOOT_HYBRID_AUTH_LEVEL_BMSK) >> HWIO_SECURE_BOOT_HYBRID_AUTH_LEVEL_SHFT;
 
   dprintf(INFO,"%s_%d: auth_en=%d, hybrid_en=%d,auth_level=%d\n",__func__,__LINE__,auth_en,hybrid_auth_en,auth_level);
-  if((auth_en && !hybrid_auth_en)||(hybrid_auth_en && (auth_level >= SECBOOT_HYBRID_KERNEL_AUTH_LEVEL)))
-  {
+  if((auth_en && !hybrid_auth_en)||(auth_en && hybrid_auth_en && (auth_level >= SECBOOT_HYBRID_KERNEL_AUTH_LEVEL)))
+  { /* auth kernel when just Auth enalbed, or both Auth and Hybrid auth enalbed with level not less */
     dprintf(INFO,"%s_%d: auth_level=%d, return TRUE.\n",__func__,__LINE__,auth_level);
     return TRUE;
   }
