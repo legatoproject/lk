@@ -37,6 +37,9 @@
 #define HWIO_SECURE_BOOT_HYBRID_AUTH_EN_BMSK              0x1
 #define HWIO_SECURE_BOOT_HYBRID_AUTH_EN_SHFT              0x0
 
+#define HWIO_SECURE_BOOT_IMA_FLG_BMSK                     0x40
+#define HWIO_SECURE_BOOT_IMA_FLG_SHFT                     0x6
+
 
 #define HWIO_SECURE_BOOT_HYBRID_AUTH_LEVEL_BMSK           0xE
 #define HWIO_SECURE_BOOT_HYBRID_AUTH_LEVEL_SHFT           0x1

@@ -202,10 +202,12 @@ static const char *lkquiet          = " quiet";
 static const char *rootfs_rw        = " fudge_ro_rootfs=true";
 #endif /* FUDGE_ROOTFS */
 
+#define IMA_KERNEL_DEF_CMDLINE_OPTIONS  " ima_appraise=enforce ima_appraise_tcb"
+
 #ifdef ENABLE_IMA
-static const char *ima_enforce      = " "IMA_KERNEL_CMDLINE_OPTIONS;
+static char *ima_enforce      = " "IMA_KERNEL_CMDLINE_OPTIONS;
 #else
-static const char *ima_enforce      = "";
+static char *ima_enforce      = "";
 #endif
 
 #endif /* SIERRA */
@@ -366,6 +368,28 @@ void update_battery_status(void)
 }
 #endif
 
+#if SIERRA
+#ifdef ENABLE_IMA
+static bool ima_fuse_get(void)
+{
+    return false;
+}
+#else
+static bool ima_fuse_get(void)
+{
+    int ima_enable;
+    /* IMA cmdline haven't added to cmdline during the build, but AT enables IMA */
+    ima_enable = (*(uint32*)HWIO_QFPROM_CORR_CUST_SEC_BOOT_ROW_LSB_ADDR
+                  & HWIO_SECURE_BOOT_IMA_FLG_BMSK) >> HWIO_SECURE_BOOT_IMA_FLG_SHFT;
+    if (ima_enable != 0)
+        return true;
+
+    return false;
+}
+#endif
+#endif
+
+
 unsigned char *update_cmdline(const char * cmdline)
 {
 	int cmdline_len = 0;
@@ -449,6 +473,10 @@ unsigned char *update_cmdline(const char * cmdline)
 /* SWISTART */
 #ifdef SIERRA
 	cmdline_len += strlen(lkversion);
+	if (ima_fuse_get() == true) {
+		cmdline_len += strlen(IMA_KERNEL_DEF_CMDLINE_OPTIONS);
+		ima_enforce = IMA_KERNEL_DEF_CMDLINE_OPTIONS;
+	}
 #endif /* SIERRA */
 /* SWISTOP */
 
