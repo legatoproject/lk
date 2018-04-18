@@ -205,8 +205,6 @@ static const char *lkversion        = " lkversion=" LKVERSION;
 static const char *rootfs_rw        = " fudge_ro_rootfs=true";
 #endif /* FUDGE_ROOTFS */
 
-#define IMA_KERNEL_DEF_CMDLINE_OPTIONS  " ima_appraise=enforce ima_appraise_tcb"
-
 #ifdef ENABLE_IMA
 static char *ima_enforce      = " "IMA_KERNEL_CMDLINE_OPTIONS;
 #else
@@ -254,6 +252,14 @@ static bool boot_reason_alarm;
 static bool devinfo_present = true;
 bool boot_into_fastboot = false;
 static uint32_t dt_size = 0;
+
+/* SWISTART */
+#ifdef SIERRA
+#define IMA_ALL_IMAGES_BAD    (DS_IMAGE_BOOT_1|DS_IMAGE_ABOOT_1|DS_IMAGE_BOOT_2|DS_IMAGE_ABOOT_2)
+static uint64 bad_image_mask = DS_IMAGE_FLAG_NOT_SET;
+static bool boot_into_fastboot_swi = false;
+#endif /* SIERRA */
+/* SWISTOP */
 
 /* Assuming unauthorized kernel image by default */
 static int auth_kernel_img = 0;
@@ -433,24 +439,51 @@ void update_battery_status(void)
 #endif
 
 #if SIERRA
-#ifdef ENABLE_IMA
 static bool ima_fuse_get(void)
 {
-    return false;
-}
-#else
-static bool ima_fuse_get(void)
-{
-    int ima_enable;
-    /* IMA cmdline haven't added to cmdline during the build, but AT enables IMA */
-    ima_enable = (*(uint32*)HWIO_QFPROM_CORR_CUST_SEC_BOOT_ROW_LSB_ADDR
-                  & HWIO_SECURE_BOOT_IMA_FLG_BMSK) >> HWIO_SECURE_BOOT_IMA_FLG_SHFT;
-    if (ima_enable != 0)
-        return true;
+	int ima_enable;
+	/* IMA cmdline haven't added to cmdline during the build, but AT enables IMA */
+	ima_enable = (*(uint32*)HWIO_QFPROM_CORR_CUST_SEC_BOOT_ROW_LSB_ADDR
+			& HWIO_SECURE_BOOT_IMA_FLG_BMSK) >> HWIO_SECURE_BOOT_IMA_FLG_SHFT;
+	if (1 == ima_enable)
+		return true;
 
-    return false;
+	return false;
 }
 #endif
+
+
+#if SIERRA
+static void process_ima_fuse(void)
+{
+	ima_enforce = " "IMA_KERNEL_CMDLINE_OPTIONS;
+	/* IMA_KERNEL_CMDLINE_OPTIONS must be not empty for kernel IMA ready */
+	if (0 == ima_enforce[1]) {
+		/* Secure boot is enabled, but LK and/or kernel are not built IMA ready */
+		/* Refuse to load the kernel and reboot */
+		if (is_dual_system_supported()) {
+			/* Assume that boot LK and kernel are bad. So mark these images as bad */
+			uint8_t ssid_linux_index = sierra_ds_smem_get_ssid_linux_index();
+			if(DS_SSID_SUB_SYSTEM_2 == ssid_linux_index) {
+				bad_image_mask = DS_IMAGE_BOOT_2|DS_IMAGE_ABOOT_2;
+			}
+			else {
+				bad_image_mask = DS_IMAGE_BOOT_1|DS_IMAGE_ABOOT_1;
+			}
+			/* For dual systems, swap to the previous one. If it fails, SBL will start */
+			/* the recovery mode */
+			dprintf(CRITICAL, "Secure boot detected without kernel ready for IMA. Swap and reboot!\n");
+			sierra_ds_smem_write_bad_image_and_swap(bad_image_mask);
+			reboot_swap = 1;
+			reboot_device(0);
+		}
+		else {
+			/* For single system, enters the recovery mode */
+			dprintf(CRITICAL, "Secure boot detected without kernel ready for IMA. Reboot to recovery\n");
+			reboot_device(RECOVERY_MODE);
+		}
+	}
+}
 #endif
 
 
@@ -537,10 +570,6 @@ unsigned char *update_cmdline(const char * cmdline)
  /* SWISTART */
 #ifdef SIERRA
 	cmdline_len += strlen(lkversion);
-	if (ima_fuse_get() == true) {
-		cmdline_len += strlen(IMA_KERNEL_DEF_CMDLINE_OPTIONS);
-		ima_enforce = IMA_KERNEL_DEF_CMDLINE_OPTIONS;
-	}
 #endif /* SIERRA */
  /* SWISTOP */
 
@@ -630,10 +659,13 @@ unsigned char *update_cmdline(const char * cmdline)
 #ifdef FUDGE_ROOTFS
 	cmdline_len += strlen(rootfs_rw);
 #endif
+	if (ima_fuse_get() == true) {
+		process_ima_fuse();
+	}
 	cmdline_len += strlen(ima_enforce);
 #endif
 
-	 if (cmdline_len > 0) {
+	if (cmdline_len > 0) {
 		const char *src;
 		unsigned char *dst;
 
