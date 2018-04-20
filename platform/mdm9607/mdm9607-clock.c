@@ -470,6 +470,9 @@ static struct clk_lookup mdm_clocks_9607[] =
 	CLK_LOOKUP("spi1_iface_clk", gcc_blsp1_ahb_clk.c),
 	CLK_LOOKUP("spi1_core_clk",  gcc_blsp1_spi1_apps_clk.c),
 
+	CLK_LOOKUP("uart2_iface_clk", gcc_blsp1_ahb_clk.c),
+	CLK_LOOKUP("uart2_core_clk",  gcc_blsp1_uart2_apps_clk.c),
+
 	CLK_LOOKUP("spi2_iface_clk", gcc_blsp1_ahb_clk.c),
 	CLK_LOOKUP("spi2_core_clk",  gcc_blsp1_spi2_apps_clk.c),
 
