@@ -558,8 +558,17 @@ _global boolean cwe_image_validate(
   /* Validate image type */
   if (CWE_IMAGE_TYPE_ANY != image_type && img_type_tmp != image_type)
   {
-    dprintf(CRITICAL, "error cwe_image_type_validate!!!, type:%d, type_tmp:%d, prod:%x\n", 
-                          image_type, img_type_tmp, hdp->prod_type);
+    /*If upgrade file is file type, we use INFO. other type we use CRITICAL*/
+    if (CWE_IMAGE_TYPE_FILE == image_type)
+    {
+        dprintf(INFO, "error cwe_image_type_validate!!!, type:%d, type_tmp:%d, prod:%x\n",
+                              image_type, img_type_tmp, hdp->prod_type);
+    }
+    else
+    {
+        dprintf(CRITICAL, "error cwe_image_type_validate!!!, type:%d, type_tmp:%d, prod:%x\n",
+                              image_type, img_type_tmp, hdp->prod_type);
+    }
     return FALSE;
   }
 

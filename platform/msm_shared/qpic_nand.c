@@ -2251,7 +2251,7 @@ boolean file_img_search_sierra(unsigned int startblock,
 		page_no = block_no * flash.num_pages_per_blk;
 		if(qpic_nand_block_isbad(page_no))
 		{
-			dprintf(CRITICAL, "file_img_search_sierra(): found bad block %d\n", block_no);
+			dprintf(INFO, "file_img_search_sierra(): found bad block %d\n", block_no);
 			continue;
 		}
 
@@ -2273,12 +2273,12 @@ boolean file_img_search_sierra(unsigned int startblock,
 		/* Validate image */
 		if (blGoCweFile(rdwr_buf,flash.page_size) != TRUE)
 		{
-			dprintf(CRITICAL, "file_img_search_sierra(): image validate fail\n");
+			dprintf(INFO, "file_img_search_sierra(): image validate fail\n");
 			continue;
 		}
 
 		/* got it, return */
-		dprintf(CRITICAL, "found CWE header at block %d\n", block_no);
+		dprintf(INFO, "found CWE header at block %d\n", block_no);
 		*cweblockno = block_no;
 		retval = TRUE;
 		break;
@@ -2307,13 +2307,13 @@ boolean free_space_find_sierra(unsigned int startblock,
 		page_no = block_no * flash.num_pages_per_blk;
 		if (qpic_nand_block_isbad(page_no))
 		{
-			dprintf(CRITICAL, "free_space_find_sierra(): found bad block %d\n", block_no);
+			dprintf(INFO, "free_space_find_sierra(): found bad block %d\n", block_no);
 			continue;
 		}
 
 		if (block_is_erased_sierra(block_no))
 		{
-			dprintf(CRITICAL, "erased block %d\n", block_no);
+			dprintf(INFO, "erased block %d\n", block_no);
 			if (freeblocks++ == 0)
 			{
 				freeblockstart = block_no;
@@ -2331,7 +2331,7 @@ boolean free_space_find_sierra(unsigned int startblock,
 
 	if (freeblocks == blocksneeded)
 	{
-		dprintf(CRITICAL, "found free block, from %d, no %d\n", freeblockstart, freeblocks);
+		dprintf(INFO, "found free block, from %d, no %d\n", freeblockstart, freeblocks);
 		*newblockno = freeblockstart;
 		retval =  TRUE;
 	}
@@ -3050,7 +3050,7 @@ int flash_write_sierra_file_img(struct ptentry *ptn,
 	end_block_no = end_block + ptn->start;
 	page = (start_block + ptn->start) * flash.num_pages_per_blk;
 	lastpage = (end_block + ptn->start) * flash.num_pages_per_blk;
-	dprintf(CRITICAL, "flash_write_sierra_file_img(), page:%u, lastpage:%u\n", page, lastpage);
+	dprintf(INFO, "flash_write_sierra_file_img(), page:%u, lastpage:%u\n", page, lastpage);
 
 	pages_to_write = (bytes + flash.page_size - 1)/flash.page_size;
 	start_search_block_no = start_block_no;
@@ -3097,7 +3097,7 @@ int flash_write_sierra_file_img(struct ptentry *ptn,
 					if (++free_page_count >= pages_to_write)
 					{
 						/* found enough free pages */
-						dprintf(CRITICAL, "Found free pages at %d for image size %d\n",
+						dprintf(INFO, "Found free pages at %d for image size %d\n",
 							freepageno, bytes);
 						break;
 					}
@@ -3138,7 +3138,7 @@ int flash_write_sierra_file_img(struct ptentry *ptn,
 		page = new_block_no * flash.num_pages_per_blk;
 	}
 
-	dprintf(CRITICAL, "page %d\n",page);
+	dprintf(INFO, "page %d\n",page);
 
 	spare_byte_count = ((flash.cw_size * flash.cws_per_page)- flash.page_size);
 	if(write_extra_bytes)
