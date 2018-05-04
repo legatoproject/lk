@@ -378,15 +378,22 @@ static bool ima_fuse_get(void)
 
 	return false;
 }
-#endif
 
-
-#if SIERRA
-static void process_ima_fuse(void)
+static void process_ima_ready(char *cmdline, bool want_ima_ready)
 {
-	ima_enforce = " "IMA_KERNEL_CMDLINE_OPTIONS;
-	/* IMA_KERNEL_CMDLINE_OPTIONS must be not empty for kernel IMA ready */
-	if (0 == ima_enforce[1]) {
+	/* Some other options may change, but "ima_appraise=enforce" will most likely */
+        /* never change. */
+	char *ima_is_enforced = strstr(ima_enforce, "ima_appraise=enforce");
+
+	/* The kernel IMA ready signals itself with the "ima_ready=1" option */
+	/* present on cmdline */
+	char *ima_is_ready = strstr(cmdline, "ima_ready=1");
+
+	/* If eFuse IMA is burnt, IMA must be enforced on kernel command line and */
+	/* kernel image must support IMA as well. If IMA is enforced on the kernel */
+	/* command line, kernel image must support IMA regardless if eFuse settings. */
+	if ((want_ima_ready && (!ima_is_enforced || !ima_is_ready)) ||
+		(ima_is_enforced && !ima_is_ready)) {
 		/* Secure boot is enabled, but LK and/or kernel are not built IMA ready */
 		/* Refuse to load the kernel and reboot */
 		if (is_dual_system_supported()) {
@@ -571,17 +578,19 @@ unsigned char *update_cmdline(const char * cmdline)
 #endif
 
 #ifdef SIERRA
-	if(TRUE != sierra_is_bootquiet_disabled())
-         {
+	if(TRUE != sierra_is_bootquiet_disabled()) {
 	     cmdline_len += strlen(lkquiet);
-	 }
+	}
 #ifdef FUDGE_ROOTFS
 	cmdline_len += strlen(rootfs_rw);
 #endif
-	if (ima_fuse_get() == true) {
-		process_ima_fuse();
+	bool want_ima_ready = ima_fuse_get();
+
+	if (want_ima_ready == true) {
+		ima_enforce = " "IMA_KERNEL_CMDLINE_OPTIONS;
 	}
 	cmdline_len += strlen(ima_enforce);
+	process_ima_ready(cmdline, want_ima_ready);
 #endif
 
 	if (cmdline_len > 0) {
