@@ -81,4 +81,3 @@ enum blresultcode
 };
 
 #endif /* bludefs_h */
-

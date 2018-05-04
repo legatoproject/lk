@@ -395,5 +395,3 @@ uint8_t sierra_ds_smem_get_ssid_linux_index(){
 bool sierra_ds_get_full_data(int stub){
   return FALSE;
 }
-
-
