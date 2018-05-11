@@ -140,8 +140,12 @@ void platform_early_init(void)
 	platform_init_mmu_mappings_9206();
 
 #ifdef TARGET_FX30
-        /* GPIO23 - for Ultra Low Power Mode, MDM9x15 internal pin GPIO54 */
-        gpio_tlmm_config(10, 0, GPIO_OUTPUT, GPIO_PULL_UP, GPIO_16MA, GPIO_ENABLE);
+        /* GPIO23_EXT - for Ultra Low Power Mode, MDM9x28 internal pin GPIO10 */
+        gpio_tlmm_config(10, 0, GPIO_OUTPUT, GPIO_PULL_DOWN, GPIO_16MA, GPIO_ENABLE);
+
+        /* Drive GPIO23_EXT high (ALPC-616)
+         * The PWR_EN signal must be driven high to enable the 3V3 supply */
+        gpio_set_val(10, 1);
 
         /* GPIO7 - for Push button, MDM9x15 internal pin GPIO16 */
         gpio_tlmm_config(16, 0, GPIO_INPUT, GPIO_PULL_UP, 0, GPIO_ENABLE);
