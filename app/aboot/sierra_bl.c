@@ -165,8 +165,7 @@ unsigned int sierra_smem_b2a_flags_get(void)
 
     if (b2amsgp->magic_beg == BC_SMEM_MSG_MAGIC_BEG &&
         b2amsgp->magic_end == BC_SMEM_MSG_MAGIC_END &&
-        (b2amsgp->version < BC_SMEM_MSG_CRC32_VERSION_MIN ||
-         b2amsgp->crc32 == crc32(~0, (void *)b2amsgp, BC_MSG_CRC_SZ)))
+        b2amsgp->crc32 == crc32(~0, (void *)b2amsgp, BC_MSG_CRC_SZ))
     {
       flags = b2amsgp->in.flags;
     }
@@ -247,8 +246,7 @@ unsigned int sierra_smem_err_count_get(void)
 
     if (b2amsgp->magic_beg == BC_SMEM_MSG_MAGIC_BEG &&
         b2amsgp->magic_end == BC_SMEM_MSG_MAGIC_END &&
-        (b2amsgp->version < BC_SMEM_MSG_CRC32_VERSION_MIN ||
-         b2amsgp->crc32 == crc32(~0, (void *)b2amsgp, BC_MSG_CRC_SZ)))
+        b2amsgp->crc32 == crc32(~0, (void *)b2amsgp, BC_MSG_CRC_SZ))
     {
       err_count = b2amsgp->in.recover_cnt;
     }
@@ -463,9 +461,7 @@ int sierra_smem_boothold_mode_set(void)
 
         if (a2bmsgp->magic_beg == BC_SMEM_MSG_MAGIC_BEG &&
             a2bmsgp->magic_end == BC_SMEM_MSG_MAGIC_END &&
-            (a2bmsgp->version < BC_SMEM_MSG_CRC32_VERSION_MIN ||
-             a2bmsgp->crc32 == crc32(~0, (void *)a2bmsgp, BC_MSG_CRC_SZ))) {
-
+            a2bmsgp->crc32 == crc32(~0, (void *)a2bmsgp, BC_MSG_CRC_SZ)) {
                 a2bflags = a2bmsgp->out.flags;
         }
         else {
@@ -3506,8 +3502,7 @@ unsigned int sierra_smem_reset_type_flag_get(void)
 
     if (b2amsgp->magic_beg == BC_SMEM_MSG_MAGIC_BEG &&
         b2amsgp->magic_end == BC_SMEM_MSG_MAGIC_END &&
-        (b2amsgp->version < BC_SMEM_MSG_CRC32_VERSION_MIN ||
-         b2amsgp->crc32 == crc32(~0, (void *)b2amsgp, BC_MSG_CRC_SZ)))
+        b2amsgp->crc32 == crc32(~0, (void *)b2amsgp, BC_MSG_CRC_SZ))
     {
       reset_type_flag = b2amsgp->in.brstsetflg;
     }
@@ -3750,9 +3745,8 @@ _local void bl_latest_err_count_get(uint32 *err_count)
       b2amsgp = (struct bc_smem_message_s *)(virtual_addr + offset[i]);
       if (b2amsgp->magic_beg == BC_SMEM_MSG_MAGIC_BEG &&
           b2amsgp->magic_end == BC_SMEM_MSG_MAGIC_END &&
-          (b2amsgp->version >= BC_SMEM_MSG_CRC32_VERSION_MIN ||
-           b2amsgp->crc32 == crc32(~0, (void *)b2amsgp, BC_MSG_CRC_SZ)) &&
-           BC_MSG_RECOVER_CNT_INVALID != b2amsgp->out.recover_cnt)
+          b2amsgp->crc32 == crc32(~0, (void *)b2amsgp, BC_MSG_CRC_SZ) &&
+          BC_MSG_RECOVER_CNT_INVALID != b2amsgp->out.recover_cnt)
       {
         *err_count = b2amsgp->out.recover_cnt;
       }
