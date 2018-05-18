@@ -4778,8 +4778,7 @@ int sierra_smem_boothold_mode_get(void)
 
 	if (a2bmsgp->magic_beg == BC_SMEM_MSG_MAGIC_BEG &&
 		a2bmsgp->magic_end == BC_SMEM_MSG_MAGIC_END &&
-		(a2bmsgp->version < BC_SMEM_MSG_CRC32_VERSION_MIN ||
-		a2bmsgp->crc32 == crc32(~0, (void *)a2bmsgp, BC_MSG_CRC_SZ))) {
+		a2bmsgp->crc32 == crc32(~0, (void *)a2bmsgp, BC_MSG_CRC_SZ)) {
 			a2bflags_in = a2bmsgp->in.flags;
 			dprintf(INFO, "sierra_smem_boothold_mode_get: a2bflags_in=%llu\n",
 				a2bflags_in);
