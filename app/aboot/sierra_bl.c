@@ -1359,22 +1359,6 @@ _global enum blresultcode blprocessdldstart(
     return blcallerror(BLRESULT_IMGSIZE_OUT_OF_RANGE, BL_DLD_PREDLD_VERIFY);
   }
 
-  /* Test compatibility bytes according to image type */
-  if (bl_compatibility_test(cbp->blhd.compat, cbp->imagetype) == FALSE)
-  {
-    switch (cbp->imagetype)
-    {
-      case CWE_IMAGE_TYPE_APPL:
-        return blcallerror(BLRESULT_APPL_NOT_COMPATIBLE, BL_DLD_PREDLD_VERIFY);
-
-      case CWE_IMAGE_TYPE_EXEC:
-        return blcallerror(BLRESULT_BOOT_NOT_COMPATIBLE, BL_DLD_PREDLD_VERIFY);
-
-      default:
-        break;
-    }
-  }
-
   /* Check signature if imagetype is an application */
   if (cbp->imagetype == CWE_IMAGE_TYPE_APPL)
   {
