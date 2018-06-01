@@ -88,6 +88,7 @@
 
 #define CHECK_BLOCKS 3
 extern int reboot_swap;
+void cmd_boot(const char *arg, void *data, unsigned sz);
 #endif /* SIERRA */
 /* SWISTOP */
 
