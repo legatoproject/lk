@@ -252,6 +252,7 @@ static uint32_t dt_size = 0;
 /* SWISTART */
 #ifdef SIERRA
 static const char *lkversion        = " lkversion=" LKVERSION;
+#define IMA_ALL_IMAGES_BAD    (DS_IMAGE_BOOT_1|DS_IMAGE_ABOOT_1|DS_IMAGE_BOOT_2|DS_IMAGE_ABOOT_2)
 static uint64 bad_image_mask = DS_IMAGE_FLAG_NOT_SET;
 static bool boot_into_fastboot_swi = false;
 #endif /* SIERRA */
@@ -396,8 +397,15 @@ static void process_ima_ready(char *cmdline, bool want_ima_ready)
 		(ima_is_enforced && !ima_is_ready)) {
 		/* Secure boot is enabled, but LK and/or kernel are not built IMA ready */
 		/* Refuse to load the kernel and reboot */
-		if (is_dual_system_supported()) {
-			/* Assume that boot LK and kernel are bad. So mark these images as bad */
+
+		/* If the "ima_ready=1" is not present and eFuse IMA is not burnt, enters into LK */
+		/* to give a way to flash "workable images". This is to ensure backward compatibility. */
+		if (!want_ima_ready && !ima_is_ready) {
+			dprintf(CRITICAL, "Kernel is not ready for IMA. Entering into bootloader\n");
+			reboot_device(FASTBOOT_MODE);
+		}
+		else if (is_dual_system_supported()) {
+			/* Assume that boot LK and kernel are bad. So mark these images as bad. */
 			uint8_t ssid_linux_index = sierra_ds_smem_get_ssid_linux_index();
 			if(DS_SSID_SUB_SYSTEM_2 == ssid_linux_index) {
 				bad_image_mask = DS_IMAGE_BOOT_2|DS_IMAGE_ABOOT_2;
@@ -405,12 +413,21 @@ static void process_ima_ready(char *cmdline, bool want_ima_ready)
 			else {
 				bad_image_mask = DS_IMAGE_BOOT_1|DS_IMAGE_ABOOT_1;
 			}
-			/* For dual systems, swap to the previous one. If it fails, SBL will start */
-			/* the recovery mode */
-			dprintf(CRITICAL, "Secure boot detected without kernel ready for IMA. Swap and reboot!\n");
-			sierra_ds_smem_write_bad_image_and_swap(bad_image_mask);
-			reboot_swap = 1;
-			reboot_device(0);
+			// Look if both LK and kernel images are bad. If yes, reboot to LK.
+			struct ds_flag_s ds_flag;
+
+			if (sierra_ds_get_full_data(&ds_flag) &&
+				(((ds_flag.bad_image | bad_image_mask) & IMA_ALL_IMAGES_BAD) != IMA_ALL_IMAGES_BAD)) {
+				/* For dual systems, swap to the previous one. If it fails, SBL will start */
+				/* the recovery mode */
+				sierra_ds_smem_write_bad_image_and_swap(bad_image_mask);
+				/* A system is expected to be workable, so trigger a swap */
+				dprintf(CRITICAL, "Secure boot detected without kernel ready for IMA. Swap and reboot!\n");
+				reboot_swap = 1;
+				reboot_device(0);
+			}
+			dprintf(CRITICAL, "All LK/kernel are bad. Entering into bootloader.\n");
+			reboot_device(FASTBOOT_MODE);
 		}
 		else {
 			/* For single system, enters the recovery mode */
