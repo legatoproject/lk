@@ -518,12 +518,12 @@ int spi_write(unsigned char *wbuf, int wbuf_len)
   while (!(inpdw(QUP_REGISTER_BASE + QUP_OPERATIONAL) & SPI_OP_OUTPUT_FIFO_FULL))
   {
     word = 0;
-    for (B_index_in_word = 0; (B_index_in_word < SPI_BYTES_PER_WORD) && (i < wbuf_len); B_index_in_word++)
+    for (B_index_in_word = 1; (B_index_in_word <= SPI_BYTES_PER_WORD) && (i < wbuf_len); B_index_in_word++)
     {
       byte_i = wbuf[i++];
-      word |= (byte_i << (SPI_BITS_PER_BYTE * B_index_in_word));
-    }
-     
+      word |= (byte_i << (SPI_BITS_PER_BYTE * (SPI_WORD_TO_BYTES - B_index_in_word)));
+    } 
+
     outpdw(QUP_REGISTER_BASE + QUP_OUTPUT_FIFO, word);
     if (i >= wbuf_len)
     {
@@ -598,9 +598,9 @@ int spi_read(unsigned char *rbuf, int rbuf_len)
         2 bytes: 0x00003412
         1 byte : 0x00000012
         */
-    for (B_index_in_word = 0; (B_index_in_word < SPI_BYTES_PER_WORD) && (i < rbuf_len); B_index_in_word++)
+    for (B_index_in_word = 1; (B_index_in_word <= SPI_BYTES_PER_WORD) && (i < rbuf_len); B_index_in_word++)
     {
-      shift = SPI_BITS_PER_BYTE * B_index_in_word;
+      shift = SPI_BITS_PER_BYTE * (SPI_BYTES_PER_WORD - B_index_in_word);
       rbuf[i++] = (data_in & (0xFF << shift)) >> shift;
     }
 
