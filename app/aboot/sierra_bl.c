@@ -47,6 +47,9 @@ _local struct blCtrlBlk blc;
 
 _local uint16 program_spkg_contain_image_mask = 0;
 
+_local void * bl_linux_ram_image_base = NULL;
+_local unsigned bl_linux_ram_image_size = 0;
+
 bool to_update_mibib = FALSE; /* Indicates modem should warm reset to SBL, to update MIBIB. */
 
 enum bl_update_system_e update_which_system = BL_UPDATE_NONE; /* Indicates to write which system */
@@ -3234,9 +3237,10 @@ _global uint32 blProgramCWERecoveryImage(
       bufp = blSearchCWEImage(CWE_IMAGE_TYPE_LRAM, startbufp, hdr->image_sz);
       if (bufp != NULL)
       {
-        dprintf(CRITICAL, "Boot up RAM kernel now!!!!!!!!!!!!!!!!!!!!!!!!\n");
-        boot_linux_from_ram((void *)(bufp+sizeof(struct cwe_header_s)), (unsigned)hdr->image_sz);
-        ret = ret | BLPRIMAGE_MASK_KN;
+        /* Not to boot up Ram image directly, we boot up it when SSDP session end */
+        bl_linux_ram_image_base = (void *)(bufp+sizeof(struct cwe_header_s));
+        bl_linux_ram_image_size = (unsigned)hdr->image_sz;
+        ret = ret | BLPRIMAGE_MASK_LR;
       }
     } /* CWE_IMAGE_TYPE_BOOT */
     else
@@ -3266,6 +3270,32 @@ _global uint32 blProgramCWERecoveryImage(
   }
 
   return ret;
+}
+
+/************
+ *
+ * Name:     blBootUpLinuxRamAfterSSDPSession
+ *
+ * Purpose:  To boot up Linux Ram image after SSDP session
+ *
+ * Params:   void
+ *
+ * Return:   void
+ *
+ * Notes:
+ *
+ * Abort:
+ *
+ ************/
+void blBootUpLinuxRamAfterSSDPSession(void)
+{
+  if (bl_linux_ram_image_base && bl_linux_ram_image_size)
+  {
+    dprintf(CRITICAL, "Boot up RAM kernel after SSDP session!!!!!!!!!!!!!!!!!!!!!!!!\n");
+    boot_linux_from_ram(bl_linux_ram_image_base, bl_linux_ram_image_size);
+  }
+  
+  return;
 }
 
 /************
