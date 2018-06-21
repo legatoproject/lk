@@ -88,7 +88,6 @@
 
 #define CHECK_BLOCKS 3
 extern int reboot_swap;
-void cmd_boot(const char *arg, void *data, unsigned sz);
 #endif /* SIERRA */
 /* SWISTOP */
 
@@ -1991,11 +1990,157 @@ int copy_dtb(uint8_t *boot_image_start)
 #ifdef SIERRA
 void boot_linux_from_ram(void *data, unsigned sz)
 {
-  /* call cmd_boot since it has the same logic as ‘fastboot boot’
-     Now 'arg' isn't used in cmd_boot() and we don't care about it,
-     Even later active to use it, but to keep backward compatibility,
-     should allow to be NULl, so it should be safe to set NULL here. */
-  cmd_boot(NULL, data, sz);
+	unsigned kernel_actual;
+	unsigned ramdisk_actual;
+	uint32_t image_actual;
+	uint32_t dt_actual = 0;
+	uint32_t sig_actual = 0;
+	struct boot_img_hdr *hdr = NULL, header;
+	struct kernel64_hdr *kptr = NULL;
+	char *ptr = ((char*) data);
+	int ret = 0;
+	uint8_t dtb_copied = 0;
+
+#if VERIFIED_BOOT
+	if(!device.is_unlocked)
+	{
+		dprintf(CRITICAL, "unlock device to use this command");
+		return;
+	}
+#endif
+
+	if (sz < sizeof(hdr)) {
+		dprintf(CRITICAL, "invalid bootimage header");
+		return;
+	}
+
+	hdr = (struct boot_img_hdr *)data;
+
+	/* ensure commandline is terminated */
+	hdr->cmdline[BOOT_ARGS_SIZE-1] = 0;
+
+	/* boot image header may be overwritten, move it where it's safe */
+	memcpy(&header, hdr, sizeof(header));
+	hdr = &header;
+
+	if(target_is_emmc_boot() && hdr->page_size) {
+		page_size = hdr->page_size;
+		page_mask = page_size - 1;
+	}
+
+	kernel_actual = ROUND_TO_PAGE(hdr->kernel_size, page_mask);
+	ramdisk_actual = ROUND_TO_PAGE(hdr->ramdisk_size, page_mask);
+#if DEVICE_TREE
+	dt_actual = ROUND_TO_PAGE(hdr->dt_size, page_mask);
+#endif
+
+	image_actual = ADD_OF(page_size, kernel_actual);
+	image_actual = ADD_OF(image_actual, ramdisk_actual);
+	image_actual = ADD_OF(image_actual, dt_actual);
+
+	if (target_use_signed_kernel() && (!device.is_unlocked)) {
+		/* Calculate the signature length from boot image */
+		sig_actual = read_der_message_length(
+				(unsigned char*)(data + image_actual),sz);
+		image_actual = ADD_OF(image_actual, sig_actual);
+	}
+
+	/* sz should have atleast raw boot image */
+	if (image_actual > sz) {
+		dprintf(CRITICAL, "bootimage: incomplete or not signed");
+		return;
+	}
+
+	/* Handle overflow if the input image size is greater than
+	 * boot image buffer can hold
+	 */
+#if VERIFIED_BOOT
+	if ((target_get_max_flash_size() - (image_actual - sig_actual)) < page_size)
+	{
+		dprintf(CRITICAL, "booimage: size is greater than boot image buffer can hold");
+		return;
+	}
+#endif
+
+	/* verify kernel image, include at least check data integrity,
+	and authenticate signature if secure boot enalbed. */
+	if(sierra_lk_enable_kernel_verify() && (!device.is_unlocked))
+	{
+		if((sz <= image_actual)  /* the image must include raw boot image + hash part */
+			|| !swi_lk_verify_kernel(data,image_actual))
+		{
+			dprintf(CRITICAL, "LK verify kernel image failed\n");
+			return;
+		}
+	}
+
+	/*
+	 * Update the kernel/ramdisk/tags address if the boot image header
+	 * has default values, these default values come from mkbootimg when
+	 * the boot image is flashed using fastboot flash:raw
+	 */
+	kptr = (struct kernel64_hdr*)((char*) data + page_size);
+	update_ker_tags_rdisk_addr(hdr, IS_ARM64(kptr));
+
+	/* Get virtual addresses since the hdr saves physical addresses. */
+	hdr->kernel_addr = VA(hdr->kernel_addr);
+	hdr->ramdisk_addr = VA(hdr->ramdisk_addr);
+	hdr->tags_addr = VA(hdr->tags_addr);
+
+	/* Check if the addresses in the header are valid. */
+	if (check_aboot_addr_range_overlap(hdr->kernel_addr, kernel_actual) ||
+		check_aboot_addr_range_overlap(hdr->ramdisk_addr, ramdisk_actual))
+	{
+		dprintf(CRITICAL, "kernel/ramdisk addresses overlap with aboot addresses.\n");
+		return;
+	}
+
+	/* Load ramdisk & kernel */
+	memmove((void*) hdr->ramdisk_addr, ptr + page_size + kernel_actual, hdr->ramdisk_size);
+	memmove((void*) hdr->kernel_addr, ptr + page_size, hdr->kernel_size);
+
+#if DEVICE_TREE
+	/* find correct dtb and copy it to right location */
+	ret = copy_dtb(data);
+
+	dtb_copied = !ret ? 1 : 0;
+#else
+	if (check_aboot_addr_range_overlap(hdr->tags_addr, MAX_TAGS_SIZE))
+	{
+		dprintf(CRITICAL, "Tags addresses overlap with aboot addresses.\n");
+		return;
+	}
+#endif
+
+#if DEVICE_TREE
+	/*
+	 * If dtb is not found look for appended DTB in the kernel.
+	 * If appended dev tree is found, update the atags with
+	 * memory address to the DTB appended location on RAM.
+	 * Else update with the atags address in the kernel header
+	 */
+	if (!dtb_copied) {
+		void *dtb;
+		dtb = dev_tree_appended((void *)hdr->kernel_addr, hdr->kernel_size,
+					(void *)hdr->tags_addr);
+		if (!dtb) {
+			dprintf(CRITICAL,"dtb not found");
+			return;
+		}
+	}
+#endif
+
+#ifndef DEVICE_TREE
+	if (check_aboot_addr_range_overlap(hdr->tags_addr, MAX_TAGS_SIZE))
+	{
+		dprintf(CRITICAL, "Tags addresses overlap with aboot addresses.\n");
+		return;
+	}
+#endif
+
+	boot_linux((void*) hdr->kernel_addr, (void*) hdr->tags_addr,
+			(const char*) hdr->cmdline, board_machtype(),
+			(void*) hdr->ramdisk_addr, hdr->ramdisk_size);
 }
 #endif
 /* SWISTOP */
@@ -2090,7 +2235,7 @@ void cmd_boot(const char *arg, void *data, unsigned sz)
 	and authenticate signature if secure boot enalbed. */
 	if(sierra_lk_enable_kernel_verify() && (!device.is_unlocked))
 	{
-		if(!swi_lk_verify_kernel(data,image_actual))
+		if((!sig_size) || !swi_lk_verify_kernel(data,image_actual)) /* the image must include raw boot image + hash part */
 		{
 			fastboot_fail("LK verify kernel image failed\n");
 			return;
