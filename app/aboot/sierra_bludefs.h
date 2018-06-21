@@ -432,4 +432,7 @@ extern unsigned int sierra_smem_err_fatal_count_get(void);
 extern bool is_sierra_factory_mode(struct ptable *ptable, uint32 blks);
 extern void bl_save_ddr_sm_to_im_sm(void);
 
+extern void blBootUpLinuxRamAfterSSDPSession(void);
+
+
 #endif /* bludefs_h */
