@@ -2544,8 +2544,11 @@ flash_read_ext(struct ptentry *ptn,
 			current_page += flash.num_pages_per_blk;
 		}
 	}
-
+#ifdef SIERRA
+	while ((page <= lastpage) && !start_block_count)
+#else
 	while ((page < lastpage) && !start_block_count)
+#endif
 	{
 		if (count == 0)
 		{
@@ -2553,7 +2556,6 @@ flash_read_ext(struct ptentry *ptn,
 					errors);
 			return NANDC_RESULT_SUCCESS;
 		}
-
 #if CONTIGUOUS_MEMORY
 		result = qpic_nand_read_page(page, image, (unsigned char *) spare);
 #else
