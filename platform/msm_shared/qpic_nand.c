@@ -2397,12 +2397,6 @@ flash_read_ext(struct ptentry *ptn,
 
 	while ((page < lastpage) && !start_block_count)
 	{
-		if (count == 0)
-		{
-			dprintf(SPEW, "flash_read_image: success (%d errors)\n",
-					errors);
-			return NANDC_RESULT_SUCCESS;
-		}
 
 #if CONTIGUOUS_MEMORY
 		result = qpic_nand_read_page(page, image, (unsigned char *) spare);
@@ -2438,6 +2432,15 @@ flash_read_ext(struct ptentry *ptn,
 		}
 
 		count -= 1;
+		/*Move this condition from the begining of this while to here,
+		because it have no chance to return SUCCESS if read the full partition, it exit the
+		loop by page < lastpage condition. */
+		if (count == 0)
+		{
+			dprintf(SPEW, "flash_read_image: success (%d errors)\n",
+					errors);
+			return NANDC_RESULT_SUCCESS;
+		}
 	}
 
 	/* could not find enough valid pages before we hit the end */
