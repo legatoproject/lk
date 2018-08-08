@@ -78,7 +78,13 @@ int get_recovery_message(struct recovery_message *out)
 	ptn = ptable_find(ptable, "misc");
 
 	if (ptn == NULL) {
+/* SWISTART */
+#ifdef SIERRA
+		dprintf(CRITICAL, "No misc partition found\n");
+#else
 		dprintf(CRITICAL, "ERROR: No misc partition found\n");
+#endif
+/* SWISTOP */
 		return -1;
 	}
 
