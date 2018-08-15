@@ -1864,7 +1864,13 @@ void read_device_info_flash(device_info *dev)
 	ptn = ptable_find(ptable, "devinfo");
 	if (ptn == NULL)
 	{
+/* SWISTART */
+#ifdef SIERRA
+		dprintf(CRITICAL, "No devinfo partition found\n");
+#else
 		dprintf(CRITICAL, "ERROR: No devinfo partition found\n");
+#endif
+/* SWISTOP */
 			return;
 	}
 
