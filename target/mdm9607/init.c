@@ -396,7 +396,7 @@ void reboot_device(unsigned reboot_reason)
 	* when PM8019 v2 is available.
 	*/
 /* SWISTART */
-#ifdef SIERRA
+#ifndef SIERRA
 
 	if(reboot_reason || in_panic || reboot_swap)
 		reset_type = PON_PSHOLD_WARM_RESET;
