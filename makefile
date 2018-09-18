@@ -218,7 +218,7 @@ clean: $(EXTRA_CLEANDEPS)
 	rm -f $(ALLOBJS) $(DEPS) $(GENERATED) $(OUTBIN) $(OUTELF) $(OUTELF).lst $(OUTELF_STRIP)
 
 clean_obj: $(EXTRA_CLEANDEPS)
-	rm -f $(ALLOBJS) $(DEPS) $(GENERATED) $(OUTELF) $(OUTELF).lst $(OUTELF_STRIP)
+	rm -f $(ALLOBJS) $(DEPS) $(GENERATED) $(OUTELF) $(OUTELF).lst
 
 install: all
 	scp $(OUTBIN) 192.168.0.4:/tftproot
