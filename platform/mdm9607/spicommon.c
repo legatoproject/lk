@@ -5,11 +5,36 @@
  * Filename:  spicommon.c
  *
  * Purpose:   Common files for spi driver package
- *            
+ *
  *
  * Copyright: (c) 2009 Sierra Wireless, Inc.
  *            All rights reserved
  *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
+ *  * Redistributions of source code must retain the above copyright
+ *    notice, this list of conditions and the following disclaimer.
+ *  * Redistributions in binary form must reproduce the above copyright
+ *    notice, this list of conditions and the following disclaimer in
+ *    the documentation and/or other materials provided with the
+ *    distribution.
+ *  * Neither the name of The Linux Foundation nor the names of its
+ *    contributors may be used to endorse or promote products derived
+ *    from this software without specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+ * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+ * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
+ * FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
+ * COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
+ * INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
+ * BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS
+ * OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED
+ * AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+ * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT
+ * OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
+ * SUCH DAMAGE.
  ************/
 
 /* Include files */
@@ -148,7 +173,7 @@ enum msm_spi_state {
 #ifdef SPI_USE_BLSP_QUP2
 /* We use QUP2 config, real index is 3 in QC's HW document*/
 
-/* Range of BLSP_QUP_QUP_CONFIG: 
+/* Range of BLSP_QUP_QUP_CONFIG:
   * BLSP_QUP0_QUP_CONFIG,
   * BLSP_QUP1_QUP_CONFIG,
   * BLSP_QUP2_QUP_CONFIG,
@@ -167,7 +192,7 @@ unsigned int qup_register = 0x78B7000;  /* Now we use BLSP_QUP2_QUP_CONFIG: 0x78
 /* Clock rate supported:
   * 960000;
   * 4800000;
-  * 9600000; 
+  * 9600000;
   * 19200000
 */
 #define SPI_CLOCK_RATE 9600000
@@ -221,7 +246,7 @@ int spi_write_index = 0;                                       /* Index to be wr
  *
  * Purpose:   This function wait some interval and kick watchdog
  *
- * Params:    
+ * Params:
  *
  * Return:    None
  *
@@ -241,7 +266,7 @@ void spiWaitTicks()
  *
  * Purpose:   This function check if SPI STATE register valid
  *
- * Params:    
+ * Params:
  *
  * Return:    TRUE when valid, FALSE when invalid
  *
@@ -268,7 +293,7 @@ boolean msm_spi_is_valid_state()
  *
  * Purpose:   This function wait SPI STATE register till valid
  *
- * Params:    
+ * Params:
  *
  * Return:    TRUE when success, FALSE when fail
  *
@@ -312,7 +337,7 @@ boolean spi_wait_valid()
 boolean spi_set_states(unsigned int state)
 {
   unsigned int cur_state;
-  
+
   if (spi_wait_valid() == FALSE)
   {
     return FALSE;
@@ -329,7 +354,7 @@ boolean spi_set_states(unsigned int state)
     {
       outpdw(QUP_REGISTER_BASE + QUP_STATE, (cur_state & ~SPI_OP_STATE) | state);
     }
-    
+
     if (spi_wait_valid() == FALSE)
     {
       return FALSE;
@@ -369,7 +394,7 @@ boolean spi_init(void)
   {
     return FALSE;
   }
-  
+
   /* Refer to Kernel, set SPI_DEASSERT_WAIT to 42 ticks */
   outpdw(QUP_REGISTER_BASE + SPI_DEASSERT_WAIT, SPI_DEASSERT_WAIT_TICKS);
 
@@ -384,7 +409,7 @@ boolean spi_init(void)
 
   /* SPI_CFG_INPUT_FIRST */
   outpdw(QUP_REGISTER_BASE + SPI_CONFIG, SPI_CFG_INPUT_FIRST);
-  
+
   /* SPI core, xBytes_Bits transfer */
   outpdw(QUP_REGISTER_BASE + QUP_CONFIG, SPI_MINI_CORE | (SPI_BYTES_PER_WORD * SPI_BITS_PER_BYTE - 1));
 
@@ -427,7 +452,7 @@ void spi_init_ex(boolean use_pid)
 
   memset(spi_write_buf, 0, SPI_READ_WRITE_BUF_MAX_LEN);
   spi_write_index = 0;
-  
+
   spi_init();
   return;
 }
@@ -482,7 +507,7 @@ int spi_write(unsigned char *wbuf, int wbuf_len)
     return -1;
   }
 
-  if (inpdw(QUP_REGISTER_BASE + QUP_ERROR_FLAGS) 
+  if (inpdw(QUP_REGISTER_BASE + QUP_ERROR_FLAGS)
        || inpdw(QUP_REGISTER_BASE + SPI_ERROR_FLAGS))
   {
     return -1;
@@ -492,7 +517,7 @@ int spi_write(unsigned char *wbuf, int wbuf_len)
   {
     return -1;
   }
-  
+
   outpdw(QUP_REGISTER_BASE + QUP_OPERATIONAL, SPI_OP_OUTPUT_SERVICE_FLAG);
 
   i = 0;
@@ -504,14 +529,14 @@ int spi_write(unsigned char *wbuf, int wbuf_len)
       byte_i = wbuf[i++];
       word |= (byte_i << (SPI_BITS_PER_BYTE * B_index_in_word));
     }
-     
+
     outpdw(QUP_REGISTER_BASE + QUP_OUTPUT_FIFO, word);
     if (i >= wbuf_len)
     {
       break;
     }
   }
-  
+
   if (FALSE == spi_set_states(SPI_OP_STATE_RUN))
   {
     return -1;
@@ -550,7 +575,7 @@ int spi_read(unsigned char *rbuf, int rbuf_len)
     return -1;
   }
 
-  if (inpdw(QUP_REGISTER_BASE + QUP_ERROR_FLAGS) 
+  if (inpdw(QUP_REGISTER_BASE + QUP_ERROR_FLAGS)
        || inpdw(QUP_REGISTER_BASE + SPI_ERROR_FLAGS))
   {
     return -1;
@@ -568,7 +593,7 @@ int spi_read(unsigned char *rbuf, int rbuf_len)
   }
 
   outpdw(QUP_REGISTER_BASE + QUP_OPERATIONAL, SPI_OP_INPUT_SERVICE_FLAG);
-  
+
   i = 0;
   while ((inpdw(QUP_REGISTER_BASE + QUP_OPERATIONAL) & SPI_OP_IP_FIFO_NOT_EMPTY))
   {
@@ -602,7 +627,7 @@ int spi_read(unsigned char *rbuf, int rbuf_len)
  *                FIFO to be transmitted.  This allows the caller to be sure that all
  *                characters are transmitted.
  *
- * Params:    
+ * Params:
  *
  * Return:    Read data length or -1 when failed.
  *
@@ -617,7 +642,7 @@ void spi_drain(void)
   {
     spiWaitTicks();
   }
-  
+
   /* When OP FIFO empty, it will return */
   return;
 }
@@ -654,7 +679,7 @@ void spi_drain_timeout(uint32 timeout)
  *                a bigger packet at once, it always retuns one character to the calling function.
  *                This approach is choosen to have a consitancy between the UART and USB modules.
  *
- * Params:    
+ * Params:
  *
  * Return:  character from the receive buffer.
  *              If there is nothing in the receive buffer then it return SPI_NO_CHAR (-1).
@@ -668,14 +693,14 @@ int spi_receive_byte(void)
 {
   int ret = -1;
   int write_ret = 0, read_ret = 0, checkcount= 0;
-  
+
   if (spi_read_buf_len <= spi_read_index)
   {
     /* Clear read buf */
     memset(spi_read_buf, 0, SPI_READ_WRITE_BUF_MAX_LEN);
     spi_read_buf_len = 0;
     spi_read_index = 0;
-    
+
     /* 1, we send out any data in write_buf, and align it with dummy bytes */
     memset(spi_dummy_buf, SPI_DUMMY_BYTES_FOR_READING, SPI_READ_WRITE_BUF_MAX_LEN);
     write_ret = spi_write(spi_dummy_buf, SPI_BYTES_PER_WORD);
@@ -701,12 +726,12 @@ int spi_receive_byte(void)
           spi_read_buf_len += read_ret;
         }
       } while(spi_read_buf_len < write_ret);
-      
+
     }
   }
 
   ret = (int)spi_read_buf[spi_read_index++];
-  
+
   return ret;
 }
 
@@ -727,13 +752,13 @@ int spi_receive_byte(void)
  ************/
 void spi_transmit_byte(unsigned char data)
 {
-  /* It will be very complex to impletement send data byte by byte on SPI, 
-     * because we have to deal with case 1,2,3,4 bytes per word when do this. 
-     * For case 2,3,4 bytes per word, we have to deal it with  Length  threshold and time threshold  
+  /* It will be very complex to impletement send data byte by byte on SPI,
+     * because we have to deal with case 1,2,3,4 bytes per word when do this.
+     * For case 2,3,4 bytes per word, we have to deal it with  Length  threshold and time threshold
      * For a FW of simple task, it is hard to implement time threshold  */
-     
+
   /* However it is good luck that SSDP doens't request to send data byte by byte,
-     * So we just keep it as stub function now. 
+     * So we just keep it as stub function now.
      * When it is necessarry in future, we will implement it with APP's logic */
   return;
 }
@@ -744,9 +769,9 @@ void spi_transmit_byte(unsigned char data)
  *
  * Purpose:  This function receive a buffer from host.
  *
- * Params:    buf - point to final receive buffer 
+ * Params:    buf - point to final receive buffer
  *
- * Return:    Length data received from host 
+ * Return:    Length data received from host
  *
  * Note:      None
  *
@@ -784,7 +809,7 @@ uint32 spi_receive_pkt(unsigned char **buf)
       read_ret = 0;
       checkcount = 0;
       *buf = spi_read_buf;
-      
+
       do
       {
         read_ret = spi_read(&spi_read_buf[spi_read_buf_len], SPI_READ_WRITE_BUF_MAX_LEN - spi_read_buf_len);
@@ -800,7 +825,7 @@ uint32 spi_receive_pkt(unsigned char **buf)
           ulLen = spi_read_buf_len;
         }
       } while(spi_read_buf_len < write_ret);
-    }  
+    }
   }
   else
   {
@@ -835,7 +860,7 @@ void spi_transmit_pkt (unsigned char *pkt, uint32 len)
 {
   uint32 ttl_send = 0, len_to_send = 0;
   int write_ret = 0, read_ret = 0, read_ttl = 0, checkcount= 0;
-    
+
   if (pkt == NULL)
   {
     return;
@@ -858,7 +883,7 @@ void spi_transmit_pkt (unsigned char *pkt, uint32 len)
       read_ret = 0;
       read_ttl = 0;
       checkcount = 0;
-      
+
       do
       {
         read_ret = spi_read(&spi_dummy_buf[read_ttl], SPI_READ_WRITE_BUF_MAX_LEN - read_ttl);
@@ -886,7 +911,7 @@ void spi_transmit_pkt (unsigned char *pkt, uint32 len)
  * Purpose:   This function is for throughput test with SPI emulator
  *
  * Params:  wbuf - point data buf to be written
- *                wbuf_len - length of data buf  
+ *                wbuf_len - length of data buf
  *                rbuf - point buf to receive data from SPI FIFO
  *                rbuf_len - length of buf
  *
@@ -906,20 +931,20 @@ boolean spi_read_write(unsigned char *wbuf, int *wbuf_len, unsigned char *rbuf, 
   {
     return FALSE;
   }
-  
+
   /* MDM9x40 is the master device, so we send data first */
   *wbuf_len = spi_write(wbuf, *wbuf_len);
   if (*wbuf_len <= 0)
   {
     return FALSE;
   }
-  
+
   /* Based on SPI theory, when master send N bytes out, it should get N bytes back */
   if (*rbuf_len > *wbuf_len)
   {
     *rbuf_len = *wbuf_len;
   }
-  
+
   do
   {
     rec_len = spi_read(&rbuf[rec_ttl], (*rbuf_len) - rec_ttl);
