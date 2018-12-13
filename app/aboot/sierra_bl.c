@@ -299,7 +299,7 @@ int sierra_smem_boothold_mode_set(void)
 bool sierra_is_fastboot_disabled(
   void)
 {
-  return (sierra_smem_b2a_flags_get() & BC_MSG_B2A_ADB_EN) ? false : true;
+  return (sierra_smem_b2a_flags_get() & BC_MSG_B2A_FASTBOOT_EN) ? false : true;
 }
 
 /************
@@ -399,7 +399,6 @@ bool sierra_ds_smem_write_bad_image_and_swap(int stub){
 uint8_t sierra_ds_smem_get_ssid_linux_index(){
   return 0;
 }
-
 
 /************
  *
