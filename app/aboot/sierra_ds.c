@@ -491,7 +491,8 @@ bool sierra_ds_dssd_last_valid_data_page_find(
     {
       /* Page read failed */
       dprintf(CRITICAL, "sierra_ds_dssd_last_valid_data_page_find(): page(%d) read failed\n", page_no);
-      continue;
+      result = FALSE;
+      break;
     }
     else
     {
