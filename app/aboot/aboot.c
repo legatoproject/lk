@@ -201,16 +201,6 @@ static const char *baseband_apq_nowgr   = " androidboot.baseband=baseband_apq_no
 #ifdef SIERRA
 static const char *lkquiet          = " quiet";
 static const char *lkversion        = " lkversion=" LKVERSION;
-#ifdef FUDGE_ROOTFS
-static const char *rootfs_rw        = " fudge_ro_rootfs=true";
-#endif /* FUDGE_ROOTFS */
-
-#ifdef ENABLE_IMA
-static char *ima_enforce      = " "IMA_KERNEL_CMDLINE_OPTIONS;
-#else
-static char *ima_enforce      = "";
-#endif
-
 #endif /* SIERRA */
 /* SWISTOP */
 
@@ -252,14 +242,6 @@ static bool boot_reason_alarm;
 static bool devinfo_present = true;
 bool boot_into_fastboot = false;
 static uint32_t dt_size = 0;
-
-/* SWISTART */
-#ifdef SIERRA
-#define IMA_ALL_IMAGES_BAD    (DS_IMAGE_BOOT_1|DS_IMAGE_ABOOT_1|DS_IMAGE_BOOT_2|DS_IMAGE_ABOOT_2)
-static uint64 bad_image_mask = DS_IMAGE_FLAG_NOT_SET;
-static bool boot_into_fastboot_swi = false;
-#endif /* SIERRA */
-/* SWISTOP */
 
 /* Assuming unauthorized kernel image by default */
 static int auth_kernel_img = 0;
@@ -438,77 +420,6 @@ void update_battery_status(void)
 }
 #endif
 
-#if SIERRA
-static bool ima_fuse_get(void)
-{
-	int ima_enable;
-	/* IMA cmdline haven't added to cmdline during the build, but AT enables IMA */
-	ima_enable = (*(uint32*)HWIO_QFPROM_CORR_CUST_SEC_BOOT_ROW_LSB_ADDR
-			& HWIO_SECURE_BOOT_IMA_FLG_BMSK) >> HWIO_SECURE_BOOT_IMA_FLG_SHFT;
-	if (1 == ima_enable)
-		return true;
-
-	return false;
-}
-
-static void process_ima_ready(char *cmdline, bool want_ima_ready)
-{
-	/* Some other options may change, but "ima_appraise=enforce" will most likely */
-        /* never change. */
-	char *ima_is_enforced = strstr(ima_enforce, "ima_appraise=enforce");
-
-	/* The kernel IMA ready signals itself with the "ima_ready=1" option */
-	/* present on cmdline */
-	char *ima_is_ready = strstr(cmdline, "ima_ready=1");
-
-	/* If eFuse IMA is burnt, IMA must be enforced on kernel command line and */
-	/* kernel image must support IMA as well. If IMA is enforced on the kernel */
-	/* command line, kernel image must support IMA regardless if eFuse settings. */
-	if ((want_ima_ready && (!ima_is_enforced || !ima_is_ready)) ||
-		(ima_is_enforced && !ima_is_ready)) {
-		/* Secure boot is enabled, but LK and/or kernel are not built IMA ready */
-		/* Refuse to load the kernel and reboot */
-		/* If the "ima_ready=1" is not present and eFuse IMA is not burnt, enters into LK */
-		/* to give a way to flash "workable images". This is to ensure backward compatibility. */
-		if (!want_ima_ready && !ima_is_ready) {
-			dprintf(CRITICAL, "Kernel is not ready for IMA. Entering into bootloader\n");
-			reboot_device(FASTBOOT_MODE);
-		}
-		else if (is_dual_system_supported()) {
-			/* Assume that boot LK and kernel are bad. So mark these images as bad. */
-			uint8_t ssid_linux_index = sierra_ds_smem_get_ssid_linux_index();
-			if(DS_SSID_SUB_SYSTEM_2 == ssid_linux_index) {
-				bad_image_mask = DS_IMAGE_BOOT_2|DS_IMAGE_ABOOT_2;
-			}
-			else {
-				bad_image_mask = DS_IMAGE_BOOT_1|DS_IMAGE_ABOOT_1;
-			}
-			// Look if both LK and kernel images are bad. If yes, reboot to LK.
-			struct ds_flag_s ds_flag;
-
-			if (sierra_ds_get_full_data(&ds_flag) &&
-				(((ds_flag.bad_image | bad_image_mask) & IMA_ALL_IMAGES_BAD) != IMA_ALL_IMAGES_BAD)) {
-				/* For dual systems, swap to the previous one. If it fails, SBL will start */
-				/* the recovery mode */
-				sierra_ds_smem_write_bad_image_and_swap(bad_image_mask);
-				/* A system is expected to be workable, so trigger a swap */
-				dprintf(CRITICAL, "Secure boot detected without kernel ready for IMA. Swap and reboot!\n");
-				reboot_swap = 1;
-				reboot_device(0);
-			}
-			dprintf(CRITICAL, "All LK/kernel are bad. Entering into bootloader.\n");
-			reboot_device(FASTBOOT_MODE);
-		}
-		else {
-			/* For single system, enters the recovery mode */
-			dprintf(CRITICAL, "Secure boot detected without kernel ready for IMA. Reboot to recovery\n");
-			reboot_device(RECOVERY_MODE);
-		}
-	}
-}
-#endif
-
-
 unsigned char *update_cmdline(const char * cmdline)
 {
 	int cmdline_len = 0;
@@ -673,22 +584,6 @@ unsigned char *update_cmdline(const char * cmdline)
 	cmdline_len += target_cmd_line_len;
 #endif
 
-#ifdef SIERRA
-	if(TRUE != sierra_is_bootquiet_disabled()) {
-	     cmdline_len += strlen(lkquiet);
-	}
-#ifdef FUDGE_ROOTFS
-	cmdline_len += strlen(rootfs_rw);
-#endif
-	bool want_ima_ready = ima_fuse_get();
-
-	if (want_ima_ready == true) {
-		ima_enforce = " "IMA_KERNEL_CMDLINE_OPTIONS;
-	}
-	cmdline_len += strlen(ima_enforce);
-	process_ima_ready(cmdline, want_ima_ready);
-#endif
-
 	if (cmdline_len > 0) {
 		const char *src;
 		unsigned char *dst;
@@ -813,21 +708,6 @@ unsigned char *update_cmdline(const char * cmdline)
 		    }
 		    while ((*dst++ = *src++) != '\0');
                 }
-
-#ifdef FUDGE_ROOTFS
-		src = rootfs_rw;
-		if (NULL != have_cmdline)
-		{
-		    --dst;
-		}
-		while ((*dst++ = *src++) != '\0');
-#endif
-		src = ima_enforce;
-		if (NULL != have_cmdline)
-		{
-		    --dst;
-		}
-		while ((*dst++ = *src++) != '\0');
 #endif
 
 		switch(target_baseband())
