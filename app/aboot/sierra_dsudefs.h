@@ -171,7 +171,7 @@ extern void sierra_ds_test(const char *arg);
 
 extern bool sierra_ds_get_full_data(struct ds_flag_s *ds_flag);
 extern bool  sierra_ds_set_ssid(uint8 ssid_modem_idx, uint8 ssid_lk_idx, uint8 ssid_linux_idx, bool *swapreset);
-extern void sierra_ds_update_ssdata(struct ds_flag_s *ds_flag, bool *swapreset);
+extern bool sierra_ds_update_ssdata(struct ds_flag_s *ds_flag, bool *swapreset);
 extern bool sierra_ds_smem_erestore_info_set(uint32 value_type, uint8 value);
 #endif /* SIERRA_DS_H */
 

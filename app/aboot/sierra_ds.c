@@ -1246,7 +1246,7 @@ struct ds_flag_s *ds_flag)
  *           - Caller should make sure all of data is correct in ds_flag.
  *
  ************/
-void sierra_ds_set_new_data(
+bool sierra_ds_set_new_data(
 struct ds_flag_s *ds_flag)
 {
   struct ds_shared_data_s ds_data_destination;
@@ -1291,7 +1291,18 @@ struct ds_flag_s *ds_flag)
 
   sierra_ds_dssd_partition_write(&ds_data_destination,&result);
 
-  return;
+#ifdef SIERRA_DUAL_SYSTEM_TEST
+  if(result)
+  {
+    dprintf(CRITICAL, "sierra_ds_set_full_data(): Write successfully");
+  }
+  else
+  {
+    dprintf(CRITICAL, "sierra_ds_set_full_data(): Write failed");
+  }
+#endif /* SIERRA_DUAL_SYSTEM_TEST */
+
+  return result;
 }
 
 /************
@@ -1967,10 +1978,11 @@ void sierra_ds_test(
  *
  *
  ************/
-void sierra_ds_update_ssdata(struct ds_flag_s *ds_flag, bool *swapreset)
+bool sierra_ds_update_ssdata(struct ds_flag_s *ds_flag, bool *swapreset)
 {
   struct ds_smem_message_s * ds_smem_bufp = NULL;
   bool sw_update_state_to_normal = TRUE; 
+  bool result = FALSE;
 
   if (ds_flag)
   {
@@ -2099,13 +2111,13 @@ void sierra_ds_update_ssdata(struct ds_flag_s *ds_flag, bool *swapreset)
     }
     
     /* Update ds_flag to ssdata */
-    sierra_ds_set_new_data(ds_flag);
+    result = sierra_ds_set_new_data(ds_flag);
     
-    return;
+    return result;
   }
   else
   {
-    return;
+    return result;
   }
 }
 
@@ -2133,6 +2145,7 @@ void sierra_ds_update_ssdata(struct ds_flag_s *ds_flag, bool *swapreset)
 bool sierra_ds_set_ssid(uint8 ssid_modem_idx, uint8 ssid_lk_idx, uint8 ssid_linux_idx, bool *swapreset)
 {
   struct ds_flag_s ds_flag;
+  bool result = FALSE;
 
   if (((ssid_modem_idx < DS_SSID_SUB_SYSTEM_1) || (ssid_modem_idx > DS_SSID_SUB_SYSTEM_2)) ||
   ((ssid_lk_idx < DS_SSID_SUB_SYSTEM_1) || (ssid_lk_idx > DS_SSID_SUB_SYSTEM_2)) ||
@@ -2152,10 +2165,10 @@ bool sierra_ds_set_ssid(uint8 ssid_modem_idx, uint8 ssid_lk_idx, uint8 ssid_linu
     ds_flag.ssid_modem_idx = ssid_modem_idx;
     ds_flag.ssid_lk_idx = ssid_lk_idx;
     ds_flag.ssid_linux_idx = ssid_linux_idx;
-    sierra_ds_update_ssdata(&ds_flag, swapreset);
+    result = sierra_ds_update_ssdata(&ds_flag, swapreset);
     /* set reset type to BS_BCMSG_RTYPE_SYSTEM_SWAP */
     sierra_smem_reset_type_set(BS_BCMSG_RTYPE_SYSTEM_SWAP);
-    return TRUE;
+    return result;
   }
 }
 
