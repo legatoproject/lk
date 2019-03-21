@@ -64,6 +64,8 @@
 #define SECBOOT_FUSE_DEBUG_RE_ENABLED_BIT 6
 #define CHECK_BIT(var, pos) ((var) & (1 << (pos)))
 
+#define SEC_EXTENSION ".arch_extension sec\n"
+
 /* SCM interface as per ARM spec present? */
 bool scm_arm_support;
 static bool scm_initialized;
@@ -206,7 +208,13 @@ static uint32_t smc(uint32_t cmd_addr)
 	register uint32_t r0 __asm__("r0") = 1;
 	register uint32_t r1 __asm__("r1") = (uint32_t) & context_id;
 	register uint32_t r2 __asm__("r2") = cmd_addr;
- __asm__("1:smc	#0	@ switch to secure world\n" "cmp	r0, #1				\n" "beq	1b				\n": "=r"(r0): "r"(r0), "r"(r1), "r"(r2):"r3", "cc");
+ __asm__(SEC_EXTENSION
+		 "1:smc	#0	@ switch to secure world\n"
+		 "cmp	r0, #1				\n"
+		 "beq	1b				\n"
+		 : "=r"(r0)
+		 : "r"(r0), "r"(r1), "r"(r2)
+		 :"r3", "cc");
 	return r0;
 }
 
@@ -229,6 +237,7 @@ static int scm_call_atomic(uint32_t svc, uint32_t cmd, uint32_t arg1)
 		__asmeq("%1", "r0")
 		__asmeq("%2", "r1")
 		__asmeq("%3", "r2")
+		SEC_EXTENSION
 		"smc    #0  @ switch to secure world\n"
 		: "=r" (r0)
 		: "r" (r0), "r" (r1), "r" (r2)
@@ -260,6 +269,7 @@ int scm_call_atomic2(uint32_t svc, uint32_t cmd, uint32_t arg1, uint32_t arg2)
 		__asmeq("%2", "r1")
 		__asmeq("%3", "r2")
 		__asmeq("%4", "r3")
+		SEC_EXTENSION
 		"smc	#0	@ switch to secure world\n"
 		: "=r" (r0)
 		: "r" (r0), "r" (r1), "r" (r2), "r" (r3));
@@ -1207,6 +1217,7 @@ static uint32_t scm_call_a32(uint32_t x0, uint32_t x1, uint32_t x2, uint32_t x3,
 			__asmeq("%8", "r4")
 			__asmeq("%9", "r5")
 			__asmeq("%10", "r6")
+			SEC_EXTENSION
 			"smc    #0  @ switch to secure world\n"
 			: "=r" (r0), "=r" (r1), "=r" (r2), "=r" (r3)
 			: "r" (r0), "r" (r1), "r" (r2), "r" (r3), "r" (r4), "r" (r5), "r" (r6));
