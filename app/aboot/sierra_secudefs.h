@@ -29,6 +29,24 @@
 #define HWIO_QFPROM_CORR_PK_HASH_BYTES_MAX                8 * OEM_PK_HASH_ROW_MAX
 #define SHA256_HASH_LEN 32
 
+#define HWIO_QFPROM_RAW_CUST_HASH_ROWn_LSB_ADDR(n)       (0x000A03c8 + (n * 8))
+#define HWIO_QFPROM_RAW_CUST_HASH_ROWn_MSB_ADDR(n)       (0x000A03cc + (n * 8))
+
+#define HWIO_QFPROM_CORR_CUST_SEC_BOOT_ROW_LSB_ADDR       0x000A43B8
+
+#define HWIO_SECURE_BOOT_HYBRID_AUTH_EN_BMSK              0x1
+#define HWIO_SECURE_BOOT_HYBRID_AUTH_EN_SHFT              0x0
+
+#define HWIO_SECURE_BOOT_IMA_FLG_BMSK                     0x40
+#define HWIO_SECURE_BOOT_IMA_FLG_SHFT                     0x6
+
+
+#define HWIO_SECURE_BOOT_HYBRID_AUTH_LEVEL_BMSK           0xE
+#define HWIO_SECURE_BOOT_HYBRID_AUTH_LEVEL_SHFT           0x1
+
+#define SECBOOT_HYBRID_KERNEL_AUTH_LEVEL                  0x2
+
+
 #define SECBOOT_SWI_APPS_SW_TYPE  14  /* should match with secboot_sw_type */
 
 #define SHA1_SIZE      16
