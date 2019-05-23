@@ -2,12 +2,11 @@
  *
  * Filename:  sierra_cwe.c
  *
- * Purpose:   Sierra Little Kernel changes            
+ * Purpose:   Sierra Little Kernel changes
  *
- * Copyright: (c) 2015 Sierra Wireless, Inc.
- *            All rights reserved
+ * Copyright (c) 2015 Sierra Wireless, Inc.
  *
- * Note:       
+ * Note:
  *
  ************/
 

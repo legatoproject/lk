@@ -6,10 +6,11 @@
  *
  * NOTES:
  *
- * Copyright: (C) 2015 Sierra Wireless, Inc.
- *            All rights reserved
+ * Copyright (C) 2015 Sierra Wireless, Inc.
  *
  ************/
+
+
 #ifndef sierra_swipartudefs_h
 #define sierra_swipartudefs_h
 

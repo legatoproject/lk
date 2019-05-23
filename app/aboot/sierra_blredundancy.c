@@ -4,8 +4,7 @@
  *
  * Purpose:   Boot programming redundancy logic
  *
- * Copyright: (c) 2015 Sierra Wireless, Inc.
- *            All rights reserved
+ * Copyright (c) 2015 Sierra Wireless, Inc.
  *
  * Note:      reference: flash_scrub_boot_code.c
  *

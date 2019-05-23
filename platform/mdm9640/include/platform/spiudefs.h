@@ -6,8 +6,7 @@
  *
  * Purpose:   user definitions for SPI driver package
  *
- * Copyright: (c) 2009 Sierra Wireless, Inc.
- *            All rights reserved
+ * Copyright (c) 2009 Sierra Wireless, Inc.
  *
  ************/
 

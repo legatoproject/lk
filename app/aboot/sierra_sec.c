@@ -2,12 +2,11 @@
  *
  * Filename:  sierra_sec.c
  *
- * Purpose:   Sierra Little Kernel changes for secure boot           
+ * Purpose:   Sierra Little Kernel changes for secure boot
  *
- * Copyright: (c) 2015 Sierra Wireless, Inc.
- *            All rights reserved
+ * Copyright (c) 2015 Sierra Wireless, Inc.
  *
- * Note:       
+ * Note:
  *
  ************/
 #include <stdint.h>

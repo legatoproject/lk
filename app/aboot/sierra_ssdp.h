@@ -6,8 +6,7 @@
  *
  * NOTES:
  *
- * Copyright: (C) 2015 Sierra Wireless, Inc.
- *            All rights reserved
+ * Copyright (C) 2015 Sierra Wireless, Inc.
  *
  ************/
 
@@ -21,20 +20,19 @@
  *
  * Name:     swi_ssdp_entry
  *
- * Purpose:  
+ * Purpose:
  * This function initializes for the SPI boot feature and calls
  * the downloader function which will spin in a loop processing the
  * downloaded images received over SPI.
  * Received image will be store at ADDR:
  *
- * Params:   none 
+ * Params:   none
  *
  * Return:   none
  *
  * Abort:    none
  *
- * Notes:    
- *           
+ * Notes:
  *
  ************/
 void swi_ssdp_entry(void);
