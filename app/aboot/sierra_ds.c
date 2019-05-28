@@ -1,11 +1,10 @@
 /************
  *
- * Filename:  sierra_bl.c
+ * Filename:  sierra_ds.c
  *
  * Purpose:   Sierra Little Kernel changes
  *
- * Copyright: (c) 2015 Sierra Wireless, Inc.
- *            All rights reserved
+ * Copyright (C) 2015 Sierra Wireless, Inc.
  *
  * Note:
  *

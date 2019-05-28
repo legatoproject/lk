@@ -4,8 +4,7 @@
  *
  * Purpose:   Internal definitions for DS package
  *
- * Copyright: (c) 2016 Sierra Wireless, Inc.
- *            All rights reserved
+ * Copyright (C) 2016 Sierra Wireless, Inc.
  *
  ************/
 #ifndef SIERRA_DS_H
@@ -76,7 +75,7 @@ enum ds_sw_update_state_e
  *
  * Purpose:  Only flag part
  *
- * Notes:    
+ * Notes:
  *   1. It is different with ds_shared_data_s. 
  *   2. It is necesary to be sync with ds_shared_data_s.
  *
