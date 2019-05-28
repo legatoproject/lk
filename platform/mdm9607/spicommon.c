@@ -5,10 +5,9 @@
  * Filename:  spicommon.c
  *
  * Purpose:   Common files for spi driver package
- *            
  *
- * Copyright: (c) 2009 Sierra Wireless, Inc.
- *            All rights reserved
+ *
+ * Copyright (C) 2009 Sierra Wireless, Inc.
  *
  ************/
 

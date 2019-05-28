@@ -6,8 +6,7 @@
  *
  * NOTES:
  *
- * Copyright: (C) 2015 Sierra Wireless, Inc.
- *            All rights reserved
+ * Copyright (C) 2015 Sierra Wireless, Inc.
  *
  ************/
 
@@ -48,7 +47,7 @@
  * Abort:    none
  *
  * Notes:    
- *           
+ *
  *
  ************/
 void swi_ssdp_entry(void);

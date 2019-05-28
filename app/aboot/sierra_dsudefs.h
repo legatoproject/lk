@@ -4,8 +4,7 @@
  *
  * Purpose:   Internal definitions for DS package
  *
- * Copyright: (c) 2016 Sierra Wireless, Inc.
- *            All rights reserved
+ * Copyright (C) 2016 Sierra Wireless, Inc.
  *
  ************/
 #ifndef SIERRA_DS_H

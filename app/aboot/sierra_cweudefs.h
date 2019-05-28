@@ -6,8 +6,7 @@
  *
  * NOTES:
  *
- * Copyright: (C) 2015 Sierra Wireless, Inc.
- *            All rights reserved
+ * Copyright (C) 2015 Sierra Wireless, Inc.
  *
  ************/
 
@@ -33,8 +32,8 @@ typedef signed long        int32;   /* 32 bit integer signed    */
 typedef  unsigned char      boolean;     /* Boolean value type. */
 
 
-#define TRUE		1
-#define FALSE		0
+#define TRUE        1
+#define FALSE       0
 #endif
 
 /* constants for image header */
