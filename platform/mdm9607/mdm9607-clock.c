@@ -396,6 +396,43 @@ static struct branch_clk gcc_blsp1_spi2_apps_clk =
 		.ops      = &clk_ops_branch,
 	},
 };
+
+/* BLSP1_QUP2 Clocks */
+static struct clk_freq_tbl ftbl_gcc_blsp1_qup2_i2c_apps_clk_src[] =
+{
+	F(      96000,    cxo,  10,   1,  2),
+	F(    4800000,    cxo,   4,   0,  0),
+	F(    9600000,    cxo,   2,   0,  0),
+	F(   16000000,  gpll0,  10,   1,  5),
+	F(   19200000,  gpll0,   1,   0,  0),
+	F(   25000000,  gpll0,  16,   1,  2),
+	F(   50000000,  gpll0,  16,   0,  0),
+	F_END
+};
+
+static struct rcg_clk gcc_blsp1_qup4_i2c_apps_clk_src =
+{
+	.cmd_reg      = (uint32_t *) GCC_BLSP1_QUP4_CMD_RCGR,
+	.cfg_reg      = (uint32_t *) GCC_BLSP1_QUP4_CFG_RCGR,
+	.set_rate     = clock_lib2_rcg_set_rate_hid,
+	.freq_tbl     = ftbl_gcc_blsp1_qup2_i2c_apps_clk_src,
+	.current_freq = &rcg_dummy_freq,
+
+	.c = {
+		.dbg_name = "gcc_blsp1_qup4_i2c_apps_clk_src",
+		.ops      = &clk_ops_rcg,
+	},
+};
+
+static struct branch_clk gcc_blsp1_qup4_i2c_apps_clk = {
+	.cbcr_reg = (uint32_t *) GCC_BLSP1_QUP4_APPS_CBCR,
+	.parent   = &gcc_blsp1_qup4_i2c_apps_clk_src.c,
+
+	.c = {
+		.dbg_name = "gcc_blsp1_qup4_i2c_apps_clk",
+		.ops      = &clk_ops_branch,
+	},
+};
 #endif
 /* SWISTOP */
 
@@ -439,6 +476,10 @@ static struct clk_lookup mdm_clocks_9607_wp[] =
 	CLK_LOOKUP("ce1_axi_clk",  gcc_ce1_axi_clk.c),
 	CLK_LOOKUP("ce1_core_clk", gcc_ce1_clk.c),
 	CLK_LOOKUP("ce1_src_clk",  ce1_clk_src.c),
+
+	CLK_LOOKUP("blsp1_qup4_ahb_iface_clk", gcc_blsp1_ahb_clk.c),
+	CLK_LOOKUP("gcc_blsp1_qup4_i2c_apps_clk_src", gcc_blsp1_qup4_i2c_apps_clk_src.c),
+	CLK_LOOKUP("gcc_blsp1_qup4_i2c_apps_clk", gcc_blsp1_qup4_i2c_apps_clk.c),
 };
 #endif
 /* SWISTOP */
@@ -449,7 +490,7 @@ void platform_clock_init(void)
 #ifndef SIERRA	
 	clk_init(mdm_clocks_9607, ARRAY_SIZE(mdm_clocks_9607));
 #else /* SIERRA */
-	if (board_hardware_subtype() == SWI_WP_BOARD)
+	if (IS_SWI_WP_BOARD(board_hardware_subtype()))
 	{
 		clk_init(mdm_clocks_9607_wp, ARRAY_SIZE(mdm_clocks_9607_wp));
 	}

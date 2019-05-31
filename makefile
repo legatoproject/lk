@@ -37,6 +37,7 @@ $(error No project specified.  Use "make projectname" or put "PROJECT := project
 endif
 
 DEBUG ?= 0
+WP_BOARD_PROBE ?= 1
 
 ifndef $(BOOTLOADER_OUT)
 BOOTLOADER_OUT := .
@@ -226,6 +227,11 @@ DEFINES += \
 ifneq ($(DEBUG),)
 DEFINES += \
 	DEBUG=$(DEBUG)
+endif
+
+ifneq ($(WP_BOARD_PROBE),)
+DEFINES += \
+	WP_BOARD_PROBE=$(WP_BOARD_PROBE)
 endif
 
 ALLOBJS := $(addprefix $(BUILDDIR)/,$(ALLOBJS))

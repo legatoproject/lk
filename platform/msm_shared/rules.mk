@@ -538,6 +538,7 @@ endif
 
 ifeq ($(PLATFORM),mdm9607)
 	OBJS += $(LOCAL_DIR)/qgic.o \
+			$(LOCAL_DIR)/i2c_qup.o \
 			$(LOCAL_DIR)/qtimer.o \
 			$(LOCAL_DIR)/qtimer_mmap.o \
 			$(LOCAL_DIR)/interrupts.o \

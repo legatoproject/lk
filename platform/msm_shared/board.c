@@ -366,6 +366,15 @@ uint32_t board_hardware_subtype(void)
 	return board.platform_subtype;
 }
 
+/* SWISTART */
+#ifdef SIERRA
+void board_override_hardware_subtype(uint32_t type)
+{
+	board.platform_subtype = type;
+}
+#endif /* SIERRA */
+/* SWISTOP */
+
 uint32_t board_foundry_id(void)
 {
 	return board.foundry_id;

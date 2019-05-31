@@ -149,6 +149,14 @@
 #define BLSP1_QUP4_SPI_APPS_M                     (CLK_CTL_BASE + 0x502C)
 #define BLSP1_QUP4_SPI_APPS_N                     (CLK_CTL_BASE + 0x5030)
 #define BLSP1_QUP4_SPI_APPS_D                     (CLK_CTL_BASE + 0x5034)
+
+// ref: ../kernel/arch/arm/boot/dts/qcom/mdm9607.dtsi
+#define BLSP_QUP_BASE(blsp_id, qup_id) (PERIPH_SS_BASE + 0xB5000 + (0x1000 * qup_id))
+
+#define GCC_BLSP1_QUP4_APPS_CBCR    (CLK_CTL_BASE + 0x5020)
+#define GCC_BLSP1_QUP4_CFG_RCGR     (CLK_CTL_BASE + 0x5004)
+#define GCC_BLSP1_QUP4_CMD_RCGR     (CLK_CTL_BASE + 0x5000)
+
 #endif
 /* SWISTOP */
 
