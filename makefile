@@ -109,6 +109,9 @@ CFLAGS += -DENABLE_IMA=${ENABLE_IMA}
 CFLAGS += -DIMA_KERNEL_CMDLINE_OPTIONS="\"$(IMA_KERNEL_CMDLINE_OPTIONS)\""
 endif
 endif
+ifeq ($(ENABLE_FX30),true)
+CFLAGS += -DTARGET_FX30
+endif
 # SWISTOP
 
 # setup toolchain prefix
