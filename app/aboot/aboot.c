@@ -872,24 +872,23 @@ static void verify_signed_bootimg(uint32_t bootimg_addr, uint32_t bootimg_size)
 #endif
 
 #if VERIFIED_BOOT
-	if(boot_verify_get_state() == RED)
+	switch(boot_verify_get_state())
 	{
-		if(!boot_into_recovery)
-		{
-			dprintf(CRITICAL,
-					"Device verification failed. Rebooting into recovery.\n");
-			mdelay(1000);
-			reboot_device(RECOVERY_MODE);
-		}
-		else
-		{
-			dprintf(CRITICAL,
-					"Recovery image verification failed. Asserting..\n");
-			ASSERT(0);
-		}
+	case RED:
+		dprintf(CRITICAL,
+			"Your device has failed verification and may not work properly.\nWait for 5 seconds before proceeding\n");
+		mdelay(5000);
+		break;
+	case YELLOW:
+		dprintf(CRITICAL,
+			"Your device has loaded a different operating system.\nWait for 5 seconds before proceeding\n");
+		mdelay(5000);
+		break;
+	default:
+		break;
 	}
 #endif
-
+#if !VERIFIED_BOOT
 	if(device.is_tampered)
 	{
 		write_device_info_mmc(&device);
@@ -901,7 +900,7 @@ static void verify_signed_bootimg(uint32_t bootimg_addr, uint32_t bootimg_size)
 		ASSERT(0);
 	#endif
 	}
-
+#endif
 }
 
 static bool check_format_bit()
@@ -1065,13 +1064,14 @@ int boot_linux_from_mmc(void)
 		page_mask = page_size - 1;
 	}
 
-	/* ensure commandline is terminated */
-	hdr->cmdline[BOOT_ARGS_SIZE-1] = 0;
-
 	kernel_actual  = ROUND_TO_PAGE(hdr->kernel_size,  page_mask);
 	ramdisk_actual = ROUND_TO_PAGE(hdr->ramdisk_size, page_mask);
 
 	image_addr = (unsigned char *)target_get_scratch_address();
+	memcpy(image_addr, (void *)buf, page_size);
+
+	/* ensure commandline is terminated */
+        hdr->cmdline[BOOT_ARGS_SIZE-1] = 0;
 
 #if DEVICE_TREE
 	dt_actual = ROUND_TO_PAGE(hdr->dt_size, page_mask);
@@ -1112,8 +1112,14 @@ int boot_linux_from_mmc(void)
 			(!boot_into_recovery ? "boot" : "recovery"),imagesize_actual);
 	bs_set_timestamp(BS_KERNEL_LOAD_START);
 
-	/* Read image without signature */
-	if (mmc_read(ptn + offset, (void *)image_addr, imagesize_actual))
+	if ((target_get_max_flash_size() - page_size) < imagesize_actual)
+	{
+		dprintf(CRITICAL, "booimage  size is greater than DDR can hold\n");
+		return -1;
+	}
+	offset = page_size;
+	/* Read image without signature and header*/
+	if (mmc_read(ptn + offset, (void *)(image_addr + offset), imagesize_actual - page_size))
 	{
 		dprintf(CRITICAL, "ERROR: Cannot read boot image\n");
 		return -1;
@@ -1471,8 +1477,8 @@ int boot_linux_from_flash(void)
 		return -1;
 	}
 
-	/* ensure commandline is terminated */
-	hdr->cmdline[BOOT_ARGS_SIZE-1] = 0;
+	image_addr = (unsigned char *)target_get_scratch_address();
+	memcpy(image_addr, (void *)buf, page_size);
 
 	/*
 	 * Update the kernel/ramdisk/tags address if the boot image header
@@ -1488,6 +1494,9 @@ int boot_linux_from_flash(void)
 
 	kernel_actual  = ROUND_TO_PAGE(hdr->kernel_size,  page_mask);
 	ramdisk_actual = ROUND_TO_PAGE(hdr->ramdisk_size, page_mask);
+
+	/* ensure commandline is terminated */
+	hdr->cmdline[BOOT_ARGS_SIZE-1] = 0;
 
 	/* Check if the addresses in the header are valid. */
 	if (check_aboot_addr_range_overlap(hdr->kernel_addr, kernel_actual) ||
@@ -1514,8 +1523,6 @@ int boot_linux_from_flash(void)
 #endif
 /* SWISTOP */
 	{
-		image_addr = (unsigned char *)target_get_scratch_address();
-		offset = 0;
 
 #if DEVICE_TREE
 		dt_actual = ROUND_TO_PAGE(hdr->dt_size, page_mask);
@@ -1564,8 +1571,10 @@ int boot_linux_from_flash(void)
 			return -1;
 		}
 #else
-		/* Read image without signature */
-		if (flash_read(ptn, offset, (void *)image_addr, imagesize_actual))
+
+		offset = page_size;
+		/* Read image without signature and header*/
+		if (flash_read(ptn, offset, (void *)(image_addr + offset), imagesize_actual - page_size))
 		{
 			dprintf(CRITICAL, "ERROR: Cannot read boot image\n");
 				return -1;
@@ -1844,6 +1853,7 @@ void write_device_info_flash(device_info *dev)
 			return;
 	}
 
+	memset(info, 0, BOOT_IMG_MAX_PAGE_SIZE);
 	memcpy(info, dev, sizeof(device_info));
 
 	if (flash_write(ptn, 0, (void *)info_buf, page_size))
@@ -2414,16 +2424,18 @@ void cmd_boot(const char *arg, void *data, unsigned sz)
 		return;
 	}
 
+	// Initialize boot state before trying to verify boot.img
+#if VERIFIED_BOOT
+	boot_verifier_init();
+#endif
 	/* Handle overflow if the input image size is greater than
 	 * boot image buffer can hold
 	 */
-#if VERIFIED_BOOT
 	if ((target_get_max_flash_size() - (image_actual - sig_actual)) < page_size)
 	{
 		fastboot_fail("booimage: size is greater than boot image buffer can hold");
 		return;
 	}
-#endif
 
 /* SWISTART */
 #ifdef SIERRA
@@ -2856,6 +2868,11 @@ void cmd_flash_mmc_sparse_img(const char *arg, void *data, unsigned sz)
 	/* Read and skip over sparse image header */
 	sparse_header = (sparse_header_t *) data;
 
+	if (!sparse_header->blk_sz || (sparse_header->blk_sz % 4)){
+		fastboot_fail("Invalid block size\n");
+		return;
+	}
+
 	if (((uint64_t)sparse_header->total_blks * (uint64_t)sparse_header->blk_sz) > size) {
 		fastboot_fail("size too large");
 		return;
@@ -2909,11 +2926,6 @@ void cmd_flash_mmc_sparse_img(const char *arg, void *data, unsigned sz)
 		if(sparse_header->chunk_hdr_sz != sizeof(chunk_header_t))
 		{
 			fastboot_fail("chunk header size mismatch");
-			return;
-		}
-
-		if (!sparse_header->blk_sz ){
-			fastboot_fail("Invalid block size\n");
 			return;
 		}
 

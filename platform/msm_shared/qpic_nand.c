@@ -1,7 +1,7 @@
 /*
  * Copyright (c) 2008, Google Inc.
  * All rights reserved.
- * Copyright (c) 2009-2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2009-2016, 2019, The Linux Foundation. All rights reserved.
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
  * are met:
@@ -2752,7 +2752,7 @@ flash_write(struct ptentry *ptn,
 	else
 		wsize = flash.page_size;
 
-	memset(spare, 0xff, (spare_byte_count / flash.cws_per_page));
+	memset(spare, 0xff,  flash.cws_per_page << 2);
 
 	while (bytes > 0)
 	{
