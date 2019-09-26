@@ -1,4 +1,4 @@
-/* Copyright (c) 2015,2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015,2017,2019 The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -95,6 +95,9 @@ static struct ptable flash_ptable;
 #define CE_WRITE_PIPE_LOCK_GRP  0
 #define CE_ARRAY_SIZE           20
 #define SUB_TYPE_SKUT           0x0A
+#define VARIANT_MAJOR_MASK      (0x00ff0000)
+#define PLATFORM_FOUNDRY_SHIFT  16
+#define MDM9207C                0x2
 
 struct qpic_nand_init_config config;
 
@@ -167,6 +170,23 @@ void shutdown_device()
 	ASSERT(0);
 }
 
+static bool platform_is_mdm9207c()
+{
+	uint32_t platform_target_id = board_target_id();
+	uint32_t platform_id_major_number = (platform_target_id & VARIANT_MAJOR_MASK) >> PLATFORM_FOUNDRY_SHIFT;
+	bool ret;
+
+	switch(platform_id_major_number)
+	{
+		case MDM9207C:
+			ret = true;
+			break;
+		default:
+			ret = false;
+	}
+
+	return ret;
+}
 
 void target_init(void)
 {
@@ -207,7 +227,7 @@ void target_init(void)
 	if (target_use_signed_kernel())
 		target_crypto_init_params();
 
-	if (platform_is_mdm9206()) {
+	if ((!platform_is_mdm9207c()) && platform_is_mdm9206()) {
 		clock_ce_enable(CE1_INSTANCE);
 
 		ret = qseecom_init();
