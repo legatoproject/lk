@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2015,2019 The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -621,13 +621,18 @@ static int qseecom_read_from_emmc(const char *app_name, void **buf, unsigned int
 	unsigned long long ptn = 0;
 	unsigned int size = 0;
 	uint8_t lun = 0;
+	unsigned long long rounded_size = 0;
 
 	index = partition_get_index(app_name);
 	lun = partition_get_lun(index);
 	mmc_set_lun(lun);
 	size = partition_get_size(index);
-
-	*buf = memalign(PAGE_SIZE, ROUNDUP(size, PAGE_SIZE));
+	if ((ULLONG_MAX - PAGE_SIZE + 1) < size) {
+		dprintf(CRITICAL, "Integer overflow detected in rounding up the partition size!");
+		return GENERIC_ERROR;
+	}
+	rounded_size = ROUNDUP(size, PAGE_SIZE);
+	*buf = memalign(PAGE_SIZE, rounded_size);
 	if (!(*buf)) {
 		dprintf(CRITICAL, "%s: Aloc failed for %s image\n", __func__, app_name);
 		return GENERIC_ERROR;
