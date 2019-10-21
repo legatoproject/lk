@@ -40,6 +40,13 @@
 #ifdef SIERRA
 #define SWI_AR_BOARD 0x80
 #define SWI_WP_BOARD 0x81
+#define SWI_WP_MANGOH_RED 0x82
+#define SWI_WP_MANGOH_GREEN 0x83
+#define SWI_WP_MANGOH_YELLOW 0x84
+#define IS_SWI_WP_BOARD(x) (SWI_WP_BOARD == (x) || \
+			    SWI_WP_MANGOH_GREEN == (x) || \
+			    SWI_WP_MANGOH_RED == (x) || \
+			    SWI_WP_MANGOH_YELLOW == (x))
 #endif
 /* SWISTOP */
 
@@ -75,6 +82,11 @@ uint32_t board_hardware_id();
 uint8_t board_pmic_info(struct board_pmic_data *, uint8_t num_ent);
 uint32_t board_soc_version();
 uint32_t board_hardware_subtype(void);
+/* SWISTART */
+#ifdef SIERRA
+void board_override_hardware_subtype(uint32_t type);
+#endif /* SIERRA */
+/* SWISTOP */
 uint32_t board_get_ddr_subtype(void);
 uint32_t board_hlos_subtype(void);
 uint32_t board_pmic_target(uint8_t num_ent);

@@ -211,8 +211,8 @@ static int qup_i2c_poll_writeready(struct qup_i2c_dev *dev)
 			else	/* 1-bit delay before we check for bus busy */
 				udelay(dev->one_bit_t);
 		}
-		if (retries++ == 1000)
-			udelay(100);
+		if (!(retries++ % 100))
+			udelay(1000);
 	}
 	qup_print_status(dev);
 	return -ETIMEDOUT;
@@ -230,8 +230,8 @@ static int qup_i2c_poll_state(struct qup_i2c_dev *dev, unsigned state)
 		if ((status & (QUP_STATE_VALID | state)) ==
 		    (QUP_STATE_VALID | state))
 			return 0;
-		else if (retries++ == 1000)
-			udelay(100);
+		else if (!(retries++ % 100))
+			udelay(1000);
 	}
 	return -ETIMEDOUT;
 }

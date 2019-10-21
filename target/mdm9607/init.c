@@ -50,6 +50,8 @@
 #include <partition_parser.h>
 #include <stdlib.h>
 #include <regulator.h>
+#include <i2c_qup.h>
+#include <blsp_qup.h>
 
 #if LONG_PRESS_POWER_ON
 #include <shutdown_detect.h>
@@ -62,6 +64,19 @@ extern void smem_ptable_init(void);
 extern void smem_add_modem_partitions(struct ptable *flash_ptable);
 
 static struct ptable flash_ptable;
+
+/* SWISTART */
+#if defined(SIERRA) && (WP_BOARD_PROBE == 1)
+#define RED_BOARD_ID "mangOH Red"
+#define YELLOW_BOARD_ID "mangOH Yellow"
+#define MANGOH_YELLOW_EEPROM 0x50
+#define MANGOH_RED_EEPROM 0x51
+#define MANGOH_GREEN_I2C_SWITCH 0x71
+#define MANGOH_GREEN_GPIOEXP_1 0x3E
+#define MANGOH_GREEN_GPIOEXP_2 0x3F
+#define MANGOH_GREEN_GPIOEXP_3 0x70
+#endif
+/* SWISTOP */
 
 /* PMIC config data */
 #define PMIC_ARB_CHANNEL_NUM    0
@@ -153,7 +168,7 @@ void target_early_init(void)
 	/*BLSP1 and UART5*/
 	uart_dm_init(5, 0, BLSP1_UART5_BASE);
 #else /* SIERRA */
-	if (board_hardware_subtype() == SWI_WP_BOARD)
+	if (IS_SWI_WP_BOARD(board_hardware_subtype()))
 	{
 		uart_dm_init(1, 0, BLSP1_UART0_BASE);
 	}
@@ -203,8 +218,150 @@ static bool platform_is_mdm9207c()
 	return ret;
 }
 
+/* SWISTART */
+#if defined(SIERRA) && (WP_BOARD_PROBE == 1)
+bool i2c_device_exists(struct qup_i2c_dev *dev, int channel, uint8_t addr)
+{
+	unsigned char buf[1] = {0};
+	struct i2c_msg msg_buf;
+
+        if (channel >= 0) {
+		int ret;
+		/* read through i2c mux: set channel */
+		msg_buf.addr = MANGOH_GREEN_I2C_SWITCH;
+		msg_buf.flags = I2C_M_WR;
+		buf[0] = 1 << channel;
+		msg_buf.buf = buf;
+		msg_buf.len = 1;
+		ret = qup_i2c_xfer(dev, &msg_buf, 1);
+		if (ret != 1)
+			return false;
+
+		/* now write to i2c device address on channel */
+		msg_buf.addr = addr;
+		msg_buf.flags = I2C_M_WR;
+		buf[0] = 0;
+		msg_buf.buf = buf;
+		msg_buf.len = 1;
+		ret = qup_i2c_xfer(dev, &msg_buf, 1);
+
+		/* disable channel: this should succeed if enable succeeded */
+		msg_buf.addr = MANGOH_GREEN_I2C_SWITCH;
+		msg_buf.flags = I2C_M_WR;
+		buf[0] = 0;
+		msg_buf.buf = buf;
+		msg_buf.len = 1;
+		qup_i2c_xfer(dev, &msg_buf, 1);
+
+		/* return status of channel write */
+		return (ret == 1);
+	} else {
+		msg_buf.addr = addr;
+		msg_buf.flags = I2C_M_WR;
+		buf[0] = 0;
+		msg_buf.buf = buf;
+		msg_buf.len = 1;
+		return (qup_i2c_xfer(dev, &msg_buf, 1) == 1);
+	}
+}
+
+
+int read_eeprom(struct qup_i2c_dev *dev,
+		uint8_t addr,
+		uint8_t *buf,
+		uint8_t len)
+{
+	int rtn;
+	struct i2c_msg msg_buf;
+
+	/* write address to zero */
+	msg_buf.addr = addr;
+	msg_buf.flags = I2C_M_WR;
+	msg_buf.len = 2;
+	msg_buf.buf = buf;
+	buf[0] = buf[1] = 0;
+
+	rtn = qup_i2c_xfer(dev, &msg_buf, 1);
+	if (rtn != 1)
+	{
+		dprintf(INFO, "%s %d eeprom failed writing address\n",
+				__func__, __LINE__);
+	}
+
+	/* read */
+	msg_buf.addr = addr;
+	msg_buf.flags = I2C_M_RD;
+	msg_buf.len = len;
+	msg_buf.buf = buf;
+
+	rtn = qup_i2c_xfer(dev, &msg_buf, 1);
+	if (rtn == 1)
+	{
+		dprintf(INFO, "%s %d eeprom %.20s\n",\
+				__func__, __LINE__, msg_buf.buf);
+		return msg_buf.len;
+	}
+	else
+	{
+		return 0;
+	}
+}
+
+int board_subtype_detect(struct qup_i2c_dev *dev) {
+	char eeprom_buffer[20]; //TODO .properties vs. env var
+
+
+	if (!read_eeprom(dev, MANGOH_YELLOW_EEPROM, eeprom_buffer,
+			 sizeof(eeprom_buffer)))
+	{
+		goto not_yellow;
+	}
+	if (strncmp(eeprom_buffer, YELLOW_BOARD_ID, sizeof(YELLOW_BOARD_ID)-1) == 0)
+	{
+		dprintf(CRITICAL, "Board: MangOH Yellow\n");
+		return SWI_WP_MANGOH_YELLOW;
+	}
+
+not_yellow:
+	if (!read_eeprom(dev, MANGOH_RED_EEPROM, eeprom_buffer,
+			 sizeof(eeprom_buffer)))
+	{
+		goto not_red;
+	}
+	if (strncmp(eeprom_buffer, RED_BOARD_ID, sizeof(RED_BOARD_ID)-1) == 0)
+	{
+		dprintf(CRITICAL, "Board: MangOH Red\n");
+		return SWI_WP_MANGOH_RED;
+	}
+
+not_red:
+	if (!i2c_device_exists(dev, -1, MANGOH_GREEN_I2C_SWITCH))
+	{
+		goto not_green;
+	}
+
+	if (i2c_device_exists(dev, 4, MANGOH_GREEN_GPIOEXP_1) &&
+	    i2c_device_exists(dev, 5, MANGOH_GREEN_GPIOEXP_2) &&
+	    i2c_device_exists(dev, 6, MANGOH_GREEN_GPIOEXP_3))
+	{
+		dprintf(CRITICAL, "Board: MangOH Green\n");
+		return SWI_WP_MANGOH_GREEN;
+	}
+
+not_green:
+	return -1;
+}
+
+#endif
+/* SWISTOP */
+
 void target_init(void)
 {
+/* SWISTART */
+#if defined(SIERRA) && (WP_BOARD_PROBE == 1)
+	struct qup_i2c_dev  *i2c_master = NULL;
+#endif
+/* SWISTop */
 	uint32_t base_addr;
 	uint8_t slot;
 	int ret = 0;
@@ -261,6 +418,29 @@ void target_init(void)
 			ASSERT(0);
 		}
 	}
+/* SWISTART */
+#if defined(SIERRA) && (WP_BOARD_PROBE == 1)
+	if (SWI_WP_BOARD != board_hardware_subtype())
+		/* Use programmed hardware subtype if not running on WP */
+		return;
+
+	/* initialize i2c on first BLSP, forth QUP */
+	i2c_master = qup_blsp_i2c_init(BLSP_ID_1, QUP_ID_3, 100000, 19200000);
+	if (!i2c_master) {
+		dprintf(CRITICAL, "Failed initializing I2c\n");
+		return;
+	}
+
+	ret = board_subtype_detect(i2c_master);
+	/* Override hardware subtype only if subtype detected*/
+	if (0 < ret) {
+		board_override_hardware_subtype((uint32_t)ret);
+		dprintf(INFO, "%s %d board flavor 0x%x\n", __func__, __LINE__,\
+			board_hardware_subtype());
+	}
+	qup_i2c_deinit(i2c_master);
+#endif
+/* SWISTOP */
 }
 
 /* Identify the current target */

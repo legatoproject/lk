@@ -117,7 +117,7 @@ void gpio_config_uart_dm(uint8_t id)
 	gpio_tlmm_config(8, 2, GPIO_OUTPUT, GPIO_NO_PULL,
 				GPIO_8MA, GPIO_DISABLE);
 #else /* SIERRA */
-	if (board_hardware_subtype() == SWI_WP_BOARD)
+	if (IS_SWI_WP_BOARD(board_hardware_subtype()))
 	{
 		/* configure rx gpio */
 		gpio_tlmm_config(13, 2, GPIO_INPUT, GPIO_NO_PULL,
@@ -168,6 +168,66 @@ void gpio_config_spi(uint8_t id)
 	/* configure clk gpio. */
 	gpio_tlmm_config(p->clk.gpio, p->clk.func, GPIO_OUTPUT, GPIO_NO_PULL, GPIO_6MA, GPIO_DISABLE);
 	return;
+}
+
+void gpio_config_blsp_i2c(uint8_t blsp_id, uint8_t qup_id)
+{
+	// ref: ../kernel/arch/arm/boot/dts/qcom/mdm9607-wp76xx.dtsi
+	/* configure I2C SDA gpio */
+	gpio_tlmm_config(18, 3, GPIO_OUTPUT, GPIO_NO_PULL,
+			GPIO_8MA, GPIO_DISABLE);
+
+	/* configure I2C SCL gpio */
+	gpio_tlmm_config(19, 3, GPIO_OUTPUT, GPIO_NO_PULL,
+			GPIO_8MA, GPIO_DISABLE);
+}
+
+void clock_config_blsp_i2c(uint8_t blsp_id, uint8_t qup_id)
+{
+	uint8_t ret = 0;
+	char clk_name[64];
+
+	struct clk *qup_clk;
+
+	if((blsp_id != BLSP_ID_1) || ((qup_id != QUP_ID_1) && (qup_id != QUP_ID_3))) {
+		dprintf(CRITICAL, "Incorrect BLSP-%d or QUP-%d configuration\n", blsp_id, qup_id);
+		ASSERT(0);
+	}
+
+	if (qup_id == QUP_ID_1) {
+		snprintf(clk_name, sizeof(clk_name), "blsp1_qup2_ahb_iface_clk");
+	}
+	else if (qup_id == QUP_ID_3) {
+		snprintf(clk_name, sizeof(clk_name), "blsp1_qup4_ahb_iface_clk");
+	}
+
+	ret = clk_get_set_enable(clk_name, 0 , 1);
+
+	if (ret) {
+		dprintf(CRITICAL, "Failed to enable %s clock\n", clk_name);
+		return;
+	}
+
+	if (qup_id == QUP_ID_1) {
+		snprintf(clk_name, sizeof(clk_name), "gcc_blsp1_qup2_i2c_apps_clk");
+	}
+	else if (qup_id == QUP_ID_3) {
+		snprintf(clk_name, sizeof(clk_name), "gcc_blsp1_qup4_i2c_apps_clk");
+	}
+
+	qup_clk = clk_get(clk_name);
+
+	if (!qup_clk) {
+		dprintf(CRITICAL, "Failed to get %s\n", clk_name);
+		return;
+	}
+
+	ret = clk_enable(qup_clk);
+
+	if (ret) {
+		dprintf(CRITICAL, "Failed to enable %s\n", clk_name);
+		return;
+	}
 }
 #endif
 /* SWISTOP */
