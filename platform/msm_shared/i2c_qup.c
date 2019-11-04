@@ -778,7 +778,21 @@ int qup_i2c_deinit(struct qup_i2c_dev *dev)
 {
 	/* Disable the qup_irq */
 	mask_interrupt(dev->qup_irq);
+
+	/* Reset master */
+	writel(1, dev->qup_base + QUP_SW_RESET);
+	if (qup_i2c_poll_state(dev, QUP_RESET_STATE))
+		/* Warn, but do nothing to recover */
+		dprintf(INFO, "QUP Busy:Trying to recover\n");
+
+	/* Restore GPIO configuration */
+        gpio_tlmm_config(18, 0, GPIO_INPUT, GPIO_NO_PULL,
+                                GPIO_8MA, GPIO_DISABLE);
+        gpio_tlmm_config(19, 0, GPIO_INPUT, GPIO_NO_PULL,
+                                GPIO_8MA, GPIO_DISABLE);
+
 	/* Free the memory used for dev */
 	free(dev);
+
 	return 0;
 }
