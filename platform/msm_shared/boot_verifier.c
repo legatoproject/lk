@@ -34,16 +34,9 @@
 #include <image_verify.h>
 #include <mmc.h>
 #include <oem_keystore.h>
-/* SWISTART */
-#ifdef SIERRA
 #if VERIFIED_BOOT_2
-/* avb/OEMPublicKey.h is not included from Qualcomm delivery. It should be needed when VERIFIED_BOOT_2 is defined */
 #include <avb/OEMPublicKey.h>
-#endif  /* VERIFIED_BOOT_2 */
-#else /* SIERRA */
-#include <avb/OEMPublicKey.h>
-#endif /* SIERRA */
-/* SWISTOP */
+#endif
 #include <openssl/asn1t.h>
 #include <openssl/x509.h>
 #include <partition_parser.h>
@@ -470,7 +463,7 @@ static void boot_verify_send_boot_state(km_boot_state_t *boot_state)
 }
 #endif
 
-#if VERIFIED_BOOT_2
+#if VERIFIED_BOOT_2 && !VB1_KEY_USED
 bool send_rot_command(uint32_t is_unlocked)
 {
 	int ret = 0;

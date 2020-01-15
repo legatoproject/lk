@@ -156,6 +156,10 @@ ifeq ($(VERIFIED_BOOT),1)
   endif
 endif
 
+ifeq ($(VB1_KEY_USED),1)
+ DEFINES += VB1_KEY_USED=1
+endif
+
 # SWISTART - enable subset of VERIFIED_BOOT
   DEFINES += VERIFIED_BOOT_SWI=1
 # SWISTOP
