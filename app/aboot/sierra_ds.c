@@ -161,6 +161,7 @@ bool sierra_ds_dssd_is_erased_page(
  *
  * Parms: (IN) handle - pointer to the nand device
  *            (OUT) data_block - data blocks found
+*             (IN) data_block_size - data_block array size
  *            (OUT) data_block_count - total data blocks
  *
  * Return: TRUE - if success
@@ -174,6 +175,7 @@ bool sierra_ds_dssd_is_erased_page(
 bool sierra_ds_dssd_data_blocks_find(
   struct ptentry * handle,
   uint32 * data_block,
+  uint32 data_block_size,
   uint32 * data_block_count)
 {
   uint32 block_no, total_block, start_block_no, max_block_no, block_size, page_size, page_no;
@@ -238,10 +240,17 @@ bool sierra_ds_dssd_data_blocks_find(
 #ifdef SIERRA_DUAL_SYSTEM_TEST
         dprintf(CRITICAL, "sierra_ds_dssd_data_blocks_find(): block %d is data block\n", block_no);
 #endif /* SIERRA_DUAL_SYSTEM_TEST */
-
-        /* This block is data block, don't care if it is corrupted DS data or valid DS data at this time */
-        data_block[*data_block_count] = block_no;
-        (*data_block_count)++;
+        if(*data_block_count < data_block_size )
+        {
+          /* This block is data block, don't care if it is corrupted DS data or valid DS data at this time */
+          data_block[*data_block_count] = block_no;
+          (*data_block_count)++;
+        }
+        else
+        {
+          dprintf(CRITICAL, "sierra_ds_dssd_data_blocks_find(): data_block array size is too small\n");
+          return FALSE;
+        }
       }
     }
   }/* end for ... */
@@ -577,8 +586,8 @@ void sierra_ds_dssd_partition_read(
   struct ds_shared_data_s * ds_data,
   bool * request_result)
 {
-  uint32 data_block[DSSD_MAX_DATA_BLOCK] = {0};
-  uint32 last_data_page[DSSD_MAX_DATA_BLOCK] = {0};
+  uint32 data_block[DSSD_MAX_BLOCK_NUM] = {0};
+  uint32 last_data_page[DSSD_MAX_BLOCK_NUM] = {0};
   uint32 total_block, data_block_count, data_block_no;
   struct ptentry * ptn = NULL;
   struct ptable * ptable = NULL;
@@ -606,7 +615,7 @@ void sierra_ds_dssd_partition_read(
   total_block = ptn->length;
 
   /* 2. Find all blocks with DS data */
-  if((!sierra_ds_dssd_data_blocks_find(ptn, data_block, &data_block_count))
+  if((!sierra_ds_dssd_data_blocks_find(ptn, data_block, DSSD_MAX_BLOCK_NUM, &data_block_count))
      || (data_block_count > total_block))
   {
     dprintf(CRITICAL, "sierra_ds_dssd_partition_read(): failed to find data blocks\n");
@@ -677,8 +686,8 @@ void sierra_ds_dssd_partition_write(
   struct ds_shared_data_s * ds_data,
   bool * request_result)
 {
-  uint32 data_block[DSSD_MAX_DATA_BLOCK] = {0};
-  uint32 last_data_page[DSSD_MAX_DATA_BLOCK] = {0};
+  uint32 data_block[DSSD_MAX_BLOCK_NUM] = {0};
+  uint32 last_data_page[DSSD_MAX_BLOCK_NUM] = {0};
   uint32 total_block, start_block_no, max_block_no, block_size, start_search_block, data_block_no, data_block_count;
   uint32 start_page, last_page, page_size;
   uint8 * page_buf_p = NULL;
@@ -712,7 +721,7 @@ void sierra_ds_dssd_partition_write(
   page_size = flash_page_size_sierra();
 
   /* 2. Find all blocks with DS data */
-  if((!sierra_ds_dssd_data_blocks_find(ptn, data_block, &data_block_count))
+  if((!sierra_ds_dssd_data_blocks_find(ptn, data_block, DSSD_MAX_BLOCK_NUM, &data_block_count))
      || (data_block_count > total_block))
   {
     dprintf(CRITICAL, "sierra_ds_dssd_partition_write(): failed to find data blocks\n");
