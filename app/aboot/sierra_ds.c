@@ -249,6 +249,7 @@ bool sierra_ds_dssd_data_blocks_find(
         else
         {
           dprintf(CRITICAL, "sierra_ds_dssd_data_blocks_find(): data_block array size is too small\n");
+          sierra_ds_page_buf_free();
           return FALSE;
         }
       }
