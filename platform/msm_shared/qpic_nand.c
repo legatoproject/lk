@@ -75,12 +75,14 @@ static struct flash_id supported_flash[] = {
 /* SWISTART */
 #ifndef SIERRA
 	{0x1590AA2C, 0x06,     0xFFFFFFFF, 0x0,      0x10000000,    0,  2048,   0x00020000,        0xE0,   0},
-#else /* SIERRA */
+#else /* !SIERRA */
 	/* Micron MT29F2G08ABBGA3W, should be oob 80 byte, 8 bit ECC */
 	{0x1590AA2C, 0x06,     0xFFFFFFFF, 0x0,      0x10000000,    0,  2048,   0x00020000,        0x50,   1},
 	/* Fidelix FMN2ET2TCF-18IG 2Gb 4k page size, 4bit ECC */
 	{0x1180AAF8, 0x0220,   0xFFFFFFFF, 0xFFFF,   0x10000000,    0,  4096,   0x00040000,        0x80,   0},
-#endif /* SIERRA */
+	/* Winbond W29N04KZxxAH 4G 1.8V 8-bit, 8 bit ECC */
+	{0x2600ACEF, 0x62,     0xFFFFFFFF, 0xFF,     0x20000000,    0,  4096,   0x00040000,        0x100,  1},
+#endif /* !SIERRA */
 /* SWISTOP */
 	{0x2690AC2C, 0x54,     0xFFFFFFFF, 0x0,      0x20000000,    0,  4096,   0x00040000,        0xE0,   1},
 	{0x1590ACAD, 0,        0xFFFFFFFF, 0x0,      0x20000000,    0,  2048,   0x00020000,        0x80,   0},
