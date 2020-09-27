@@ -34,6 +34,11 @@
 #include <rand.h>
 
 #define UBI_VOL_UPDATE_IMG_MEM_OFFSET (80*1024*1024)
+/* SWISTART */
+#ifdef SIERRA
+#define MAX_BLOCKS_IN_PARTITON (2000)
+#endif
+/* SWISTOP */
 
 static
 const uint32_t crc32_table[256] = {
@@ -548,7 +553,19 @@ static struct ubi_scan_info *scan_partition(struct ptentry *ptn)
 	}
 
 	memset((void *)si, 0, sizeof(*si));
+/* SWISTART */
+#ifndef SIERRA
 	si->pebs_data = malloc(ptn->length * sizeof(struct peb_info));
+#else
+	if (ptn->length <= MAX_BLOCKS_IN_PARTITON) {
+		si->pebs_data = malloc(ptn->length * sizeof(struct peb_info));
+	} else {
+		dprintf(CRITICAL,"scan_partition: (%u) Invalid partition block number\n",
+			ptn->length);
+		goto out_failed_pebs;
+	}
+#endif
+/* SWISTOP */
 	if (!si->pebs_data) {
 		dprintf(CRITICAL,"scan_partition: (%s) Memory allocation failed\n",
 				ptn->name);
