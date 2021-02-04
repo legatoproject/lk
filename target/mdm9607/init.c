@@ -256,12 +256,13 @@ bool i2c_device_exists(struct qup_i2c_dev *dev, int channel, uint8_t addr)
 		/* return status of channel write */
 		return (ret == 1);
 	} else {
-		msg_buf.addr = addr;
-		msg_buf.flags = I2C_M_WR;
-		buf[0] = 0;
-		msg_buf.buf = buf;
-		msg_buf.len = 1;
-		return (qup_i2c_xfer(dev, &msg_buf, 1) == 1);
+		struct i2c_msg msgs_buf[] = {
+			{addr, I2C_M_WR, 1, buf},
+			{addr, I2C_M_RD, 1, buf}
+		};
+
+		/* try to read data from i2c device */
+		return (qup_i2c_xfer(dev, msgs_buf, 2) == 2);
 	}
 }
 
