@@ -82,6 +82,10 @@ static struct flash_id supported_flash[] = {
 	{0x1180AAF8, 0x0220,   0xFFFFFFFF, 0xFFFF,   0x10000000,    0,  4096,   0x00040000,        0x80,   0},
 	/* Winbond W29N04KZxxAH 4G 1.8V 8-bit, 8 bit ECC */
 	{0x2600ACEF, 0x62,     0xFFFFFFFF, 0xFF,     0x20000000,    0,  4096,   0x00040000,        0x100,  1},
+	/* ESMT FM6BD4G2GXB 4Gb, x8, 1.8V , 8 bit ECC */
+	{0x2680AC2C, 0x62,     0xFFFFFFFF, 0x0,      0x20000000,    0,  4096,   0x00040000,        0x100,  1},
+	/* JSC JSFCBB3YH3FBG-425A 4Gb, x8, 4 bit ECC */
+	{0x1680ACAD, 0x20,     0xFFFFFFFF, 0x0,      0x20000000,    0,  4096,   0x00040000,        0x100,  0},
 #endif /* !SIERRA */
 /* SWISTOP */
 	{0x2690AC2C, 0x54,     0xFFFFFFFF, 0x0,      0x20000000,    0,  4096,   0x00040000,        0xE0,   1},
