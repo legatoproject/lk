@@ -39,6 +39,7 @@ extern void *__ctor_list;
 extern void *__ctor_end;
 extern int __bss_start;
 extern int _end;
+uintptr_t __stack_chk_guard;
 
 static int bootstrap2(void *arg);
 
